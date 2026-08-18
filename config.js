@@ -156,6 +156,36 @@ const RED_SQUEEZE_THRESHOLD      = 50;
 const RED_SQUEEZE_MINIMUM_TICK   = 0.1;
 const RED_SQUEEZE_SL_FACTOR      = 1.5;
 
+// ─── Signal firing cutoff ────────────────────────────────────────────────────
+//
+// A signal may not FIRE within this many hours of settlement. Outcomes are still
+// measured to expiry — a signal that fired earlier keeps its full forward window,
+// so its ratio is unaffected.
+//
+// This is a cutoff on the ENTRY candle, not on candle inclusion. Applied after
+// outcome annotation, so dropping a late signal never changes the ratio of a
+// surviving one.
+//
+// STRUCTURAL: changing it needs both
+//     node backfill.js --signals-only --force-signals
+//     node patterns.js --force
+const MIN_TTE_HOURS_TO_FIRE = 1.5;
+
+// ─── Opposite-direction spot filter ──────────────────────────────────────────
+//
+// A premium spike happens on BOTH calls and puts during a sudden sharp move, so
+// a bullish-looking option pattern can fire purely because the underlying just
+// dropped hard. Suppress a CALL signal when the spot candle at entry is a big
+// RED one, and a PUT signal when it is a big GREEN one.
+//
+// Ported from the original group.js, where it was the final gate before a signal
+// was recorded. Dropped in the first rewrite; restored here.
+//
+// "Big" means the body exceeds this fraction of the candle's full range — a
+// decisive move rather than a wick-heavy indecisive one.
+const OPPOSITE_DIRECTION_FILTER = true;
+const BIG_CANDLE_BODY_FRACTION  = 0.6;
+
 // ─── OTM signals: shared parameters ──────────────────────────────────────────
 // Both otm_red_squeeze and green_stairs require the option to be OUT of the
 // money. Signals on ITM options are untrustworthy here: ITM premium carries
@@ -513,6 +543,9 @@ module.exports = {
     RED_SQUEEZE_THRESHOLD,
     RED_SQUEEZE_MINIMUM_TICK,
     RED_SQUEEZE_SL_FACTOR,
+    MIN_TTE_HOURS_TO_FIRE,
+    OPPOSITE_DIRECTION_FILTER,
+    BIG_CANDLE_BODY_FRACTION,
     OTM_SIGNAL_THRESHOLD,
     WALL_LOOKBACK_CANDLES,
     WALL_JUMP_THRESHOLD,

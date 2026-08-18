@@ -261,6 +261,70 @@ function universeMaxAt(universeIndex, signalTs, firingType, firingStrike, opts =
     return { ratio: Math.round(bestRatio * 1000) / 1000, symbol: bestSymbol };
 }
 
+/**
+ * Drop signals whose ENTRY falls inside the firing cutoff.
+ *
+ * Applied AFTER the signal has annotated its outcomes, so a surviving signal
+ * keeps the full forward window and its ratio is untouched. Only the decision to
+ * initiate is restricted — which is what "no new signals after 1.5h to expiry,
+ * but measure existing ones to expiry" means.
+ *
+ * @param {Object[]} sigs
+ * @param {string} spot
+ * @param {string} expiryDate
+ * @returns {Object[]} signals firing at or before the cutoff
+ */
+function applyFiringCutoff(sigs, spot, expiryDate) {
+    const cutoffHours = cfg.MIN_TTE_HOURS_TO_FIRE;
+    if (!(cutoffHours > 0) || !sigs.length) return sigs;
+
+    const expiryMs = expiryMod.expiryMillis(spot, expiryDate);
+
+    return sigs.filter(s => {
+        const entryMs = new Date(s.dtstring).getTime();
+        if (Number.isNaN(entryMs)) return true;      // unparseable: keep rather than lose
+        return (expiryMs - entryMs) / 3600000 >= cutoffHours;
+    });
+}
+
+/**
+ * Is this spot candle a decisive move in one direction?
+ *
+ * Body must exceed BIG_CANDLE_BODY_FRACTION of the full high-low range, so a
+ * long-wicked indecisive candle does not count however far it travelled.
+ */
+function isBigCandle(c, wantGreen) {
+    if (!c) return false;
+    const range = c.high - c.low;
+    if (!(range > 0)) return false;
+    const body = Math.abs(c.close - c.open);
+    if (body / range < cfg.BIG_CANDLE_BODY_FRACTION) return false;
+    return wantGreen ? c.close > c.open : c.close < c.open;
+}
+
+/**
+ * Drop signals firing against a decisive spot move in the opposite direction.
+ *
+ * A sharp move spikes premium on BOTH sides, so a call pattern can fire purely
+ * because the underlying just fell hard — the shape is there, the direction is
+ * wrong. Suppresses calls on a big red spot candle and puts on a big green one.
+ *
+ * Applied after outcome annotation, like the firing cutoff, so a surviving
+ * signal's ratio is untouched.
+ */
+function applyOppositeDirectionFilter(sigs, type, spotByTs) {
+    if (!cfg.OPPOSITE_DIRECTION_FILTER || !sigs.length) return sigs;
+    if (!spotByTs || !spotByTs.size) return sigs;      // no spot: cannot judge
+
+    return sigs.filter(s => {
+        const spotCandle = spotByTs.get(s.dtstring);
+        if (!spotCandle) return true;                  // unknown: keep
+
+        // Calls are killed by a big red spot bar, puts by a big green one.
+        return !isBigCandle(spotCandle, type === 'P');
+    });
+}
+
 // ─── Shared signal core ───────────────────────────────────────────────────────
 
 /**
@@ -333,6 +397,8 @@ function runSignalsOverCandles(spot, expiryDate, activeDurations, candlesBySymbo
                         `${def.id} threw on ${symbol} ${dur}m`, err);
                     continue;
                 }
+                sigs = applyFiringCutoff(sigs, spot, expiryDate);
+                sigs = applyOppositeDirectionFilter(sigs, instrument.type, ctx.spotByTs);
                 if (sigs.length) byDuration.get(dur).set(symbol, sigs);
             }
         }
@@ -641,6 +707,9 @@ async function processPastExpiry(spot, expiryDate, opts = {}) {
 }
 
 module.exports = {
+    applyFiringCutoff,
+    applyOppositeDirectionFilter,
+    isBigCandle,
     fetchAndDeriveDurations,
     buildUniverseIndex,
     universeMaxAt,

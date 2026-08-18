@@ -114,6 +114,18 @@ theta acceleration manufactures false positives there. But genuine multibaggers 
 occur in that window, and excluding it costs real signals. Decay-driven false
 positives are suppressed by the zero-body rules instead.
 
+**Signals cannot fire in the last 1.5 hours before settlement.**
+Applied as a post-filter after outcome annotation, so a signal that fired earlier
+still measures its full forward window. Only initiation is restricted — there is
+no point flagging an entry with minutes of life left, but a move that began
+earlier and runs into the final hours is real and should be counted.
+
+**Signals firing against a decisive opposite spot move are suppressed.**
+A sharp move spikes premium on both sides, so a call pattern can fire purely
+because the underlying fell hard — right shape, wrong direction. Body must exceed
+60% of the candle's range to count as decisive, so a long-wicked candle does not
+trigger it.
+
 **OTM checked at pattern start, not at trigger.**
 The looser test, so an instrument drifting across the money mid-pattern is kept.
 Chosen to avoid missing real signals.
@@ -251,6 +263,25 @@ which is the expensive step. Disk is cheap at these volumes.
 **Filter and success are separate boxes.**
 Sharing one namespace makes it easy to reference an outcome on the filter side,
 which is lookahead and silently produces a perfect-looking result.
+
+**Walk-forward rather than one split, and never a random one.**
+A random split sends signals from the same expiry — the same underlying move — to
+both sides, so the holdout measures data it trained on. The objection to date
+splitting is that regimes differ by date; that is true, and it is the point, since
+live trading always faces an unseen future regime. Walk-forward answers the regime
+concern properly by testing across several.
+
+**Purging at fold boundaries.**
+A signal can fire 40 days before its expiry, so a test-side signal may observe
+training-window days. Rows whose observation window straddles the boundary are
+dropped — 5–10% of rows for a number that can be trusted.
+
+**Filter first, then merge.**
+Merging first collapses the per-instrument fields the filter works on into
+maxima. Filtering first keeps `ratio1 > 8` meaning what it says. Event boundaries
+then depend on the filter, which is arguably correct: you are asking how often you
+would have been right under each set of criteria, and the events you would have
+acted on genuinely differ.
 
 **The holdout is permanent, not a toggle.**
 With a million rows and free-form querying, finding a clause that looks excellent

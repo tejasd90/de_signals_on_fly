@@ -168,6 +168,45 @@ expiries.
 
 ---
 
+## Firing cutoff — all signals
+
+```
+A signal may not FIRE within MIN_TTE_HOURS_TO_FIRE (1.5) hours of settlement.
+
+Applied AFTER outcome annotation, so a signal that fired earlier keeps its full
+forward window and its ratio is unaffected. Only the decision to INITIATE is
+restricted.
+
+Boundary is inclusive: exactly 1.5h to expiry still fires; 1.4h does not.
+```
+
+STRUCTURAL — changing it needs both `--force-signals` and `patterns.js --force`.
+
+---
+
+## Opposite-direction spot filter — all signals
+
+```
+A sharp move spikes premium on BOTH calls and puts, so a bullish-looking option
+pattern can fire purely because the underlying just dropped hard.
+
+Suppress a CALL signal when the spot candle at entry is a big RED one.
+Suppress a PUT  signal when it is a big GREEN one.
+
+"big" = body exceeds BIG_CANDLE_BODY_FRACTION (0.6) of the candle's full range,
+        so a long-wicked indecisive candle does not count however far it travelled
+
+no spot candle at that timestamp -> keep the signal, cannot judge
+```
+
+Ported from the original `group.js`, where it was the final gate before a signal
+was recorded. Dropped in the first rewrite, restored now.
+
+Applied after outcome annotation, like the firing cutoff, so a surviving signal's
+ratio is untouched. STRUCTURAL — needs `--force-signals` and `patterns.js --force`.
+
+---
+
 ## Outcome annotation — all signals
 
 ```

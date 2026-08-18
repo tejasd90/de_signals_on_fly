@@ -39,6 +39,7 @@ const expiryMod = require('./expiry');
 const registry  = require('./signal_registry');
 const candleStore = require('./candle_store');
 const spotStore   = require('./spot_store');
+const processor   = require('./processor');
 
 const OUT_DIR = path.join(cfg.DATA_BASE_DIR, 'patterns');
 
@@ -127,6 +128,7 @@ function toRow(sig, ctx) {
         // Outcomes — banned in filters, available for the success expression.
         ratio:       sig.signalRatio,
         univRatio:   sig.universeRatio ?? sig.signalRatio,
+        univSymbol:  sig.universeSymbol ?? null,
         state:       sig.signalState,
         brokeOut:    sig.brokeOut ?? null,
         holdCandles: sig.holdCandles ?? null,
@@ -173,6 +175,14 @@ function extractExpiry(spot, expiry, signalDefs) {
         }
         if (!candlesBySymbol.size) continue;
 
+        // Built once per duration and shared by every signal, since it scans
+        // the whole chain and is the expensive part of this stage.
+        const universeIndex = cfg.UNIVERSE_MAX_ENABLED
+            ? processor.buildUniverseIndex(
+                new Map([...candlesBySymbol].map(([k, v]) => [k, new Map([[duration, v]])])),
+                duration)
+            : null;
+
         for (const def of signalDefs) {
             if (def.requiresSpot && (!spotIdx || spotIdx.size === 0)) continue;
 
@@ -192,6 +202,28 @@ function extractExpiry(spot, expiry, signalDefs) {
                 } catch (err) {
                     logger.error('scheduler', `${def.id} threw on ${symbol} ${duration}m`, err);
                     continue;
+                }
+
+                // Same cutoff as the signal pipeline, so patterns and signals
+                // stay comparable.
+                sigs = processor.applyFiringCutoff(sigs, spot, expiry);
+                sigs = processor.applyOppositeDirectionFilter(
+                    sigs, parsed.type, spotIdx || new Map());
+
+                // universeMaxRatio: the best move available on any eligible
+                // strike at the signal's instant. Independent of merging — it is
+                // a scan across the chain, not an aggregation, which is why an
+                // earlier version that omitted this left univRatio equal to ratio.
+                if (universeIndex) {
+                    for (const s of sigs) {
+                        const best = processor.universeMaxAt(
+                            universeIndex, s.dtstring, parsed.type, parsed.strike, {
+                                otmOnly:    def.otmOnly,
+                                spotCandle: spotIdx ? spotIdx.get(s.dtstring) : null,
+                            });
+                        s.universeRatio  = best.ratio;
+                        s.universeSymbol = best.symbol;
+                    }
                 }
 
                 const sp = spotIdx ? spotIdx.get(candles[0].dtstring) : null;

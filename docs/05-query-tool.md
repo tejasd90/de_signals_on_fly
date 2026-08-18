@@ -142,55 +142,88 @@ Unknown fields get a suggestion: `ratio3` → *"Did you mean: ratio1, ratio2, ra
 
 ---
 
-## The holdout
+## Walk-forward validation
 
-Not optional, and always displayed.
-
-```
-expiries sorted ascending
-cut = expiries[floor(count × 0.7) − 1]
-row._test = row.expiry > cut
-```
-
-Split by **expiry date**, never by row: rows from one expiry share the same
-underlying move, so a row-level split would put the same event on both sides.
-
-Every query shows `matched`, `all%`, `train%`, `test (holdout)%` and
-`train − test`. Warnings fire when a side falls below 30 samples, or when the gap
-exceeds 10 points.
-
-**Verified:** a spurious pattern planted only in the training half showed
-**94.7% train, 16.9% test, 77.8 point gap**. A real edge present in both halves
-showed a small gap.
-
-### Known weakness: no purge
-
-Signals fire up to 40 days before their expiry, so a *test* signal can fire
-before a *train* expiry has settled. Both then observe the same market window and
-the holdout is contaminated — it reads better than it should.
-
-The fix is to drop rows whose observation window straddles the cut:
+Three sequential folds with an expanding training window:
 
 ```
-IF patternStart <= cutDate < expiry: DROP the row
+fold 1: train [start .. a)   test [a .. b)
+fold 2: train [start .. b)   test [b .. c)
+fold 3: train [start .. c)   test [c .. end]
 ```
 
-Costs perhaps 5–10% of rows for a holdout you can trust. Not yet implemented.
+Every fold's test window is strictly out of sample, and the page shows each
+fold's train%, test%, gap and purge count, plus the **mean out-of-sample** and the
+**fold spread**.
 
-So: the current holdout catches blatant curve fits reliably, subtle ones less so.
+The spread matters as much as the mean: a result holding up across three regimes
+is different from one carried by a single lucky window.
 
----
+### Why by date, never randomly
 
-## Two query slots
+A random split sends signals from the **same expiry** — the same underlying move
+— to both sides. The holdout would then be measuring data it trained on, and
+would read far better than anything achievable live.
 
-A and B are independent and run together. The real question is almost always
-"is this clause better than that one", and answering it by editing one box and
-remembering the previous number is where mistakes happen.
+The objection to date splitting is that regimes differ by date. That is true, and
+it is exactly the point: when you trade this, you will be in a future regime you
+did not train on. A date split simulates that; a random split does not.
 
-**Known wart:** the results tables below show Query A only. B's metrics appear
-but its rows do not.
+Walk-forward answers the regime concern properly, by testing across several of
+them rather than one.
 
----
+### Purging
+
+A signal can fire up to 40 days before its own expiry, so a test-side signal may
+observe market days inside the training window.
+
+```
+fired = date the pattern started
+if expiry <= trainEnd:            train
+if fired <= trainEnd (test side): PURGE — its window straddles the boundary
+otherwise:                        test
+```
+
+The purge count is shown per fold. With expiries close together and short
+lookbacks it can legitimately be zero; with 40-day lookbacks it will not be.
+
+## Merging
+
+Rows are **filtered first, then merged** into market events by overlapping time
+window within the same `(expiry, duration, type)`.
+
+Filtering first is what keeps per-instrument fields meaningful: `ratio1 > 8` is
+evaluated while rows are still individual. Merging first would collapse it to a
+maximum across strikes.
+
+A merged event:
+
+- wins if **any** member reached the success target, matching `maxRatio` semantics
+- carries the max ratio across members — the assumption being that on seeing one
+  alert you pick a strike rather than buying all of them. Optimistic, and the same
+  assumption every earlier number in this project rests on.
+
+The **Count** selector switches between merged events and individual signals. The
+gap between them measures how much confluence inflates the rate — measured at
+12.9% merged against 6.2% individual on test data.
+
+## The filter box is prefilled
+
+It opens with the expression reproducing the current config, so you see what is
+actually being applied and edit numbers rather than write from scratch:
+
+```
+signalValue >= 50 && tteHours >= 1.5
+```
+
+**Reset to current config** restores it. Add clauses freely:
+
+```
+signalValue >= 50 && tteHours >= 1.5
+  && distancePct between 2 and 6
+  && duration in [60, 240]
+  && log10(cheapness) > 4.5
+```
 
 ## Structural vs tuning, revisited
 
@@ -222,12 +255,24 @@ If it outgrows JSON, the answer is a columnar store rather than a smaller datase
 
 ---
 
-## Current caveat
+## What is and is not expressible
 
-**`univRatio` in the query tool equals `ratio`.** `patterns.js` does not compute
-the universe max — it reads `sig.universeRatio`, which only `processor.js` sets,
-and falls back to `sig.signalRatio`.
+**Expressible now** — anything over the 38 stored fields, the 12 functions, and
+any computed field built from them. Arithmetic, comparisons, boolean logic,
+`in [...]`, `between`, parentheses, nesting.
 
-So any query using `univRatio >= 10` is really measuring the firing instrument's
-own payoff. Fine for checking the pipeline runs; not something to draw
-conclusions from. See `08-open-questions.md`.
+**Not expressible** — anything needing data that was never stored. "The low of the
+3rd red candle", or a comparison against a *different* instrument's candles.
+Those need a new field in `patterns.js` `toRow()` plus a registry entry and a
+`patterns.js --force`.
+
+The practical rule: if it can be written from the field list, it is instant. If
+not, it is one line in `toRow` plus a re-run.
+
+## Result columns
+
+`Ratio | Value | Pattern start | Fired | In | Instruments | TTE h | OTM% |
+Expiry | Dur | T`
+
+**Pattern start** is when the sequence began; **Fired** is the entry candle.
+**In** is how many instruments merged into the event.

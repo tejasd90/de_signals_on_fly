@@ -35,8 +35,26 @@ const DIR  = path.join(cfg.DATA_BASE_DIR, 'patterns');
 const CHART_BASE = 'http://localhost:3000/de';
 const CHART_LEAD_CANDLES = 40;
 
-// Fraction of expiries, oldest first, used for tuning. The rest is held out.
-const TRAIN_FRACTION = 0.7;
+// Walk-forward: several sequential folds rather than one split.
+//
+// A single date split reports one number that depends heavily on which regime
+// happened to land in the test half. Walk-forward tests across SEVERAL regimes,
+// each strictly out of sample, and reports the spread as well as the mean.
+//
+// Splitting by DATE, not randomly. A random split sends signals from the SAME
+// expiry — the same underlying move — to both sides, so the holdout is measuring
+// data it already trained on and reads far better than anything achievable live.
+// Trading is always forward in time; the split should be too.
+const WALK_FORWARD_FOLDS = 3;
+
+// Fraction used for the first fold's training window; each later fold trains on
+// everything before its own test window.
+const FIRST_TRAIN_FRACTION = 0.5;
+
+// PURGE: a signal can fire up to this long before its own expiry, so a test
+// signal may observe market days that fall inside the training window. Rows
+// whose observation window straddles a fold boundary are dropped.
+const PURGE_ENABLED = true;
 
 // Below this a percentage is noise; the UI greys it and never marks it best.
 const MIN_SAMPLE = 30;
@@ -73,7 +91,7 @@ function loadRows(signalId, spot) {
     if (_cache.has(key)) return _cache.get(key);
 
     const spotDir = path.join(DIR, signalId, spot);
-    const out = { rows: [], expiries: [], splitAt: null };
+    const out = { rows: [], expiries: [], folds: [] };
     if (!fs.existsSync(spotDir)) { _cache.set(key, out); return out; }
 
     const durations = fs.readdirSync(spotDir)
@@ -95,12 +113,72 @@ function loadRows(signalId, spot) {
     }
 
     const sorted = [...expiries].sort();
-    const cut = sorted[Math.max(0, Math.floor(sorted.length * TRAIN_FRACTION) - 1)] || null;
-    for (const r of raw) r._test = cut ? (r.expiry > cut) : false;
+    out.folds = buildFolds(sorted);
 
-    out.rows = raw; out.expiries = sorted; out.splitAt = cut;
+    // Tag each row with, per fold, whether it is train / test / purged.
+    for (const r of raw) {
+        r._fold = out.folds.map(f => assignToFold(r, f));
+    }
+
+    out.rows = raw; out.expiries = sorted;
     _cache.set(key, out);
     return out;
+}
+
+/**
+ * Sequential expanding-window folds.
+ *
+ *   fold 1: train [0 .. a)          test [a .. b)
+ *   fold 2: train [0 .. b)          test [b .. c)
+ *   fold 3: train [0 .. c)          test [c .. end]
+ *
+ * Expanding rather than sliding, because more history is genuinely better and a
+ * sliding window would discard it for no benefit.
+ */
+function buildFolds(sortedExpiries) {
+    const n = sortedExpiries.length;
+    if (n < WALK_FORWARD_FOLDS * 2) {
+        // Too few expiries to fold meaningfully; fall back to one split.
+        const cut = sortedExpiries[Math.max(0, Math.floor(n * 0.7) - 1)] || null;
+        return cut ? [{ index: 1, trainEnd: cut, testEnd: sortedExpiries[n - 1] }] : [];
+    }
+
+    const firstTrain = Math.max(1, Math.floor(n * FIRST_TRAIN_FRACTION));
+    const remaining  = n - firstTrain;
+    const perFold    = Math.max(1, Math.floor(remaining / WALK_FORWARD_FOLDS));
+
+    const folds = [];
+    let start = firstTrain;
+    for (let i = 0; i < WALK_FORWARD_FOLDS; i++) {
+        const isLast = (i === WALK_FORWARD_FOLDS - 1);
+        const end    = isLast ? n : Math.min(n, start + perFold);
+        if (start >= n) break;
+        folds.push({
+            index:    i + 1,
+            trainEnd: sortedExpiries[start - 1],      // last TRAIN expiry
+            testEnd:  sortedExpiries[end - 1],        // last TEST expiry
+        });
+        start = end;
+    }
+    return folds;
+}
+
+/**
+ * Which side of one fold a row falls on.
+ *
+ * 'purge' means the row's observation window straddles the boundary: it fired
+ * during the training period but settles during the test period, so it observes
+ * days on both sides. Counting it either way leaks.
+ */
+function assignToFold(row, fold) {
+    const fired = String(row.patternStart || row.entryTs).slice(0, 10);
+
+    if (row.expiry <= fold.trainEnd) return 'train';
+    if (row.expiry >  fold.testEnd)  return 'unused';   // beyond this fold's test window
+
+    // Test-side row: purge it if it FIRED on or before the training boundary.
+    if (PURGE_ENABLED && fired <= fold.trainEnd) return 'purge';
+    return 'test';
 }
 
 function chartUrl(r) {
@@ -116,55 +194,166 @@ function chartUrl(r) {
 
 // ─── Evaluation ───────────────────────────────────────────────────────────────
 
-function runQuery(rows, filterSrc, successSrc, limit, derivedSrc) {
-    // Derived fields are registered globally on FIELDS, so each run clears the
-    // previous set — otherwise a definition removed from the box would linger
-    // and keep resolving.
+function runQuery(rows, folds, filterSrc, successSrc, limit, derivedSrc, merge) {
     ql.clearDerived();
     const derived = derivedSrc && derivedSrc.trim() ? ql.parseDerived(derivedSrc) : [];
-    // allowOutcome false on the filter is the lookahead guard.
+
     const filterFn  = filterSrc.trim()
-        ? ql.compile(filterSrc,  { allowOutcome: false })
+        ? ql.compile(filterSrc,  { allowOutcome: false })   // lookahead guard
         : () => true;
     const successFn = ql.compile(successSrc, { allowOutcome: true });
 
-    const bucket = () => ({ n: 0, wins: 0, success: [], failure: [] });
-    const train = bucket(), test = bucket(), all = bucket();
-
+    // Filter FIRST, merge after. Merging before would collapse the
+    // per-instrument fields the filter works on into maxima.
+    const kept = [];
     for (const r of rows) {
         if (derived.length) ql.applyDerived(derived, r);
-        if (!filterFn(r)) continue;
-        const win = successFn(r);
-        for (const b of [all, r._test ? test : train]) {
-            b.n++; if (win) b.wins++;
-        }
-        (win ? all.success : all.failure).push(r);
+        if (filterFn(r)) kept.push(r);
     }
 
-    // Best first among successes, worst first among failures: each column opens
-    // on its most informative row rather than its most typical one.
-    all.success.sort((a, b) => (b.univRatio || 0) - (a.univRatio || 0));
-    all.failure.sort((a, b) => (a.univRatio || 0) - (b.univRatio || 0));
+    const units = merge ? mergeRows(kept) : kept.map(asUnit);
+
+    const bucket = () => ({ n: 0, wins: 0 });
+    const overall = bucket();
+    const foldStats = folds.map(() => ({ train: bucket(), test: bucket(), purged: 0 }));
+
+    const successes = [], failures = [];
+
+    for (const u of units) {
+        const win = u.rows.some(successFn);       // a merged event wins if ANY
+                                                  // member reached the target,
+                                                  // matching maxRatio semantics
+        overall.n++; if (win) overall.wins++;
+        (win ? successes : failures).push(u);
+
+        folds.forEach((f, i) => {
+            // A merged unit takes the fold side of its FIRST member; members of
+            // one event share an expiry, so they always agree.
+            const side = u.rows[0]._fold ? u.rows[0]._fold[i] : 'train';
+            if (side === 'purge')  { foldStats[i].purged++; return; }
+            if (side === 'unused') return;
+            const b = foldStats[i][side];
+            b.n++; if (win) b.wins++;
+        });
+    }
+
+    successes.sort((a, b) => b.univRatio - a.univRatio);
+    failures.sort((a, b) => a.univRatio - b.univRatio);
 
     const pct = b => b.n ? (b.wins / b.n) * 100 : 0;
-    const slim = r => ({
-        expiry: r.expiry, duration: r.duration, symbol: r.symbol, type: r.type,
-        entryTs: r.entryTs, entryPrice: r.entryPrice, signalValue: r.signalValue,
-        tteHours: r.tteHours, distancePct: r.distancePct,
-        ratio: r.ratio, univRatio: r.univRatio, state: r.state,
-        test: !!r._test, url: chartUrl(r),
-    });
+
+    const foldOut = folds.map((f, i) => ({
+        index: f.index, trainEnd: f.trainEnd, testEnd: f.testEnd,
+        train: { ...foldStats[i].train, pct: pct(foldStats[i].train) },
+        test:  { ...foldStats[i].test,  pct: pct(foldStats[i].test),
+                 thin: foldStats[i].test.n < MIN_SAMPLE },
+        purged: foldStats[i].purged,
+        gap: pct(foldStats[i].train) - pct(foldStats[i].test),
+    }));
+
+    const testPcts = foldOut.filter(f => !f.test.thin).map(f => f.test.pct);
+    const meanTest = testPcts.length
+        ? testPcts.reduce((a, b) => a + b, 0) / testPcts.length : 0;
+    const spread = testPcts.length > 1
+        ? Math.max(...testPcts) - Math.min(...testPcts) : 0;
 
     return {
-        total: all.n,
-        all:   { n: all.n,   wins: all.wins,   pct: pct(all) },
-        train: { n: train.n, wins: train.wins, pct: pct(train), thin: train.n < MIN_SAMPLE },
-        test:  { n: test.n,  wins: test.wins,  pct: pct(test),  thin: test.n  < MIN_SAMPLE },
-        gap:   pct(train) - pct(test),
-        success: all.success.slice(0, limit).map(slim),
-        failure: all.failure.slice(0, limit).map(slim),
-        successCount: all.success.length,
-        failureCount: all.failure.length,
+        merged: !!merge,
+        totalRows: kept.length,
+        total: overall.n,
+        all: { n: overall.n, wins: overall.wins, pct: pct(overall) },
+        folds: foldOut,
+        meanTest, spread,
+        successCount: successes.length,
+        failureCount: failures.length,
+        success: successes.slice(0, limit).map(slimUnit),
+        failure: failures.slice(0, limit).map(slimUnit),
+    };
+}
+
+/** A single unfiltered row presented as a one-member unit. */
+function asUnit(r) {
+    return {
+        rows: [r], count: 1,
+        startTs: r.patternStart || r.entryTs, entryTs: r.entryTs,
+        signalValue: r.signalValue, ratio: r.ratio, univRatio: r.univRatio,
+        univSymbol: r.univSymbol || null,
+        symbols: [r.symbol], expiry: r.expiry, duration: r.duration, type: r.type,
+        tteHours: r.tteHours, distancePct: r.distancePct, state: r.state,
+    };
+}
+
+/**
+ * Merge surviving rows into market events by overlapping time window, within
+ * the same (expiry, duration, type).
+ *
+ * The same move fires on many strikes; without this, one event with 8 strikes
+ * counts 8 times and the percentages measure how broadly signals cluster rather
+ * than how often you would have been right.
+ *
+ * A merged unit carries the MAX ratio across members — the assumption being that
+ * seeing one alert you would pick a strike, not buy all of them. Optimistic, and
+ * the same assumption every earlier number in this project was built on.
+ */
+function mergeRows(rows) {
+    const groups = new Map();
+    for (const r of rows) {
+        const k = `${r.expiry}|${r.duration}|${r.type}`;
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(r);
+    }
+
+    const units = [];
+
+    for (const [, list] of groups) {
+        list.sort((a, b) =>
+            new Date(a.patternStart || a.entryTs) - new Date(b.patternStart || b.entryTs));
+
+        let cur = null;
+        for (const r of list) {
+            const s = new Date(r.patternStart || r.entryTs).getTime();
+            const e = new Date(r.entryTs).getTime();
+
+            if (cur && s <= cur.endMs) {
+                cur.endMs = Math.max(cur.endMs, e);
+                cur.rows.push(r);
+            } else {
+                if (cur) units.push(finaliseUnit(cur));
+                cur = { startMs: s, endMs: e, rows: [r] };
+            }
+        }
+        if (cur) units.push(finaliseUnit(cur));
+    }
+
+    return units;
+}
+
+function finaliseUnit(u) {
+    let best = u.rows[0];
+    for (const r of u.rows) if ((r.univRatio || 0) > (best.univRatio || 0)) best = r;
+
+    return {
+        rows: u.rows, count: u.rows.length,
+        startTs: best.patternStart || best.entryTs,
+        entryTs: best.entryTs,
+        signalValue: Math.max(...u.rows.map(r => r.signalValue || 0)),
+        ratio:      Math.max(...u.rows.map(r => r.ratio || 0)),
+        univRatio:  Math.max(...u.rows.map(r => r.univRatio || 0)),
+        univSymbol: best.univSymbol || null,
+        symbols: [...new Set(u.rows.map(r => r.symbol))],
+        expiry: best.expiry, duration: best.duration, type: best.type,
+        tteHours: best.tteHours, distancePct: best.distancePct, state: best.state,
+    };
+}
+
+function slimUnit(u) {
+    return {
+        count: u.count, startTs: u.startTs, entryTs: u.entryTs,
+        signalValue: u.signalValue, ratio: u.ratio, univRatio: u.univRatio,
+        univSymbol: u.univSymbol, symbols: u.symbols.slice(0, 10),
+        expiry: u.expiry, duration: u.duration, type: u.type,
+        tteHours: u.tteHours, distancePct: u.distancePct, state: u.state,
+        url: u.rows[0] ? chartUrl(u.rows[0]) : null,
     };
 }
 
@@ -173,6 +362,16 @@ function runQuery(rows, filterSrc, successSrc, limit, derivedSrc) {
 function renderPage() {
     const funcRows = Object.entries(ql.FUNCS)
         .map(([n, d]) => ({ name: n, arity: d.arity, desc: d.desc }));
+    // The expression that reproduces the CURRENT config, so the box opens showing
+    // what is actually being applied and you edit numbers rather than write from
+    // scratch.
+    const defaultFilters = {
+        red_squeeze:     `signalValue >= ${cfg.RED_SQUEEZE_THRESHOLD} && tteHours >= ${cfg.MIN_TTE_HOURS_TO_FIRE}`,
+        otm_red_squeeze: `signalValue >= ${cfg.OTM_SIGNAL_THRESHOLD} && tteHours >= ${cfg.MIN_TTE_HOURS_TO_FIRE} && seqLength >= ${cfg.OTM_MIN_SEQ_LENGTH}`,
+        green_stairs:    `signalValue >= ${cfg.OTM_SIGNAL_THRESHOLD} && tteHours >= ${cfg.MIN_TTE_HOURS_TO_FIRE} && seqLength >= ${cfg.OTM_MIN_SEQ_LENGTH} && equalSteps <= ${cfg.GREEN_STAIRS_MAX_EQUAL_STEPS}`,
+        otm_wall:        `signalValue >= ${cfg.WALL_JUMP_THRESHOLD} && tteHours >= ${cfg.MIN_TTE_HOURS_TO_FIRE}`,
+    };
+
     const fieldRows = Object.entries(ql.FIELDS)
         .map(([n, d]) => ({ name: n, type: d.type, outcome: d.outcome, desc: d.desc }));
 
@@ -271,40 +470,37 @@ function renderPage() {
     <span><label for="signal">Signal</label><select id="signal"></select></span>
     <span><label for="spot">Spot</label><select id="spot"></select></span>
     <span><label for="limit">Rows shown</label><input type="number" id="limit" value="200" min="10" step="10" style="width:90px"></span>
-    <button id="run">Run both</button>
+    <span><label for="merge">Count</label>
+      <select id="merge">
+        <option value="1">Merged events</option>
+        <option value="0">Individual signals</option>
+      </select></span>
+    <button id="run">Run</button>
     <span class="sub" id="status"></span>
   </div>
 
   <div class="slot" style="margin-bottom:14px">
-    <h3>Computed fields — shared by both queries</h3>
+    <h3>Computed fields</h3>
     <textarea id="derived" placeholder="punch = ratio1 * ratio2 / avgPrice&#10;logCheap = log10(cheapness)"></textarea>
     <div class="sub" style="margin-top:5px">One per line, <code>name = expression</code>. Each becomes
-      queryable like any other field, and may reference fields defined above it. A definition touching
-      an outcome field is itself treated as an outcome and refused in filters.</div>
+      queryable like any other field, and may reference fields defined above it. A definition
+      touching an outcome field is itself an outcome and refused in filters.</div>
     <div class="err" id="derr"></div>
   </div>
 
-  <div class="slots">
-    <div class="slot" data-slot="A">
-      <h3>Query A</h3>
-      <div class="f"><label>Filter — entry-time fields only</label>
-        <textarea data-f="filter">signalValue &gt; 50</textarea></div>
-      <div class="f"><label>Success</label>
-        <textarea data-f="success">univRatio &gt;= 10</textarea></div>
-      <div class="err" data-e></div>
-      <div class="res" data-res></div>
-      <div class="warn" data-warn></div>
-    </div>
-    <div class="slot" data-slot="B">
-      <h3>Query B</h3>
-      <div class="f"><label>Filter — entry-time fields only</label>
-        <textarea data-f="filter">signalValue &gt; 500 &amp;&amp; tteHours &lt; 48</textarea></div>
-      <div class="f"><label>Success</label>
-        <textarea data-f="success">univRatio &gt;= 10</textarea></div>
-      <div class="err" data-e></div>
-      <div class="res" data-res></div>
-      <div class="warn" data-warn></div>
-    </div>
+  <div class="slot">
+    <h3>Query</h3>
+    <div class="f"><label>Filter — entry-time fields only. Prefilled with the current criteria.</label>
+      <textarea id="filter"></textarea>
+      <div class="sub" style="margin-top:4px">
+        <button class="sec" id="resetFilter" style="padding:3px 10px;font-size:11px">Reset to current config</button>
+      </div></div>
+    <div class="f"><label>Success</label>
+      <textarea id="success">univRatio &gt;= 10</textarea></div>
+    <div class="err" id="qerr"></div>
+    <div class="res" id="res"></div>
+    <div class="warn" id="warn"></div>
+    <div id="folds" style="margin-top:10px"></div>
   </div>
 
   <details class="fields">
@@ -339,93 +535,124 @@ const MIN_SAMPLE=${MIN_SAMPLE};
 
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const shortTs=t=>String(t).slice(0,16).replace('T',' ');
 function band(v){if(!(v>0))return 0;for(let i=0;i<BANDS.length;i++){const b=BANDS[i];if(v>=b.min&&(b.max===null||v<b.max))return i;}return BANDS.length-1;}
 
-function slotEls(name){
-  const el=document.querySelector('.slot[data-slot="'+name+'"]');
-  return {el,
-    filter:el.querySelector('[data-f=filter]'), success:el.querySelector('[data-f=success]'),
-    err:el.querySelector('[data-e]'), res:el.querySelector('[data-res]'), warn:el.querySelector('[data-warn]')};
-}
+const DEFAULT_FILTERS=${JSON.stringify(defaultFilters)};
 
-function renderMetrics(s,r){
+function renderMetrics(r){
   const cell=(cls,l,v,sub)=>'<div class="m '+cls+'"><div class="l">'+esc(l)+'</div><div class="v">'+
     esc(v)+'</div><div class="s">'+esc(sub||'')+'</div></div>';
-  s.res.innerHTML=
-    cell('','matched',r.total.toLocaleString(),'')+
+
+  $('res').innerHTML=
+    cell('','rows matched',r.totalRows.toLocaleString(),'')+
+    cell('',r.merged?'merged events':'signals',r.total.toLocaleString(),'')+
     cell('','all',r.all.pct.toFixed(1)+'%',r.all.wins+' / '+r.all.n)+
-    cell(r.train.thin?'thin':'','train',r.train.pct.toFixed(1)+'%',r.train.wins+' / '+r.train.n)+
-    cell('test '+(r.test.thin?'thin':''),'test (holdout)',r.test.pct.toFixed(1)+'%',r.test.wins+' / '+r.test.n)+
-    cell('gap','train − test',r.gap.toFixed(1)+' pts','');
+    cell('test','mean out-of-sample',r.meanTest.toFixed(1)+'%','across folds')+
+    cell('gap','fold spread',r.spread.toFixed(1)+' pts','max − min');
 
-  // The two failure modes worth interrupting for: too little data to believe,
-  // or a train/test gap that says the clause was fitted to history.
-  let w='';
-  if(r.test.thin||r.train.thin)
-    w+='<b>Thin sample.</b> Fewer than '+MIN_SAMPLE+' rows on one side — this percentage is noise. Loosen the filter.<br>';
-  if(!r.test.thin&&!r.train.thin&&r.gap>10)
-    w+='<b>Train beats test by '+r.gap.toFixed(1)+' points.</b> That gap is the signature of a curve fit. Trust the test number.';
-  s.warn.className='warn'+(w?' on':'');
-  s.warn.innerHTML=w;
-}
-
-async function runSlot(name){
-  const s=slotEls(name);
-  s.err.className='err';
-  const body={signal:$('signal').value,spot:$('spot').value,
-    filter:s.filter.value,success:s.success.value,derived:$('derived').value,
-    limit:parseInt($('limit').value)||200};
-  const res=await (await fetch('/api/query',{method:'POST',
-    headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
-  if(res.error){
-    // A bad computed-field definition breaks both slots, so it is reported once
-    // above rather than duplicated into each.
-    const isDerived=/Definition needs|already exists|not a valid field name|has no expression|is a function name/.test(res.error);
-    const target=isDerived?$('derr'):s.err;
-    target.className='err on'; target.textContent=res.error;
-    s.res.innerHTML=''; s.warn.className='warn'; return null;
+  // Per-fold detail: one line each, so a result that holds up in every regime
+  // is distinguishable from one carried by a single lucky window.
+  let h='<table style="font-size:11px"><thead><tr>'+
+    '<th>Fold</th><th>Train ends</th><th>Test ends</th>'+
+    '<th class="num">Train</th><th class="num">Test</th>'+
+    '<th class="num">Gap</th><th class="num">Purged</th></tr></thead><tbody>';
+  for(const f of r.folds){
+    h+='<tr>'+
+      '<td>'+f.index+'</td>'+
+      '<td class="ts">'+esc(f.trainEnd)+'</td>'+
+      '<td class="ts">'+esc(f.testEnd)+'</td>'+
+      '<td class="num">'+f.train.pct.toFixed(1)+'% <span class="ts">'+f.train.n+'</span></td>'+
+      '<td class="num"'+(f.test.thin?' style="color:var(--muted)"':'')+'>'+
+        f.test.pct.toFixed(1)+'% <span class="ts">'+f.test.n+'</span></td>'+
+      '<td class="num">'+f.gap.toFixed(1)+'</td>'+
+      '<td class="num ts">'+f.purged+'</td></tr>';
   }
-  $('derr').className='err';
-  renderMetrics(s,res);
-  return res;
+  $('folds').innerHTML=h+'</tbody></table>';
+
+  let w='';
+  const thin=r.folds.some(f=>f.test.thin);
+  if(thin) w+='<b>Thin fold.</b> At least one test window has fewer than '+MIN_SAMPLE+
+              ' units — that percentage is noise. Loosen the filter.<br>';
+  if(!thin && r.spread>15)
+    w+='<b>Folds disagree by '+r.spread.toFixed(1)+' points.</b> The result depends heavily on '+
+       'which regime it was tested in. Treat the mean as optimistic.<br>';
+  const meanGap=r.folds.reduce((a,f)=>a+f.gap,0)/Math.max(1,r.folds.length);
+  if(!thin && meanGap>10)
+    w+='<b>Train beats test by '+meanGap.toFixed(1)+' points on average.</b> That gap is the '+
+       'signature of a curve fit. Trust the out-of-sample number.';
+  $('warn').className='warn'+(w?' on':'');
+  $('warn').innerHTML=w;
 }
 
 function renderTable(el,rows){
   if(!rows.length){ $(el).innerHTML='<div class="empty">None.</div>'; return; }
   let h='<table><thead><tr>'+
-    '<th class="num">Ratio</th><th class="num">Value</th><th>Instrument</th>'+
-    '<th class="num">Dur</th><th class="num">TTE h</th><th class="num">OTM%</th>'+
-    '<th>Expiry</th><th>Set</th></tr></thead><tbody>';
+    '<th class="num" title="Best payoff in this unit">Ratio</th>'+
+    '<th class="num" title="Signal strength">Value</th>'+
+    '<th title="When the pattern started">Pattern start</th>'+
+    '<th title="When the signal fired — the entry candle">Fired</th>'+
+    '<th class="num" title="Instruments merged here">In</th>'+
+    '<th title="Best strike, and the ones that fired">Instruments</th>'+
+    '<th class="num" title="Hours to expiry at entry">TTE h</th>'+
+    '<th class="num" title="Distance from spot">OTM%</th>'+
+    '<th>Expiry</th><th class="num">Dur</th><th>T</th></tr></thead><tbody>';
   for(const r of rows){
     h+='<tr>'+
-      '<td class="num"><span class="chip" style="background:'+RCOL[band(r.univRatio)]+'">'+(r.univRatio||0).toFixed(2)+'x</span></td>'+
+      '<td class="num"><span class="chip" style="background:'+RCOL[band(r.univRatio)]+'">'+
+        (r.univRatio||0).toFixed(2)+'x</span></td>'+
       '<td class="num">'+(r.signalValue==null?'—':Number(r.signalValue).toFixed(1))+'</td>'+
-      '<td><a href="'+esc(r.url)+'" target="_blank" rel="noopener">'+esc(r.symbol)+' ↗</a></td>'+
-      '<td class="num">'+r.duration+'m</td>'+
+      '<td class="ts">'+esc(shortTs(r.startTs))+'</td>'+
+      '<td class="ts">'+esc(shortTs(r.entryTs))+'</td>'+
+      '<td class="num">'+r.count+'</td>'+
+      '<td>'+(r.url?'<a href="'+esc(r.url)+'" target="_blank" rel="noopener">'+
+        esc(r.univSymbol||r.symbols[0])+' ↗</a>':esc(r.symbols[0]||'—'))+
+        (r.count>1?' <span class="ts">+'+(r.count-1)+'</span>':'')+'</td>'+
       '<td class="num">'+(r.tteHours==null?'—':r.tteHours.toFixed(0))+'</td>'+
       '<td class="num">'+(r.distancePct==null?'—':r.distancePct.toFixed(1))+'</td>'+
       '<td class="ts">'+esc(r.expiry)+'</td>'+
-      '<td><span class="tag'+(r.test?' t':'')+'">'+(r.test?'test':'train')+'</span></td></tr>';
+      '<td class="num">'+r.duration+'m</td>'+
+      '<td>'+esc(r.type)+'</td></tr>';
   }
   $(el).innerHTML=h+'</tbody></table>';
 }
 
-async function runAll(){
+async function runQuery(){
+  $('qerr').className='err'; $('derr').className='err';
   $('status').textContent='running…';
-  const a=await runSlot('A');
-  const b=await runSlot('B');
+
+  const body={signal:$('signal').value,spot:$('spot').value,
+    filter:$('filter').value,success:$('success').value,derived:$('derived').value,
+    merge:$('merge').value==='1',limit:parseInt($('limit').value)||200};
+
+  const res=await (await fetch('/api/query',{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
   $('status').textContent='';
-  const show=a||b;
-  if(!show){ $('tS').innerHTML=''; $('tF').innerHTML=''; return; }
-  $('nS').textContent='Query A · '+show.successCount.toLocaleString()+' successes, best first';
-  $('nF').textContent='Query A · '+show.failureCount.toLocaleString()+' failures, worst first';
-  renderTable('tS',show.success); renderTable('tF',show.failure);
+
+  if(res.error){
+    const isDerived=/Definition needs|already exists|not a valid field name|has no expression|is a function name/.test(res.error);
+    (isDerived?$('derr'):$('qerr')).className='err on';
+    (isDerived?$('derr'):$('qerr')).textContent=res.error;
+    $('res').innerHTML=''; $('folds').innerHTML=''; $('warn').className='warn';
+    return;
+  }
+
+  renderMetrics(res);
+  const unit=res.merged?'events':'signals';
+  $('nS').textContent=res.successCount.toLocaleString()+' successful '+unit+', best first';
+  $('nF').textContent=res.failureCount.toLocaleString()+' failed '+unit+', worst first';
+  renderTable('tS',res.success); renderTable('tF',res.failure);
+}
+
+function resetFilter(){
+  $('filter').value=DEFAULT_FILTERS[$('signal').value]||'signalValue >= 0';
 }
 
 async function loadSignal(){
   const meta=await (await fetch('/api/meta/'+encodeURIComponent($('signal').value))).json();
   $('spot').innerHTML=(meta.spots||[]).map(s=>'<option>'+esc(s)+'</option>').join('');
-  if(meta.spots&&meta.spots.length) await runAll();
+  resetFilter();
+  if(meta.spots&&meta.spots.length) await runQuery();
 }
 
 (function funcs(){
@@ -447,8 +674,10 @@ async function loadSignal(){
   if(!sigs.length){ $('tS').innerHTML='<div class="empty">No patterns. Run: node patterns.js</div>'; return; }
   $('signal').innerHTML=sigs.map(s=>'<option>'+esc(s)+'</option>').join('');
   $('signal').addEventListener('change',loadSignal);
-  $('spot').addEventListener('change',runAll);
-  $('run').addEventListener('click',runAll);
+  $('spot').addEventListener('change',runQuery);
+  $('merge').addEventListener('change',runQuery);
+  $('run').addEventListener('click',runQuery);
+  $('resetFilter').addEventListener('click',resetFilter);
   await loadSignal();
 })();
 </script>
@@ -482,9 +711,10 @@ http.createServer((req, res) => {
             req.on('end', () => {
                 try {
                     const q = JSON.parse(body);
-                    const { rows } = loadRows(q.signal, q.spot);
-                    return json(res, runQuery(rows, q.filter || '', q.success || 'univRatio >= 10',
-                                              q.limit || 200, q.derived || ''));
+                    const { rows, folds } = loadRows(q.signal, q.spot);
+                    return json(res, runQuery(rows, folds,
+                        q.filter || '', q.success || 'univRatio >= 10',
+                        q.limit || 200, q.derived || '', q.merge !== false));
                 } catch (err) {
                     // Parse errors are the user's, not the server's, so they are
                     // returned as text rather than a 500.
@@ -504,6 +734,7 @@ http.createServer((req, res) => {
     console.log(`Query  →  http://localhost:${PORT}`);
     console.log(`  patterns : ${DIR}`);
     console.log(`  signals  : ${listSignals().join(', ') || '(none — run patterns.js)'}`);
-    console.log(`  split    : ${(TRAIN_FRACTION * 100).toFixed(0)}% train / ${(100 - TRAIN_FRACTION * 100).toFixed(0)}% test, by expiry date`);
+    console.log(`  split    : ${WALK_FORWARD_FOLDS} walk-forward folds by expiry date` +
+                `${PURGE_ENABLED ? ', purged at each boundary' : ''}`);
     console.log('');
 });

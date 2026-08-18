@@ -111,6 +111,8 @@ run skip everything and report "Nothing to do".
 | Change | Needs |
 |---|---|
 | `RED_SQUEEZE_*`, `OTM_*`, `WALL_*` | `--signals-only --force-signals` |
+| `MIN_TTE_HOURS_TO_FIRE` | `--force-signals` **and** `patterns.js --force` |
+| `OPPOSITE_DIRECTION_FILTER`, `BIG_CANDLE_BODY_FRACTION` | `--force-signals` **and** `patterns.js --force` |
 | `DURATION_TIMES` start window | also `--candles-only --force-candles` |
 | `MULTIBAGGER_THRESHOLDS`, band definitions | nothing — display only |
 
