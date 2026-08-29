@@ -74,34 +74,53 @@ function computeStrength(patternCandles, triggerClose, spotPrice) {
 // ─── Outcome ──────────────────────────────────────────────────────────────────
 
 /**
- * Annotate each signal with what happened after entry.
+ * Annotate each signal with what happened after the SIGNAL CANDLE.
  *
- *   signalRatio — highest high after entry divided by the entry close. Measured
- *                 over ALL subsequent candles and never truncated: options decay
- *                 to zero, so stopping at the first adverse close would make
- *                 every ratio read ~1.
- *   brokeOut    — did a later candle CLOSE above the pattern high? This is the
- *                 activation condition. For green_stairs it is true by
- *                 construction, since the breakout is what fires the signal.
- *   signalState — 'activated' when it broke out, 'slHit' when it did not,
- *                 'pending' when there is no data after entry yet. slHit is
- *                 retained for later use rather than acted on now.
+ * ACTIVATION = price trading above the HIGH of the signal candle.
+ *
+ * An intrabar touch is enough; the candle need not close above it. That models a
+ * resting stop-buy order at the signal candle's high, which fills the moment the
+ * level is traded through regardless of where the candle ends.
+ *
+ *   triggerPrice = signal candle's high
+ *   signalRatio  = highest high AFTER the signal candle / triggerPrice
+ *   activated    = that highest high exceeded triggerPrice
+ *
+ * The denominator is the signal candle's HIGH, not its close. That is stricter —
+ * the high is above the close, so every ratio is lower than under the previous
+ * definition — but it is what you would actually pay on a stop entry, so the
+ * number means something you could have achieved rather than a best case.
+ *
+ * Never truncated at any adverse level. Options decay below any pattern-derived
+ * line, so stopping the measurement early would drive every ratio to ~1.
  */
 function annotateOutcomes(signals, candles) {
     for (const sig of signals) {
         const i = candles.findIndex(c => c.dtstring === sig.dtstring);
+
         if (i < 0 || i === candles.length - 1) {
-            sig.signalState = 'pending';
-            sig.signalRatio = 0;
-            sig.brokeOut    = false;
+            sig.signalState  = 'pending';
+            sig.signalRatio  = 0;
+            sig.brokeOut     = false;
+            sig.triggerPrice = sig.triggerPrice ?? (i >= 0 ? candles[i].high : 0);
+            sig.peakAfter    = 0;
             continue;
         }
 
-        const after = candles.slice(i + 1);
-        sig.signalRatio = r3(Math.max(...after.map(c => c.high)) / sig.close);
-        sig.brokeOut    = after.some(c => c.close > sig.patternHigh);
-        sig.signalState = sig.brokeOut ? 'activated'
-                        : (sig.signalRatio >= SL_FACTOR ? 'activated' : 'slHit');
+        // The trigger is the signal candle's own high. Each signal sets this
+        // when it emits; falling back here keeps older callers working.
+        const triggerPrice = sig.triggerPrice ?? candles[i].high;
+
+        const after   = candles.slice(i + 1);
+        const peak    = Math.max(...after.map(c => c.high));
+
+        sig.triggerPrice = r4(triggerPrice);
+        sig.peakAfter    = r4(peak);
+        sig.signalRatio  = triggerPrice > 0 ? r3(peak / triggerPrice) : 0;
+
+        // Strictly above: trading exactly AT the high does not prove a fill.
+        sig.brokeOut     = peak > triggerPrice;
+        sig.signalState  = sig.brokeOut ? 'activated' : 'slHit';
     }
 }
 

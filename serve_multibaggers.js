@@ -18,13 +18,18 @@ const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 const cfg  = require('./config');
+const netinfo = require('./netinfo');
 
 const args = process.argv.slice(2);
 const PORT = args.includes('--port') ? parseInt(args[args.indexOf('--port') + 1]) : 3300;
 const DIR  = path.join(cfg.DATA_BASE_DIR, 'multibaggers');
 
 // Your charting app, same URL shape serve_signals uses.
-const CHART_BASE = 'http://localhost:3000/de';
+// Host-relative. Hardcoding localhost meant a chart link opened on a phone
+// resolved to the PHONE, so every link 404'd off the LAN. The page substitutes
+// its own hostname client-side.
+const CHART_HOST_PLACEHOLDER = '__CHART_HOST__';
+const CHART_BASE = `http://${CHART_HOST_PLACEHOLDER}:3000/de`;
 const CHART_LEAD_CANDLES = 20;
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -170,6 +175,11 @@ function renderPage() {
 </div>
 
 <script>
+// Chart links are built server-side with a placeholder host; swap in whatever
+// host actually served this page so links work from any device on the LAN.
+document.addEventListener('DOMContentLoaded',()=>{},{once:true});
+const CHART_HOST=location.hostname;
+function fixChartUrl(u){ return String(u||'').replace('__CHART_HOST__',CHART_HOST); }
 const RCOL=['var(--r0)','var(--r1)','var(--r2)','var(--r3)','var(--r4)'];
 const BANDS=${JSON.stringify(cfg.RATIO_BANDS.map(b => ({ label: b.label, min: b.min, max: b.max === Infinity ? null : b.max })))};
 const THR=${JSON.stringify(cfg.MULTIBAGGER_THRESHOLDS)};
@@ -239,7 +249,7 @@ function render(){
     const b=band(r.ratio);
     h+='<tr>'+
       '<td class="num"><span class="chip" style="background:'+RCOL[b]+'">'+r.ratio.toLocaleString()+'x</span></td>'+
-      '<td><a href="'+esc(r.chartUrl)+'" target="_blank" rel="noopener">'+esc(r.symbol)+' ↗</a></td>'+
+      '<td><a href="'+esc(fixChartUrl(r.chartUrl))+'" target="_blank" rel="noopener">'+esc(r.symbol)+' ↗</a></td>'+
       '<td class="ts">'+esc(r.expiry)+'</td>'+
       '<td>'+esc(r.type)+'</td>'+
       '<td class="num">'+r.strike+'</td>'+
@@ -311,9 +321,6 @@ http.createServer((req, res) => {
         console.error(`Error on ${url}:`, err);
         res.writeHead(500); res.end('Server error');
     }
-}).listen(PORT, () => {
-    console.log('');
-    console.log(`Multibaggers  →  http://localhost:${PORT}`);
-    console.log(`  data : ${DIR}`);
-    console.log('');
+}).listen(PORT, '0.0.0.0', () => {
+    console.log(netinfo.banner('Multibaggers — ground truth', PORT));
 });

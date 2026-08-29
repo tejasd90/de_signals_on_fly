@@ -129,8 +129,31 @@ run skip everything and report "Nothing to do".
 | `node serve_signals_cal.js` | 3500 | Signal calendar, all durations stacked |
 | `node serve_calibrate.js` | 3600 | Fixed-form successes/failures |
 | `node serve_query.js` | 3700 | Expression query with holdout |
+| `node serve_grids.js` | 3800 | Point-in-time signal heatmaps, expiry x time |
 
 All accept `--port`, so several can run at once.
+
+### Access from a phone or another machine
+
+Every viewer binds `0.0.0.0`, so it is reachable from the LAN with no extra
+setup. Each prints its addresses on startup:
+
+```
+Signal cubes — strike × expiry × time
+  local   http://localhost:3800
+  lan     http://192.168.1.42:3800   (en0)
+```
+
+Open the `lan` address on any device on the same network.
+
+Chart links follow whatever host served the page, so they work from a phone too.
+They still point at port 3000, so the charting app must itself be reachable on
+the LAN — if it binds localhost only, the links resolve but the app will not
+answer.
+
+If the LAN address does not respond, it is a firewall rather than the server:
+macOS and Windows both prompt the first time, and a declined prompt is silent
+afterwards.
 
 ---
 
@@ -187,6 +210,10 @@ Run `--signals-only --force-signals`.
 
 **Matrix has one populated row** — strength bands wrong for that signal's scale.
 Fix `STRENGTH_BANDS_BY_SIGNAL[signalId]`; display only, no re-run.
+
+**Heatmap shows far too many expiry rows** — the listing time comes from stored
+candles, so an expiry with none falls back to `EXPIRY_LISTING_WINDOW_DAYS` (40)
+before settlement. Backfill candles for those expiries, or lower the constant.
 
 **Live tape empty but signal files populated** — signals older than
 `LIVE_SIGNAL_WINDOW_HOURS` (48). Expected with long durations.

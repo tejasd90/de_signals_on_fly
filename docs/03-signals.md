@@ -41,9 +41,14 @@ green             → always ends the run, signal or not
 
 ratio1 = firstRedBody / lastRedBody      how tight the squeeze got
 ratio2 = firstRedBody / greenBody        how small the trigger is
-signalValue = ratio1 + ratio2
+signalValue = max(ratio1, ratio2)
 
-fires when signalValue >= RED_SQUEEZE_THRESHOLD (50)
+fires when EITHER ratio clears RED_SQUEEZE_THRESHOLD (15)
+    signalValue >= T is exactly (ratio1 >= T || ratio2 >= T)
+
+Was sum >= 50. The sum let two mediocre ratios combine into a signal neither
+justified, and could MISS a very tight squeeze whose green happened to be
+large. Both ratios remain stored, so a query can still require both.
 ENTRY = the green trigger's close
 ```
 
@@ -80,17 +85,29 @@ signalValue = spot / mean(triggerClose, low of EVERY pattern candle)
     dimensionless, so one threshold serves BTC and XAUT alike
     higher = cheaper option = the reliability claim
 
-fires when signalValue >= OTM_SIGNAL_THRESHOLD (10000)
-    ≈ average price at or below spot/10000, about 10 for BTC near 100k
+fires when signalValue >= OTM_SIGNAL_THRESHOLD (1000)
+    ≈ average price at or below spot/1000 — 100 for BTC near 100k, 4 for XAUT near 4k
 ENTRY = the green trigger's close
 
 also stores distancePct, so cheap-because-deep-OTM can be separated later
 from cheap-and-close
+
+ALSO RECORDS, without using them to fire:
+    firstRedBody, lastRedBody, greenBody, ratio1, ratio2
+
+    Squeeze geometry was removed from SCORING because it failed to rank in the
+    unrestricted red_squeeze. Whether it ranks WITHIN the OTM population is a
+    different and untested question — and unaskable if the numbers are not kept.
 ```
 
-**The threshold is a guess.** Calibrated from two synthetic observations, not real
-data. It silently discards every pattern on an option pricier than ~10, and
-rejected signals leave no trace. Worth one run at 1000 to see the distribution.
+**The threshold was lowered from 10,000 to 1,000.** The original came from two
+synthetic test observations and nothing else. Beyond being arbitrary, a fixed
+price ceiling silently filters by TIME TO EXPIRY as much as by cheapness — a
+40-day option costs far more than the same strike hours before settlement — and
+`tteHours` is a queryable field and a much better way to control that explicitly.
+
+It is kept non-zero only to trim obvious noise from the dashboards. Tighten with
+the display-side minimum, which costs a redraw rather than a re-run.
 
 ---
 
@@ -109,18 +126,27 @@ of identical candles pass as a staircase.
 zero-body → breaks the run, but can still be the breakout: what matters is
             where it CLOSED
 
-ENTRY = the BREAKOUT candle's close, not the last step
+SIGNAL CANDLE = the LAST STEP of the run
+    No separate breakout candle is required to FIRE. The staircase completing IS
+    the signal; activation is then price exceeding the last step's high, the same
+    rule as every other signal.
+
 signalValue = same cheapness measure as otm_red_squeeze
+
+ALSO RECORDS: firstRedBody, lastRedBody, greenBody,
+              ratio1 = lastStepBody / firstStepBody   (staircase steepness)
 ```
 
-**Entry differs from the squeeze signals**, so ratios are not directly comparable
-between them.
+**This replaced an earlier design** where the signal only existed once a later
+candle CLOSED above the run high. That made `green_stairs` fire strictly later,
+less often and at a worse price than the other signals, and made its ratios
+incomparable with theirs. All three now share one activation rule.
 
-A wick above the run high that closes back inside is rejection, not a breakout,
-and is refused.
+A consequence: `green_stairs` fires considerably more often than before, since
+completing the staircase is sufficient.
 
-**A bug worth remembering:** the breaking candle is usually *green* — a run is
-broken far more often by a smaller-bodied green than by a red. The first version
+**A bug worth remembering:** the candle that ends a run is usually *green* — a run
+is broken far more often by a smaller-bodied green than by a red. An early version
 only tested non-green candles and fired zero.
 
 ---
@@ -207,25 +233,51 @@ ratio is untouched. STRUCTURAL — needs `--force-signals` and `patterns.js --fo
 
 ---
 
-## Outcome annotation — all signals
+## Activation and outcomes — all signals
+
+One rule across every signal:
 
 ```
-signalRatio = max(high of EVERY candle after entry) / entry close
+ACTIVATION = price trading above the HIGH of the SIGNAL CANDLE.
+
+An intrabar touch is enough — the candle need NOT close above the level. That
+models a resting stop-buy at the signal candle's high, which fills the moment
+the level trades regardless of where the candle ends.
+
+    triggerPrice = signal candle's high
+    peakAfter    = highest high across ALL candles after the signal candle
+    signalRatio  = peakAfter / triggerPrice
+    brokeOut     = peakAfter > triggerPrice        (strictly above)
+    signalState  = brokeOut ? 'activated' : 'slHit'
+                   'pending' when the signal candle is the last one
 ```
 
-**Never truncated at a stop-loss.** An earlier version stopped measuring at the
-first adverse close, and since options always decay below any pattern-derived
-level, that made every ratio ≈ 1.0 and every state `slHit`.
+The signal candle per signal:
 
-```
-signalState:
-    'activated'  reached SL_FACTOR (1.5x) above entry, or broke out
-    'slHit'      never got there — went against the trade immediately
-    'pending'    the trigger was the last candle; no forward data yet
-```
+| Signal | Signal candle |
+|---|---|
+| `red_squeeze` | the green trigger |
+| `otm_red_squeeze` | the green trigger |
+| `green_stairs` | the **last step** of the staircase |
+| `otm_wall` | the wall candle |
 
-`slHit` does **not** mean stopped out. There is no simulated exit — `signalRatio`
-is the best that was *available*, not what an exit rule would capture.
+### The denominator is the HIGH, not the close
+
+Stricter than the previous definition, and every ratio is correspondingly lower.
+Worked example: a trigger closing at 101 with a high of 105, peaking at 320 after,
+now scores **3.048** where it previously scored 3.168.
+
+That is the point. The high is what a stop entry actually pays, so the number is
+something achievable rather than a best case.
+
+### Never truncated
+
+Measured across all subsequent candles. Options decay below any pattern-derived
+level, so stopping early would drive every ratio to ~1 — which is exactly what an
+earlier version did.
+
+`RED_SQUEEZE_SL_FACTOR` and `OTM_SL_FACTOR` no longer influence state; activation
+is now defined purely by whether the trigger level was reached.
 
 ---
 

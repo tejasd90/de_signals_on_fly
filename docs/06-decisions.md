@@ -94,6 +94,18 @@ entry fails loudly rather than with a confusing module-not-found.
 
 ## Signals
 
+**Activation is an intrabar touch of the signal candle's high, not a close above.**
+A resting stop-buy fills the moment the level trades, whatever the candle does
+afterwards, so requiring a close above would miss fills that genuinely happened.
+The ratio's denominator is that same high rather than the close — stricter, and it
+is what the stop entry actually pays, so the number is achievable rather than a
+best case. Every ratio is lower than under the previous definition.
+
+**`green_stairs` fires at the last step, not at a breakout candle.**
+Previously it required a later candle to close above the run high, which made it
+fire later, less often and at a worse price than the other signals — and made its
+ratios incomparable with theirs. All signals now share one activation rule.
+
 **Outcome ratios are never truncated at a stop-loss.**
 An earlier version stopped measuring at the first adverse close. Since options
 always decay below any pattern-derived level, that made **every** ratio ≈ 1.0 and
@@ -126,6 +138,12 @@ because the underlying fell hard — right shape, wrong direction. Body must exc
 60% of the candle's range to count as decisive, so a long-wicked candle does not
 trigger it.
 
+**The OTM signals record squeeze geometry without firing on it.**
+`ratio1` and `ratio2` were removed from OTM scoring because they failed to rank in
+the unrestricted `red_squeeze`. Removing them from the stored output as well was
+an overreach: whether they rank *within* the OTM population is a separate question,
+and it cannot be asked if the numbers were never kept.
+
 **OTM checked at pattern start, not at trigger.**
 The looser test, so an instrument drifting across the money mid-pattern is kept.
 Chosen to avoid missing real signals.
@@ -149,6 +167,17 @@ because the big multiple usually lands elsewhere in the chain.
 **Calls and puts are reported separately by default in `quality.js`.**
 Pooling them halves a genuine edge: with calls carrying an 80% pocket and puts
 flat at 10%, the pooled figure read 46%.
+
+**red_squeeze fires on max(ratio1, ratio2), not their sum.**
+A sum let two unremarkable ratios combine into a signal neither justified, and
+could miss a very tight squeeze whose green happened to be large. Using the max
+also makes `signalValue >= T` exactly equivalent to the firing rule, which keeps
+the calibration tools and the prefilled query filter honest.
+
+**Storage thresholds are loose; tightening happens at display time.**
+A high stored threshold discards irreversibly — those signals are never written
+and cannot be recovered without a re-run. The dashboards now carry their own
+minimum, so filtering is visible, adjustable and costs a redraw.
 
 **Strength bands are per signal.**
 `signalValue` means something different in each, on wildly different scales:
@@ -225,6 +254,72 @@ Network faults and 5xx retry with exponential backoff; 429 gets a 30-second floo
 ---
 
 ## Viewers
+
+**The signal view is a 2D heatmap, not a 3D cube.**
+An earlier version used strike as a third axis. That was a design error: a
+(strike, expiry, time) cell identifies exactly ONE instrument, so its count could
+only ever be 0 or 1 and the shading carried no information at all. Collapsing
+strike into a COUNT is what makes shading meaningful — a cell now says how many
+strikes fired together, which is the confluence question worth asking.
+
+**The heatmap is a POINT-IN-TIME SNAPSHOT, not a history.**
+Rows are the expiries STILL ALIVE at the selected moment — settlement strictly
+after it — over the last N candles behind it. An earlier version showed every
+settled expiry across all history, which piled unrelated expiries into one grid
+and made a correct filter look broken. An expiry that had already settled was not
+on your screen and could not have been traded, so it does not belong in a view of
+that moment.
+
+**An expiry counts as alive only once it was LISTED, and the candles say when.**
+Filtering on "settles after this moment" alone treats every future expiry as
+available — 67 rows at once, where a real board carries a handful of dailies,
+weeklies and monthlies. The first candle for an expiry is when it began trading,
+and that is already on disk, so no hardcoded listing calendar is needed. Scanned
+at the coarsest stored duration (fewest candles per file) and cached per expiry.
+
+`EXPIRY_LISTING_WINDOW_DAYS` (40) is only the fallback for expiries with no
+stored candles, and matches the window the fetcher already assumes.
+
+**Rows come from the INSTRUMENT list, not from firings.**
+Deriving rows from signals meant an expiry with nothing to show simply vanished —
+so calls and puts displayed different rows for the same moment, and a quiet
+expiry looked as though it had not existed. Every expiry alive at the selected
+moment now gets a row, and calls and puts share one row set so they can be read
+side by side. An empty row is information: this expiry was tradeable and nothing
+fired on it.
+
+**A duration with no firings is hidden, and the count is stated.**
+Otherwise sixteen empty grids bury the two that matter. The header reports how
+many were hidden, and a checkbox shows them, so a missing duration is explained
+rather than looking like a fault.
+
+**Columns are CANDLE SLOTS, not distinct firing moments.**
+Generated by walking back on the candle grid via `getKeyDuration`, so they align
+exactly with stored candle timestamps and a slot where nothing fired still
+appears. An empty column is information; skipping it made sparse durations look
+busier than they were.
+
+**Column labels carry the year only when the columns span more than one.**
+A column reading `07-15` beside a row reading `2024-07-19` gives no way to tell
+whether they are the same year. Always showing the year would waste header space
+in the common single-year case, so it is conditional. Each duration header also
+states the span it covers.
+
+**Cells count DISTINCT STRIKES, not firings.**
+The same strike appearing in two overlapping merged ranges at one timestamp is
+one strike having fired. Counting it twice would make broad-but-shallow moments
+look deep.
+
+**Cell borders are 2px and LIGHT.**
+A 1px near-black border on a near-black background is invisible — it reads as
+background wherever a cell has space around it. Measured on the earlier canvas
+version: zero distinguishable border pixels dark, thousands light. In a table the
+border is CSS, so it cannot be overpainted by a neighbouring cell the way canvas
+rectangles could.
+
+**Durations are ordered longest first.**
+The coarse grid has fewest columns and reads immediately, so it is the one you
+orient with before looking at the dense ones.
 
 **Per-expiry summaries are precomputed.**
 A calendar needs one number per side per expiry. Deriving that live would mean

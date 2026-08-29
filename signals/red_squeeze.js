@@ -14,8 +14,17 @@
 // and cannot act as the trigger. See ZERO-BODY POLICY below for why.
 //
 // Outcome annotation (for past expiries with full candle history):
-//   signalRatio = max(high of all candles after trigger) / trigger close
-//   signalState = 'activated' if signalRatio >= SL_FACTOR, else 'slHit'
+//   ACTIVATION = price trading above the HIGH of the green trigger candle.
+//   An intrabar touch suffices; no close above is required. That models a
+//   resting stop-buy at the trigger's high, which fills as soon as the level
+//   trades regardless of where the candle ends.
+//
+//   triggerPrice = green trigger candle's high
+//   signalRatio  = max(high of all candles after the trigger) / triggerPrice
+//   signalState  = 'activated' if that peak exceeded triggerPrice, else 'slHit'
+//
+//   The denominator is the HIGH, not the close — stricter, and it is what a stop
+//   entry would actually pay.
 //
 // Each signal object:
 //   {
@@ -29,7 +38,7 @@
 //     patternStart:  string,   — dtstring of the first red candle in sequence
 //     ratio1:        number,   — firstRedBody / lastRedBody
 //     ratio2:        number,   — firstRedBody / greenBody
-//     signalValue:   number,   — ratio1 + ratio2
+//     signalValue:   number,   — max(ratio1, ratio2)
 //     signalState:   string,   — 'activated' | 'slHit' | 'pending'
 //     signalRatio:   number,   — peak multiple from entry (0 if pending)
 //   }
@@ -82,7 +91,15 @@ function r3(n) { return Math.round(n * 1000) / 1000; }
 // ─── Signal function ──────────────────────────────────────────────────────────
 
 function signalFn(ratio1, ratio2) {
-    return ratio1 + ratio2;
+    // MAX, not sum. Firing is "either ratio clears the bar", so max makes
+    // signalValue and the threshold consistent: signalValue >= T is exactly
+    // (ratio1 >= T || ratio2 >= T). With a sum, two mediocre ratios could clear
+    // a bar that neither could alone — a tight squeeze into a large green scored
+    // the same as a loose one into a tiny green, which are different setups.
+    //
+    // ratio1 and ratio2 remain stored separately, so a query can still require
+    // both, or either, independently of how firing is decided.
+    return Math.max(ratio1, ratio2);
 }
 
 // ─── Main compute ─────────────────────────────────────────────────────────────
@@ -153,6 +170,7 @@ function computeSignals(candles, instrument = '', opts = {}) {
                     ratio2:       r3(ratio2),
                     signalValue:  r3(signalValue),
                     signalState:  'pending',             // annotated below
+                    triggerPrice: r3(candle.high),   // ACTIVATION LEVEL
                     signalRatio:  0,
                 });
 
@@ -184,15 +202,26 @@ function annotateOutcomes(signals, allCandles) {
     for (const sig of signals) {
         const triggerIdx = allCandles.findIndex(c => c.dtstring === sig.dtstring);
         if (triggerIdx < 0 || triggerIdx === allCandles.length - 1) {
-            sig.signalState = 'pending';
-            sig.signalRatio = 0;
+            sig.signalState  = 'pending';
+            sig.signalRatio  = 0;
+            sig.brokeOut     = false;
+            sig.peakAfter    = 0;
             continue;
         }
 
+        // Trigger is the green candle's own HIGH, not its close.
+        const triggerPrice = sig.triggerPrice ?? allCandles[triggerIdx].high;
+
         const after    = allCandles.slice(triggerIdx + 1);
         const peakHigh = Math.max(...after.map(c => c.high));
-        sig.signalRatio = r3(peakHigh / sig.close);
-        sig.signalState = sig.signalRatio >= SL_FACT ? 'activated' : 'slHit';
+
+        sig.triggerPrice = r3(triggerPrice);
+        sig.peakAfter    = r3(peakHigh);
+        sig.signalRatio  = triggerPrice > 0 ? r3(peakHigh / triggerPrice) : 0;
+
+        // Strictly above: trading exactly AT the high does not prove a fill.
+        sig.brokeOut     = peakHigh > triggerPrice;
+        sig.signalState  = sig.brokeOut ? 'activated' : 'slHit';
     }
 }
 

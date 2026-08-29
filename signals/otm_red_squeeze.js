@@ -75,6 +75,17 @@ function computeSignals(candles, instrument, ctx, opts = {}) {
         }
 
         const patternCandles = redSeq.concat([candle]);
+
+        // Squeeze geometry is RECORDED but not used to fire. It was removed from
+        // scoring deliberately — it failed to rank in the unrestricted
+        // red_squeeze — but whether it ranks WITHIN the OTM population is a
+        // different and untested question, and it cannot be asked if the numbers
+        // are never stored.
+        const firstRedBody = c.bodyLen(redSeq[0]);
+        const lastRedBody  = c.bodyLen(redSeq[redSeq.length - 1]);
+        const greenBody    = c.bodyLen(candle);
+        const ratio1 = lastRedBody > 0 ? firstRedBody / lastRedBody : 0;
+        const ratio2 = greenBody   > 0 ? firstRedBody / greenBody   : 0;
         const { avgPrice, signalValue } =
             c.computeStrength(patternCandles, candle.close, spotAtStart.close);
 
@@ -86,10 +97,19 @@ function computeSignals(candles, instrument, ctx, opts = {}) {
                 patternHigh:  Math.max(...patternCandles.map(x => x.high)),
                 patternLow:   c.r4(Math.min(...patternCandles.map(x => x.low))),
                 seqLength:    redSeq.length,
+
+                // Descriptive only — see above.
+                firstRedBody: c.r3(firstRedBody),
+                lastRedBody:  c.r3(lastRedBody),
+                greenBody:    c.r3(greenBody),
+                ratio1:       c.r3(ratio1),
+                ratio2:       c.r3(ratio2),
+
                 avgPrice,
                 spotAtStart:  c.r3(spotAtStart.close),
                 distancePct:  c.distancePct(instrument.type, instrument.strike, spotAtStart),
                 signalValue,
+                triggerPrice: c.r4(candle.high),   // ACTIVATION LEVEL
                 signalState:  'pending',
                 signalRatio:  0,
                 brokeOut:     false,

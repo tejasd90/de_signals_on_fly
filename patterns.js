@@ -103,6 +103,7 @@ function toRow(sig, ctx) {
         seqLength:   sig.seqLength   ?? null,
         patternHigh: sig.patternHigh ?? null,
         patternLow:  sig.patternLow  ?? null,
+        triggerPrice: sig.triggerPrice ?? null,
 
         // red_squeeze family
         ratio1:      sig.ratio1       ?? null,
@@ -132,6 +133,7 @@ function toRow(sig, ctx) {
         state:       sig.signalState,
         brokeOut:    sig.brokeOut ?? null,
         holdCandles: sig.holdCandles ?? null,
+        peakAfter:   sig.peakAfter ?? null,
     };
 }
 

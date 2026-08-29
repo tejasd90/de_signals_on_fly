@@ -26,13 +26,18 @@ const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 const cfg   = require('./config');
+const netinfo = require('./netinfo');
 const ql    = require('./query_lang');
 
 const args = process.argv.slice(2);
 const PORT = args.includes('--port') ? parseInt(args[args.indexOf('--port') + 1]) : 3700;
 const DIR  = path.join(cfg.DATA_BASE_DIR, 'patterns');
 
-const CHART_BASE = 'http://localhost:3000/de';
+// Host-relative. Hardcoding localhost meant a chart link opened on a phone
+// resolved to the PHONE, so every link 404'd off the LAN. The page substitutes
+// its own hostname client-side.
+const CHART_HOST_PLACEHOLDER = '__CHART_HOST__';
+const CHART_BASE = `http://${CHART_HOST_PLACEHOLDER}:3000/de`;
 const CHART_LEAD_CANDLES = 40;
 
 // Walk-forward: several sequential folds rather than one split.
@@ -194,6 +199,30 @@ function chartUrl(r) {
 
 // ─── Evaluation ───────────────────────────────────────────────────────────────
 
+/**
+ * Fields referenced by an expression that are null or absent on EVERY row.
+ *
+ * A missing numeric field evaluates to 0, so a clause like `ratio1 + ratio2 > 50`
+ * on a signal that never computes those fields parses cleanly, is always false,
+ * and returns an empty table with no explanation. Naming the field turns a silent
+ * zero into a reason.
+ */
+function unpopulatedFields(expr, rows) {
+    if (!expr || !expr.fields || !rows.length) return [];
+
+    const sample = rows.length > 5000
+        ? rows.filter((_, i) => i % Math.ceil(rows.length / 5000) === 0)
+        : rows;
+
+    const missing = [];
+    for (const f of expr.fields) {
+        if (!ql.FIELDS[f] || ql.FIELDS[f].derived) continue;
+        const anyPopulated = sample.some(r => r[f] !== undefined && r[f] !== null);
+        if (!anyPopulated) missing.push(f);
+    }
+    return missing;
+}
+
 function runQuery(rows, folds, filterSrc, successSrc, limit, derivedSrc, merge) {
     ql.clearDerived();
     const derived = derivedSrc && derivedSrc.trim() ? ql.parseDerived(derivedSrc) : [];
@@ -202,6 +231,11 @@ function runQuery(rows, folds, filterSrc, successSrc, limit, derivedSrc, merge) 
         ? ql.compile(filterSrc,  { allowOutcome: false })   // lookahead guard
         : () => true;
     const successFn = ql.compile(successSrc, { allowOutcome: true });
+
+    const notPopulated = [
+        ...unpopulatedFields(filterFn,  rows),
+        ...unpopulatedFields(successFn, rows),
+    ].filter((v, i, a) => a.indexOf(v) === i);
 
     // Filter FIRST, merge after. Merging before would collapse the
     // per-instrument fields the filter works on into maxima.
@@ -259,6 +293,7 @@ function runQuery(rows, folds, filterSrc, successSrc, limit, derivedSrc, merge) 
 
     return {
         merged: !!merge,
+        notPopulated,
         totalRows: kept.length,
         total: overall.n,
         all: { n: overall.n, wins: overall.wins, pct: pct(overall) },
@@ -527,6 +562,11 @@ function renderPage() {
 </div>
 
 <script>
+// Chart links are built server-side with a placeholder host; swap in whatever
+// host actually served this page so links work from any device on the LAN.
+document.addEventListener('DOMContentLoaded',()=>{},{once:true});
+const CHART_HOST=location.hostname;
+function fixChartUrl(u){ return String(u||'').replace('__CHART_HOST__',CHART_HOST); }
 const FIELDS=${JSON.stringify(fieldRows)};
 const FUNCS=${JSON.stringify(funcRows)};
 const RCOL=['var(--r0)','var(--r1)','var(--r2)','var(--r3)','var(--r4)'];
@@ -571,6 +611,10 @@ function renderMetrics(r){
   $('folds').innerHTML=h+'</tbody></table>';
 
   let w='';
+  if(r.notPopulated && r.notPopulated.length)
+    w+='<b>Not populated for this signal: '+r.notPopulated.map(esc).join(', ')+'.</b> '+
+       'Missing numeric fields evaluate to 0, so any clause using them matches nothing. '+
+       'Check the field table for what this signal records.<br>';
   const thin=r.folds.some(f=>f.test.thin);
   if(thin) w+='<b>Thin fold.</b> At least one test window has fewer than '+MIN_SAMPLE+
               ' units — that percentage is noise. Loosen the filter.<br>';
@@ -605,7 +649,7 @@ function renderTable(el,rows){
       '<td class="ts">'+esc(shortTs(r.startTs))+'</td>'+
       '<td class="ts">'+esc(shortTs(r.entryTs))+'</td>'+
       '<td class="num">'+r.count+'</td>'+
-      '<td>'+(r.url?'<a href="'+esc(r.url)+'" target="_blank" rel="noopener">'+
+      '<td>'+(r.url?'<a href="'+esc(fixChartUrl(r.url))+'" target="_blank" rel="noopener">'+
         esc(r.univSymbol||r.symbols[0])+' ↗</a>':esc(r.symbols[0]||'—'))+
         (r.count>1?' <span class="ts">+'+(r.count-1)+'</span>':'')+'</td>'+
       '<td class="num">'+(r.tteHours==null?'—':r.tteHours.toFixed(0))+'</td>'+
@@ -729,12 +773,6 @@ http.createServer((req, res) => {
         console.error(`Error on ${url}:`, err);
         res.writeHead(500); res.end('Server error');
     }
-}).listen(PORT, () => {
-    console.log('');
-    console.log(`Query  →  http://localhost:${PORT}`);
-    console.log(`  patterns : ${DIR}`);
-    console.log(`  signals  : ${listSignals().join(', ') || '(none — run patterns.js)'}`);
-    console.log(`  split    : ${WALK_FORWARD_FOLDS} walk-forward folds by expiry date` +
-                `${PURGE_ENABLED ? ', purged at each boundary' : ''}`);
-    console.log('');
+}).listen(PORT, '0.0.0.0', () => {
+    console.log(netinfo.banner('Query — filter, success, holdout', PORT));
 });

@@ -66,7 +66,9 @@ description and an `outcome` flag — the tokeniser, parser and UI all read from
 
 **Entry context** — `tteHours` `spotPrice` `distancePct` `otm` `entryPrice`
 
-**Pattern shape** — `seqLength` `patternHigh` `patternLow`
+**Pattern shape** — `seqLength` `patternHigh` `patternLow` `triggerPrice`
+
+`triggerPrice` is the activation level: the signal candle's high.
 
 **red_squeeze family** — `ratio1` `ratio2` `firstBody` `lastBody` `triggerBody`
 
@@ -78,11 +80,24 @@ description and an `outcome` flag — the tokeniser, parser and UI all read from
 
 **Generic** — `signalValue`
 
-**OUTCOMES, banned in filters** — `ratio` `univRatio` `state` `brokeOut` `holdCandles`
+**OUTCOMES, banned in filters** — `ratio` `univRatio` `state` `brokeOut`
+`holdCandles` `peakAfter`
 
-38 fields in total: 33 usable in filters, 5 outcome-only.
+40 fields in total: 34 usable in filters, 6 outcome-only.
 
-A missing numeric field evaluates to **0**, never NaN. Signals of different kinds
+**Not every field exists on every signal.** `ratio1` is recorded by
+`red_squeeze`, `otm_red_squeeze` and `green_stairs`, but not by `otm_wall`.
+
+A missing numeric field evaluates to **0**, never NaN — so a clause using one
+parses cleanly and is simply always false. The result panel therefore warns when
+a referenced field is unpopulated across every row:
+
+```
+Not populated for this signal: ratio1, ratio2.
+Missing numeric fields evaluate to 0, so any clause using them matches nothing.
+```
+
+Without that, the clause returns an empty table and looks like a real result. Signals of different kinds
 share one table, so `ratio1` simply does not exist on a wall signal, and NaN would
 poison every comparison it touched.
 
@@ -257,7 +272,7 @@ If it outgrows JSON, the answer is a columnar store rather than a smaller datase
 
 ## What is and is not expressible
 
-**Expressible now** — anything over the 38 stored fields, the 12 functions, and
+**Expressible now** — anything over the 40 stored fields, the 12 functions, and
 any computed field built from them. Arithmetic, comparisons, boolean logic,
 `in [...]`, `between`, parentheses, nesting.
 

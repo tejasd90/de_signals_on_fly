@@ -20,6 +20,7 @@ const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 const cfg  = require('./config');
+const netinfo = require('./netinfo');
 
 const args = process.argv.slice(2);
 const PORT = args.includes('--port') ? parseInt(args[args.indexOf('--port') + 1]) : 3200;
@@ -337,10 +338,6 @@ http.createServer((req, res) => {
         console.error(`Error on ${url}:`, err);
         res.writeHead(500); res.end('Server error');
     }
-}).listen(PORT, () => {
-    console.log('');
-    console.log(`Live board  →  http://localhost:${PORT}`);
-    console.log(`  snapshots : ${LIVE_DIR}`);
-    console.log(`  refresh   : every ${cfg.LIVE_REFRESH_MS / 1000}s`);
-    console.log('');
+}).listen(PORT, '0.0.0.0', () => {
+    console.log(netinfo.banner('Live board', PORT));
 });

@@ -23,6 +23,7 @@ crypto_v2/
 ├── serve_signals_cal.js   :3500   signal calendar
 ├── serve_calibrate.js     :3600   fixed-form calibration
 ├── serve_query.js         :3700   expression query + holdout
+├── serve_grids.js         :3800   signal heatmaps, expiry x time
 │
 │  ── CONFIG / REGISTRIES ───────────────────────────────────────
 ├── config.js              everything tunable
@@ -32,6 +33,7 @@ crypto_v2/
 │  ── INFRASTRUCTURE ────────────────────────────────────────────
 ├── api.js                 HTTP, retries, backoff
 ├── logger.js              per-execution log directories
+├── netinfo.js             LAN addresses for startup banners
 ├── expiry.js              per-spot settlement times
 ├── instruments.js         instrument lists
 ├── scheduler.js           weighted expiry priority

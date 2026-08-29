@@ -23,12 +23,17 @@ const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 const cfg  = require('./config');
+const netinfo = require('./netinfo');
 
 const args = process.argv.slice(2);
 const PORT = args.includes('--port') ? parseInt(args[args.indexOf('--port') + 1]) : 3400;
 const DIR  = path.join(cfg.DATA_BASE_DIR, 'trades');
 
-const CHART_BASE = 'http://localhost:3000/de';
+// Host-relative. Hardcoding localhost meant a chart link opened on a phone
+// resolved to the PHONE, so every link 404'd off the LAN. The page substitutes
+// its own hostname client-side.
+const CHART_HOST_PLACEHOLDER = '__CHART_HOST__';
+const CHART_BASE = `http://${CHART_HOST_PLACEHOLDER}:3000/de`;
 
 // Lead-in before the trade window. Longer than the 20 used for signals: the
 // question is what the setup looked like before the low, and opening at the low
@@ -291,6 +296,11 @@ function renderPage() {
 </div>
 
 <script>
+// Chart links are built server-side with a placeholder host; swap in whatever
+// host actually served this page so links work from any device on the LAN.
+document.addEventListener('DOMContentLoaded',()=>{},{once:true});
+const CHART_HOST=location.hostname;
+function fixChartUrl(u){ return String(u||'').replace('__CHART_HOST__',CHART_HOST); }
 const RCOL=['var(--r0)','var(--r1)','var(--r2)','var(--r3)','var(--r4)'];
 const BANDS=${JSON.stringify(cfg.RATIO_BANDS.map(b => ({ label: b.label, min: b.min, max: b.max === Infinity ? null : b.max })))};
 const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -402,7 +412,7 @@ function renderSide(type){
         '<td class="num">'+e.holdCandles+'</td>'+
         '<td class="num">'+(e.distancePct==null?'—':'<span class="tag'+(e.otm?' otm':'')+'">'+e.distancePct+'%</span>')+'</td>'+
         '<td><div class="instr">'+e.instruments.map(i=>
-          '<a href="'+esc(i.url)+'" target="_blank" rel="noopener" class="'+(i.symbol===e.maxSymbol?'best':'')+
+          '<a href="'+esc(fixChartUrl(i.url))+'" target="_blank" rel="noopener" class="'+(i.symbol===e.maxSymbol?'best':'')+
           '" title="'+esc(i.symbol+'  '+i.ratio+'x')+'">'+esc(i.symbol)+' '+i.ratio+'x</a>').join('')+
         '</div></td></tr>';
     }
@@ -487,9 +497,6 @@ http.createServer((req, res) => {
         console.error(`Error on ${url}:`, err);
         res.writeHead(500); res.end('Server error');
     }
-}).listen(PORT, () => {
-    console.log('');
-    console.log(`Trades  →  http://localhost:${PORT}`);
-    console.log(`  data : ${DIR}`);
-    console.log('');
+}).listen(PORT, '0.0.0.0', () => {
+    console.log(netinfo.banner('Trades — what actually happened', PORT));
 });

@@ -168,6 +168,7 @@ function computeSignals(candles, instrument, ctx, opts = {}) {
             spotAtStart:  c.r3(spotAtStart.close),
             distancePct:  c.distancePct(instrument.type, instrument.strike, spotAtStart),
             signalValue:  c.r3(best.jump),          // orders of magnitude
+            triggerPrice: c.r4(candle.high),        // ACTIVATION LEVEL: the wall's high
             signalState:  'pending',
             signalRatio:  0,
             brokeOut:     false,

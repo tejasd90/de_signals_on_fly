@@ -15,15 +15,16 @@
 // outright loses good patterns, but allowing many lets a run of identical
 // candles — which is not a staircase at all — pass as one.
 //
-// ENTRY IS THE BREAKOUT, NOT THE LAST STEP
-// The staircase is the setup; the breakout is the confirmation. Entry is the
-// close of the candle that breaks above the run's high, matching the original
-// stairs implementation which measured its ratio from the activating close.
-// This differs from otm_red_squeeze, where entry is the trigger itself — so
-// ratios between the two signals are not directly comparable.
+// THE SIGNAL CANDLE IS THE LAST STEP
+// The staircase completing IS the signal. A separate breakout candle is no
+// longer required to fire — activation is now defined uniformly across every
+// signal as price trading above the SIGNAL CANDLE's high, which for a staircase
+// is the last step.
 //
-// Because a signal only exists once the breakout has happened, signalState is
-// 'activated' by construction. slHit is retained for later use.
+// This replaced an earlier design where the signal only existed once a later
+// candle CLOSED above the run high. That made green_stairs fire strictly later,
+// less often, and at a worse price than the other signals, and made its ratios
+// incomparable with theirs. Now all three share one activation rule.
 // ─────────────────────────────────────────────────────────────────────────────
 
 'use strict';
@@ -47,53 +48,61 @@ function computeSignals(candles, instrument, ctx, opts = {}) {
 
     const resetSeq = () => { seq = []; equalUsed = 0; };
 
-    // Fire the signal if `breakCandle` ends a long enough run by closing above it.
-    const tryFire = (breakCandle) => {
+    // Fire when a run of at least MIN_SEQ ends. The candle that ENDS the run is
+    // not part of it — the signal candle is the last STEP, and its high is the
+    // activation level.
+    const tryFire = () => {
         if (seq.length < c.MIN_SEQ) return;
 
+        const lastStep    = seq[seq.length - 1];
+        const startCandle = seq[0];
         const patternHigh = Math.max(...seq.map(x => x.high));
 
-        // Activation needs a CLOSE above the run's high. Trading through it
-        // intrabar is not enough: a long upper wick closing back inside is
-        // rejection, not a breakout.
-        if (breakCandle.close <= patternHigh) return;
-
-        const startCandle = seq[0];
         const spotAtStart = spotByTs.get(startCandle.dtstring);
         if (!c.isOTM(instrument.type, instrument.strike, spotAtStart)) return;
 
         const { avgPrice, signalValue } =
-            c.computeStrength(seq, breakCandle.close, spotAtStart.close);
+            c.computeStrength(seq, lastStep.close, spotAtStart.close);
         if (signalValue < minValue) return;
 
+        // Descriptive only — the staircase's steepness. Not used to fire.
+        const firstBody = c.bodyLen(seq[0]);
+        const lastBody  = c.bodyLen(lastStep);
+        const stepRatio = firstBody > 0 ? lastBody / firstBody : 0;
+
         signals.push({
-            dtstring:     breakCandle.dtstring,     // breakout candle = entry
-            close:        breakCandle.close,
+            dtstring:     lastStep.dtstring,        // SIGNAL CANDLE = last step
+            close:        lastStep.close,
+            triggerPrice: c.r4(lastStep.high),      // ACTIVATION LEVEL
             patternStart: startCandle.dtstring,
             patternHigh,
             patternLow:   c.r4(Math.min(...seq.map(x => x.low))),
             seqLength:    seq.length,
             equalSteps:   equalUsed,
+
+            firstRedBody: c.r3(firstBody),
+            lastRedBody:  c.r3(lastBody),
+            greenBody:    c.r3(lastBody),
+            ratio1:       c.r3(stepRatio),
+            ratio2:       0,
+
             avgPrice,
             spotAtStart:  c.r3(spotAtStart.close),
             distancePct:  c.distancePct(instrument.type, instrument.strike, spotAtStart),
             signalValue,
             signalState:  'pending',
             signalRatio:  0,
-            brokeOut:     true,
+            brokeOut:     false,
         });
     };
 
     for (let i = 1; i < candles.length; i++) {
         const candle = candles[i];
 
-        // A zero-body candle ends the run. It can still be the breakout: what
-        // matters is where it CLOSED, not that it had no body.
-        if (c.isZeroBody(candle)) { tryFire(candle); resetSeq(); continue; }
+        if (c.isZeroBody(candle)) { tryFire(); resetSeq(); continue; }
 
         const body = c.bodyLen(candle);
 
-        // Does this candle CONTINUE the ascent?
         let continues = false;
         if (c.isGreen(candle)) {
             if (seq.length === 0) {
@@ -111,26 +120,18 @@ function computeSignals(candles, instrument, ctx, opts = {}) {
 
         if (continues) { seq.push(candle); continue; }
 
-        // The ascent ends here, so this candle is the breakout candidate.
-        //
-        // Note it is usually GREEN: an ascending run is broken by a green candle
-        // with a smaller body far more often than by a red one. An earlier
-        // version only tested non-green candles and therefore almost never fired.
-        tryFire(candle);
+        // The ascent ends here. Fire on the run that just completed, then start
+        // a new one if this candle is itself green.
+        tryFire();
         resetSeq();
-
-        // A green candle that ended one run begins the next.
         if (c.isGreen(candle)) seq.push(candle);
     }
 
-    c.annotateOutcomes(signals, candles);
+    // A run still ascending at the end of the data can still fire; its outcome
+    // will simply be 'pending'.
+    tryFire();
 
-    // annotateOutcomes derives brokeOut by looking forward from entry, but here
-    // the breakout IS entry, so restore it.
-    for (const s of signals) {
-        s.brokeOut = true;
-        if (s.signalState === 'slHit' && s.signalRatio >= c.SL_FACTOR) s.signalState = 'activated';
-    }
+    c.annotateOutcomes(signals, candles);
 
     if (signals.length) {
         logger.debug('green_stairs',

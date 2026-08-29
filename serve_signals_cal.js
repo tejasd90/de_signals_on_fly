@@ -22,6 +22,7 @@ const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 const cfg    = require('./config');
+const netinfo = require('./netinfo');
 const writer = require('./writer');
 const api    = require('./api');
 const expiryMod = require('./expiry');
@@ -34,7 +35,11 @@ const PORT      = args.includes('--port')   ? parseInt(args[args.indexOf('--port
 let SIGNAL_ID = args.includes('--signal') ? args[args.indexOf('--signal') + 1] : 'red_squeeze';
 function setSignal(id) { if (id && id !== SIGNAL_ID) SIGNAL_ID = id; }
 
-const CHART_BASE = 'http://localhost:3000/de';
+// Host-relative. Hardcoding localhost meant a chart link opened on a phone
+// resolved to the PHONE, so every link 404'd off the LAN. The page substitutes
+// its own hostname client-side.
+const CHART_HOST_PLACEHOLDER = '__CHART_HOST__';
+const CHART_BASE = `http://${CHART_HOST_PLACEHOLDER}:3000/de`;
 const CHART_LEAD_CANDLES = 40;
 const CHART_TAIL_MINUTES = 30;
 
@@ -288,6 +293,11 @@ function renderPage() {
 </div>
 
 <script>
+// Chart links are built server-side with a placeholder host; swap in whatever
+// host actually served this page so links work from any device on the LAN.
+document.addEventListener('DOMContentLoaded',()=>{},{once:true});
+const CHART_HOST=location.hostname;
+function fixChartUrl(u){ return String(u||'').replace('__CHART_HOST__',CHART_HOST); }
 const RCOL=['var(--r0)','var(--r1)','var(--r2)','var(--r3)','var(--r4)'];
 const SCOL=['var(--s0)','var(--s1)','var(--s2)','var(--s3)','var(--s4)'];
 const BANDS=${JSON.stringify(cfg.RATIO_BANDS.map(b => ({ label: b.label, min: b.min, max: b.max === Infinity ? null : b.max })))};
@@ -396,9 +406,9 @@ function renderSide(type){
         '<td class="num">'+e.count+'</td>'+
         '<td><span class="state '+esc(e.state)+'">'+esc(e.state)+'</span></td>'+
         '<td><div class="instr"><span class="lbl">fired</span>'+
-          e.instruments.map(i=>'<a href="'+esc(i.url)+'" target="_blank" rel="noopener">'+esc(i.symbol)+'</a>').join('')+
+          e.instruments.map(i=>'<a href="'+esc(fixChartUrl(i.url))+'" target="_blank" rel="noopener">'+esc(i.symbol)+'</a>').join('')+
           (e.univSymbol && e.univUrl && !fired.has(e.univSymbol)
-            ? '<span class="lbl">best</span><a href="'+esc(e.univUrl)+'" target="_blank" rel="noopener" style="border-style:dashed;color:'+
+            ? '<span class="lbl">best</span><a href="'+esc(fixChartUrl(e.univUrl))+'" target="_blank" rel="noopener" style="border-style:dashed;color:'+
               (ub===null?'var(--muted)':RCOL[ub])+';border-color:'+(ub===null?'var(--line)':RCOL[ub])+'">'+
               esc(e.univSymbol)+' '+e.univ.toFixed(1)+'x</a>' : '')+
         '</div></td></tr>';
@@ -518,10 +528,6 @@ http.createServer((req, res) => {
         console.error(`Error on ${url}:`, err);
         res.writeHead(500); res.end('Server error');
     }
-}).listen(PORT, () => {
-    console.log('');
-    console.log(`Signals calendar  →  http://localhost:${PORT}`);
-    console.log(`  signal : ${SIGNAL_ID}  (switchable in the page)`);
-    console.log(`  signals available: ${listSignalIds().join(', ') || '(none)'}`);
-    console.log('');
+}).listen(PORT, '0.0.0.0', () => {
+    console.log(netinfo.banner('Signals calendar', PORT));
 });

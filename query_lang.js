@@ -47,6 +47,19 @@ const FIELDS = {
     strike:      { type: 'number',  outcome: false, desc: 'Strike price' },
     duration:    { type: 'number',  outcome: false, desc: 'Candle duration in minutes' },
 
+    // ── Time of day at entry ──
+    //
+    // Derived at LOAD time from entryTs, which stage 1 already stores, so these
+    // needed no re-extraction. All in IST, matching the +0530 the timestamps
+    // carry — crypto trades round the clock, so hour-of-day is a real variable
+    // rather than a session artefact.
+    entryHour:   { type: 'number',  outcome: false, desc: 'Hour of entry, 0-23 IST' },
+    entryMinute: { type: 'number',  outcome: false, desc: 'Minute of entry, 0-59' },
+    entryHourF:  { type: 'number',  outcome: false, desc: 'Fractional hour, e.g. 16.5 = 16:30' },
+    entryDow:    { type: 'number',  outcome: false, desc: 'Day of week at entry, 1=Mon .. 7=Sun' },
+    entryDate:   { type: 'string',  outcome: false, desc: 'Entry date, YYYY-MM-DD' },
+    entryTs:     { type: 'string',  outcome: false, desc: 'Full entry timestamp' },
+
     // ── Context at entry ──
     tteHours:    { type: 'number',  outcome: false, desc: 'Hours to expiry when the signal fired' },
     spotPrice:   { type: 'number',  outcome: false, desc: 'Spot at pattern start' },
@@ -58,6 +71,7 @@ const FIELDS = {
     seqLength:   { type: 'number',  outcome: false, desc: 'Candles in the pattern sequence' },
     patternHigh: { type: 'number',  outcome: false, desc: 'Highest high across the pattern' },
     patternLow:  { type: 'number',  outcome: false, desc: 'Lowest low across the pattern' },
+    triggerPrice:{ type: 'number',  outcome: false, desc: 'Activation level — the signal candle high' },
 
     // ── red_squeeze / otm_red_squeeze ──
     ratio1:      { type: 'number',  outcome: false, desc: 'firstRedBody / lastRedBody' },
@@ -87,6 +101,7 @@ const FIELDS = {
     state:       { type: 'string',  outcome: true,  desc: "'activated' | 'slHit' | 'pending'" },
     brokeOut:    { type: 'boolean', outcome: true,  desc: 'Closed above the pattern high afterwards' },
     holdCandles: { type: 'number',  outcome: true,  desc: 'Candles from entry to peak' },
+    peakAfter:   { type: 'number',  outcome: true,  desc: 'Highest price after the signal candle' },
 };
 
 /** Register a field at runtime. Returns false if the name is taken. */

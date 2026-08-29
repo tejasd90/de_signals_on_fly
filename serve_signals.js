@@ -28,6 +28,7 @@ const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 const cfg  = require('./config');
+const netinfo = require('./netinfo');
 const api  = require('./api');
 const expiryMod = require('./expiry');
 
@@ -38,7 +39,11 @@ const PORT = args.includes('--port') ? parseInt(args[args.indexOf('--port') + 1]
 const SIGNAL_ID = args.includes('--signal') ? args[args.indexOf('--signal') + 1] : 'red_squeeze';
 
 // Your charting app.
-const CHART_BASE = 'http://localhost:3000/de';
+// Host-relative. Hardcoding localhost meant a chart link opened on a phone
+// resolved to the PHONE, so every link 404'd off the LAN. The page substitutes
+// its own hostname client-side.
+const CHART_HOST_PLACEHOLDER = '__CHART_HOST__';
+const CHART_BASE = `http://${CHART_HOST_PLACEHOLDER}:3000/de`;
 
 // Candles of lead-in before the pattern starts, so the chart opens with context
 // rather than exactly on the first red candle.
@@ -570,6 +575,10 @@ function renderPage() {
 </div>
 
 <script>
+// Chart links carry a placeholder host; swap in whatever host served the page
+// so links work from any device on the LAN.
+const CHART_HOST=location.hostname;
+function fixChartUrl(u){ return String(u||'').replace('__CHART_HOST__',CHART_HOST); }
 const RCOL = ['var(--r0)','var(--r1)','var(--r2)','var(--r3)','var(--r4)'];
 let RATIO_MIN = [];   // lower edge of each ratio band, from the server
 const SCOL = ['var(--s0)','var(--s1)','var(--s2)','var(--s3)','var(--s4)'];
@@ -990,7 +999,7 @@ function paintRanges(el) {
       '<td class="num"><span class="chip univ" style="color:' + RCOL[r.univBand] +
         ';border-color:' + RCOL[r.univBand] + '">' + (r.univRatio || 0).toFixed(2) + 'x</span></td>' +
       '<td>' + (r.univSymbol
-        ? '<a href="' + esc(r.univUrl) + '" target="_blank" rel="noopener" style="color:' +
+        ? '<a href="' + esc(fixChartUrl(r.univUrl)) + '" target="_blank" rel="noopener" style="color:' +
           RCOL[r.univBand] + ';text-decoration:none">' + esc(r.univSymbol) + ' &#8599;</a>'
         : '<span class="count">—</span>') + '</td>' +
       '<td><span class="state ' + esc(r.state) + '">' + esc(r.state) + '</span></td>' +
@@ -1002,12 +1011,12 @@ function paintRanges(el) {
     h += '<tr class="instr-row"><td colspan="' + COLUMNS.length + '"><div class="instr">' +
          '<span class="lbl">fired</span>';
     for (const i of r.instruments) {
-      h += '<a href="' + esc(i.url) + '" target="_blank" rel="noopener" title="Fired this signal">' +
+      h += '<a href="' + esc(fixChartUrl(i.url)) + '" target="_blank" rel="noopener" title="Fired this signal">' +
            esc(i.symbol) + '</a>';
     }
     if (r.univSymbol && r.univUrl && !fired.has(r.univSymbol)) {
       h += '<span class="lbl" style="margin-left:8px">best</span>' +
-           '<a href="' + esc(r.univUrl) + '" target="_blank" rel="noopener"' +
+           '<a href="' + esc(fixChartUrl(r.univUrl)) + '" target="_blank" rel="noopener"' +
            ' title="Best same-type strike — did not fire"' +
            ' style="border-style:dashed;color:' + RCOL[r.univBand] +
            ';border-color:' + RCOL[r.univBand] + '">' +
@@ -1136,12 +1145,10 @@ const server = http.createServer((req, res) => {
     }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     const spots = listSpots();
-    console.log('');
-    console.log(`Signal review  →  http://localhost:${PORT}`);
-    console.log(`  signal : ${SIGNAL_ID}`);
-    console.log(`  spots  : ${spots.length ? spots.join(', ') : '(none — run backfill.js --signals-only)'}`);
-    console.log(`  charts : ${CHART_BASE}/...`);
-    console.log('');
+    console.log(netinfo.banner('Signal review', PORT, [
+        `signal  : ${SIGNAL_ID}`,
+        `spots   : ${spots.length ? spots.join(', ') : '(none — run backfill.js --signals-only)'}`,
+    ]));
 });

@@ -152,9 +152,24 @@ const SIGNALS_COMPLETE_MARKERS_DIR = `${DATA_BASE_DIR}/markers/signals_complete`
 // 3 means the squeeze must show a sustained descent, not just two candles.
 // Raising this makes signals rarer but each one better-evidenced.
 const RED_SQUEEZE_MIN_SEQ_LENGTH = 3;
-const RED_SQUEEZE_THRESHOLD      = 50;
+// Fires when EITHER ratio1 or ratio2 clears this, since signalValue is their
+// MAX. Was 50 against their SUM, which let two mediocre ratios combine into a
+// signal that neither justified.
+const RED_SQUEEZE_THRESHOLD      = 15;
 const RED_SQUEEZE_MINIMUM_TICK   = 0.1;
 const RED_SQUEEZE_SL_FACTOR      = 1.5;
+
+// ─── Expiry listing window ───────────────────────────────────────────────────
+//
+// An expiry is only tradeable once it has been LISTED. Filtering on "settles
+// after this moment" alone treats every future expiry as available, which showed
+// 67 alive at once when the real board carries a handful of dailies, weeklies
+// and monthlies.
+//
+// The authoritative answer is in the candles: the first candle for an expiry is
+// when it began trading. This value is only the fallback for expiries with no
+// stored candles, and it matches the window the fetcher already assumes.
+const EXPIRY_LISTING_WINDOW_DAYS = 40;
 
 // ─── Signal firing cutoff ────────────────────────────────────────────────────
 //
@@ -206,14 +221,30 @@ const BIG_CANDLE_BODY_FRACTION  = 0.6;
 // Each signal also records distancePct — how far OTM the strike was — because a
 // DEEP OTM option being cheap is expected, while a NEAR OTM one being cheap is
 // unusual. Keeping them separate lets that be untangled later without a re-run.
-// Threshold is a PRICE CEILING expressed relative to spot: 10000 means the
-// average pattern price must be at or below spot/10000 — about 10 for BTC near
-// 100k. Calibrated from observed values: a 0.88-priced option scores ~113,000
-// and a 1.66-priced one ~60,000, so anything under a few thousand filters
-// essentially nothing. Check the distribution on your own data before trusting
-// this number; distancePct is stored alongside so cheap-because-deep-OTM can be
-// separated from cheap-and-close.
-const OTM_SIGNAL_THRESHOLD = 10000;
+// A PRICE CEILING expressed relative to spot: the average pattern price must be
+// at or below spot / THRESHOLD. Dimensionless, so it means the same thing on
+// every underlying.
+//
+// Shared by otm_red_squeeze AND green_stairs, via otm_common.THRESH.
+//
+// distancePct is stored alongside, so cheap-because-deep-OTM can be separated
+// later from cheap-and-close.
+// Lowered from 10,000, which was calibrated from two synthetic test observations
+// and nothing else. Two problems with a high value here:
+//
+//   - It discards irreversibly. Signals below it are never written to
+//     data/signals/, so they cannot be recovered without a re-run. patterns.js
+//     stores everything regardless, so the query tool never needed this.
+//   - A fixed price ceiling silently filters by TIME TO EXPIRY, not just
+//     cheapness: a 40-day option costs far more than the same strike hours
+//     before settlement. tteHours is a queryable field and a far better way to
+//     control that explicitly.
+//
+// 1000 means the average pattern price must be at or below 1/1000th of spot —
+// 100 for BTC near 100k, 4 for XAUT near 4k. Dimensionless, so it means the same
+// thing on every underlying. Kept non-zero only to trim obvious noise from the
+// dashboards; use the display-side minimum to tighten without a re-run.
+const OTM_SIGNAL_THRESHOLD = 1000;
 
 // Minimum candles in the pattern before the trigger, for both signals.
 const OTM_MIN_SEQ_LENGTH = 3;
@@ -445,21 +476,26 @@ const RATIO_BANDS = [
 // four empty rows and one containing everything, telling you nothing.
 const STRENGTH_BANDS_BY_SIGNAL = {
     // ratio1 + ratio2. Median around 95, p90 around 367.
+    // max(ratio1, ratio2), so roughly half the scale of the old sum.
     red_squeeze: [
-        { label: '50-75',   min: 0,    max: 75 },
-        { label: '75-150',  min: 75,   max: 150 },
-        { label: '150-400', min: 150,  max: 400 },
-        { label: '400-1k',  min: 400,  max: 1000 },
-        { label: '1k+',     min: 1000, max: Infinity },
+        { label: '15-25',  min: 0,   max: 25 },
+        { label: '25-40',  min: 25,  max: 40 },
+        { label: '40-80',  min: 40,  max: 80 },
+        { label: '80-200', min: 80,  max: 200 },
+        { label: '200+',   min: 200, max: Infinity },
     ],
 
     // spot / avgPrice. Labels show the implied option price for BTC near 100k,
     // since "10k-25k" is meaningless on its own but "4-10" is immediately
     // readable. Higher band = cheaper option = the stronger claim.
+    // spot / avgPrice. Labels show the implied BTC price near 100k, since
+    // "10-25k" means nothing on its own but "4-10" is immediately readable.
+    // Rebased after the threshold dropped to 1000, so the low bands are
+    // populated again rather than everything landing at the top.
     otm_red_squeeze: [
-        { label: '<25k (~4-10)',   min: 0,      max: 25000 },
-        { label: '25-50k (~2-4)',  min: 25000,  max: 50000 },
-        { label: '50-100k (~1-2)', min: 50000,  max: 100000 },
+        { label: '1-5k (20-100)',  min: 0,     max: 5000 },
+        { label: '5-25k (4-20)',   min: 5000,  max: 25000 },
+        { label: '25-100k (1-4)',  min: 25000, max: 100000 },
         { label: '100-250k (<1)',  min: 100000, max: 250000 },
         { label: '250k+ (<0.4)',   min: 250000, max: Infinity },
     ],
@@ -543,6 +579,7 @@ module.exports = {
     RED_SQUEEZE_THRESHOLD,
     RED_SQUEEZE_MINIMUM_TICK,
     RED_SQUEEZE_SL_FACTOR,
+    EXPIRY_LISTING_WINDOW_DAYS,
     MIN_TTE_HOURS_TO_FIRE,
     OPPOSITE_DIRECTION_FILTER,
     BIG_CANDLE_BODY_FRACTION,
