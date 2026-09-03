@@ -141,6 +141,27 @@ decay below any pattern-derived level, that made every ratio ≈ 1.0 and every s
 
 ---
 
+## Exchange API changes
+
+### `12h` resolution removed from the allowed list
+
+The exchange stopped accepting `resolution=12h` (confirmed via a live 400:
+`Allowed values are 5s,1m,3m,5m,15m,30m,1h,2h,4h,6h,1d,1w`), which broke every
+720m fetch — the only duration mapped to it.
+
+Fix: `DIRECT_DURATIONS` drops `720: '12h'` and adds `360: '6h'`, which the API
+now allows and was previously unused. `sourceFor()` is computed rather than
+hardcoded, so 720m automatically re-routes to derive from the new 360m direct
+source in one grouping step — the same mechanism every other non-direct
+duration already uses. No other file needed a code change.
+
+**Back-compatible.** `candle_store` keys storage by duration-in-minutes only; it
+never records which resolution string produced a file. Existing 720m data
+fetched under the old `12h` regime reads identically to data that will now be
+derived via `6h`. Verified: a pre-existing 720m file written before the change
+loads correctly, and a fresh backfill against a stub that throws on any `12h`
+request completes cleanly and produces both 360m and 720m candles.
+
 ## Testing lessons
 
 **Validate what the server emits, not the source file.** The escaping bug passed

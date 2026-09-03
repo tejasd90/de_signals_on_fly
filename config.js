@@ -99,6 +99,16 @@ const DURATION_TIMES = {
 // change, because the source is derived rather than declared.
 
 // Durations fetched directly from the API and their API resolution strings
+// Directly fetchable resolutions, matching what the exchange API accepts.
+//
+// 12h was removed from the API's allowed list on the exchange side (still
+// present in already-stored data, which used it while it existed). 720m is no
+// longer fetched directly; it derives from 360m via ONE grouping step, same as
+// every other non-direct duration. 360m itself is now direct at 6h, which the
+// API added.
+//
+// Nothing else changes: sourceFor() computes chains from this table rather than
+// them being hardcoded, so this edit is the whole fix.
 const DIRECT_DURATIONS = {
     5:    '5m',
     15:   '15m',
@@ -106,7 +116,7 @@ const DIRECT_DURATIONS = {
     60:   '1h',
     120:  '2h',
     240:  '4h',
-    720:  '12h',
+    360:  '6h',
     1440: '1d',
 };
 
