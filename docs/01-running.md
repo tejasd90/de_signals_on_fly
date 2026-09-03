@@ -510,6 +510,50 @@ whatever host served the page.
 equivalent past-expiry heatmap; for reviewing settled expiries, use
 `serve_signals_cal.js` or `serve_signals.js`.
 
+#### Past vs future, per viewer — read this before wondering why a viewer looks empty
+
+None of these viewers has a "past mode" or "future mode" toggle. Each one
+either filters to one regime internally, or reads from a directory tree that
+only ever contains one regime by construction. Knowing which is which tells
+you exactly where to look when a viewer looks emptier than you expect.
+
+| Viewer | Shows | Why |
+|---|---|---|
+| `serve_signals.js` | **Past only** | Filters its expiry list with `isExpired()` before rendering |
+| `serve_signals_cal.js` | **Past only** | Same — the calendar only lists settled expiries |
+| `serve_calibrate.js` | **Past only** | Skips any expiry that hasn't settled (`// no outcome yet`) — it needs a known outcome to calibrate against |
+| `serve_query.js` | **Past only** | Reads `data/patterns/`, and `patterns.js` itself skips unsettled expiries when building that data |
+| `serve_trades.js` | **Past only** | Reads `data/trades/`, and `trades.js` only ever writes settled expiries (`// settled only`) |
+| `serve_multibaggers.js` | **Past only** | Reads `data/multibaggers/`, same reasoning as `serve_trades.js` |
+| `serve_live.js` | **Future only** | Reads `data/live/`, which only `live_runner.js` writes to, and `live_runner.js` skips any expiry that has already settled |
+| `serve_grids.js` | **Future only** | Its whole model is "expiries alive as of a chosen moment" — a settled expiry is never "alive" by definition |
+
+**The one non-obvious trap:** `data/signals/` is a **shared tree** — both
+`backfill.js` (past) and `live_runner.js` (future) write into it, using the
+same directory structure. `serve_signals.js` and `serve_signals_cal.js` only
+show past expiries from that tree because *they themselves* filter with
+`isExpired()` before displaying anything — the data for live expiries is
+sitting right there in the same folder, just filtered out at render time.
+
+Practically, this means:
+
+- If you want to see a **live** expiry's signals as they fire, you cannot use
+  `serve_signals.js` — it will not show it no matter how long
+  `live_runner.js` has been running. Use `serve_live.js`.
+- If an expiry just settled and you don't see it yet in `serve_signals.js`,
+  check the timing: `isExpired()` is evaluated fresh on every page load there,
+  so it should appear immediately once settlement time passes — no re-run
+  needed, since the data was already being written by `live_runner.js` while
+  it was still future.
+  **`serve_signals_cal.js` is the exception** — it caches its calendar per
+  `(signal, spot)` in memory with no expiry, so a just-settled expiry will
+  *not* appear there until you restart that server process, even though the
+  underlying data is already correct.
+- There is currently no viewer that shows **both** past and live signals
+  together on one screen. If you want that, you'd need to either drop the
+  `isExpired()` filter in a copy of `serve_signals.js`, or cross-reference
+  `serve_signals.js` (past) against `serve_live.js` (future) separately.
+
 ---
 
 ### Analysis commands
