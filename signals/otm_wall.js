@@ -102,8 +102,16 @@ function candleValue(candles, i) {
  */
 function computeSignals(candles, instrument, ctx, opts = {}) {
     // Overridable: see red_squeeze.js.
+    //
+    // THIS SIGNAL IS ON A DIFFERENT SCALE FROM ITS SIBLINGS. green_stairs and
+    // otm_red_squeeze score with `spot / mean(pattern lows)`, which runs in the
+    // thousands, so OTM_SIGNAL_THRESHOLD (1000) is the right gate for them.
+    // otm_wall scores with a log10 JUMP, which is ~0-8. Defaulting to c.THRESH
+    // here compared a log against 1000 and the signal could never fire —
+    // 988 files per duration x 16 durations, all empty, for the whole history.
+    // Fixed 2026-09-16. Always use WALL_JUMP_THRESHOLD here.
     const minValue = opts.minSignalValue !== undefined ? opts.minSignalValue
-                   : (typeof c !== 'undefined' ? c.THRESH : JUMP_THRESH);
+                   : JUMP_THRESH;
     if (!candles || candles.length < LOOKBACK + 2) return [];
     const spotByTs = (ctx && ctx.spotByTs) || new Map();
 

@@ -1,0 +1,57 @@
+{
+  "arm": "both",
+  "base_rate": 0.01644107750095198,
+  "precision_at_15pct_recall": 0.049045486701293814,
+  "inert_features": [
+    "ratio2",
+    "ratio1",
+    "equalSteps",
+    "seqLength",
+    "lastBody",
+    "triggerBody",
+    "firstBody"
+  ],
+  "thresholds": {
+    "tteHours": {
+      "best_low": 26.67,
+      "best_high": 38.0,
+      "train_rate": 0.02142660862433959,
+      "test_rate": 0.01855186869262967,
+      "test_lift": 1.085107412368191,
+      "holds_out_of_sample": false
+    },
+    "cheapness": {
+      "best_low": 3833.83,
+      "best_high": 13093.305,
+      "train_rate": 0.028832077660437664,
+      "test_rate": 0.03529421861389198,
+      "test_lift": 2.064375231746476,
+      "holds_out_of_sample": true
+    },
+    "distancePct": {
+      "best_low": 7.744,
+      "best_high": 13.407,
+      "train_rate": 0.02492839751626821,
+      "test_rate": 0.029381336128710172,
+      "test_lift": 1.718527990186285,
+      "holds_out_of_sample": true
+    },
+    "logJump": {
+      "best_low": 3833.821,
+      "best_high": 13093.2,
+      "train_rate": 0.028832077660437664,
+      "test_rate": 0.03529421861389198,
+      "test_lift": 2.064375231746476,
+      "holds_out_of_sample": true
+    },
+    "duration": {
+      "best_low": 15.0,
+      "best_high": 20.0,
+      "train_rate": 0.017571282150792625,
+      "test_rate": 0.01628944284583622,
+      "test_lift": 0.9527770742786231,
+      "holds_out_of_sample": false
+    }
+  },
+  "signal": "otm_red_squeeze"
+}

@@ -38,7 +38,8 @@ const MAX_EQUAL = cfg.GREEN_STAIRS_MAX_EQUAL_STEPS;
 function computeSignals(candles, instrument, ctx, opts = {}) {
     // Overridable: see red_squeeze.js.
     const minValue = opts.minSignalValue !== undefined ? opts.minSignalValue
-                   : (typeof c !== 'undefined' ? c.THRESH : JUMP_THRESH);
+                   : c.THRESH;   // spot/mean(lows) scale; see otm_wall.js for why
+                                       // this must never be copied blindly.
     if (!candles || candles.length < c.MIN_SEQ + 2) return [];
     const spotByTs = (ctx && ctx.spotByTs) || new Map();
 

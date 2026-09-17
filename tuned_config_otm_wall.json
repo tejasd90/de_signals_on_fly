@@ -1,0 +1,58 @@
+{
+  "arm": "all",
+  "base_rate": 0.014292346786830347,
+  "precision_at_15pct_recall": 0.04737353734252414,
+  "inert_features": [
+    "cheapness",
+    "seqLength",
+    "ratio1",
+    "ratio2",
+    "firstBody",
+    "lastBody",
+    "triggerBody",
+    "equalSteps"
+  ],
+  "thresholds": {
+    "distancePct": {
+      "best_low": 6.579,
+      "best_high": 10.854,
+      "train_rate": 0.023028615406670484,
+      "test_rate": 0.024789891808816435,
+      "test_lift": 1.968079750057698,
+      "holds_out_of_sample": true
+    },
+    "dist": {
+      "best_low": -Infinity,
+      "best_high": 3.558,
+      "train_rate": 0.042547761243416554,
+      "test_rate": 0.03208714383932514,
+      "test_lift": 2.547411602857635,
+      "holds_out_of_sample": true
+    },
+    "tteHours": {
+      "best_low": 29.17,
+      "best_high": 41.0,
+      "train_rate": 0.019355871166379005,
+      "test_rate": 0.010698415519572445,
+      "test_lift": 0.8493516270323246,
+      "holds_out_of_sample": false
+    },
+    "duration": {
+      "best_low": -Infinity,
+      "best_high": 10.0,
+      "train_rate": 0.0208072378384576,
+      "test_rate": 0.014684467106061088,
+      "test_lift": 1.1658059089047312,
+      "holds_out_of_sample": true
+    },
+    "logJump": {
+      "best_low": -Infinity,
+      "best_high": 0.328,
+      "train_rate": 0.01774466070174887,
+      "test_rate": 0.012861065207273042,
+      "test_lift": 1.021045279011815,
+      "holds_out_of_sample": false
+    }
+  },
+  "signal": "otm_wall"
+}

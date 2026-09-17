@@ -88,6 +88,8 @@ PHASES (default: both)
 FORCING
   --force-candles  refetch candles even if already stored (rarely needed)
   --force-signals  recompute signals even if already computed
+  --signal <ids>   comma-separated signal ids; only these are recomputed.
+                   Omit to recompute every registered signal.
   --force          both of the above
 
 TYPICAL USE
@@ -218,6 +220,12 @@ async function main() {
 
     const candlesOnly  = !!args['candles-only'];
     const signalsOnly  = !!args['signals-only'];
+    // --signal red_squeeze,otm_wall  -> regenerate only those. Without it every
+    // registered signal is rewritten, which is wasteful and risky when only one
+    // of them changed.
+    const signalIds = args['signal']
+        ? String(args['signal']).split(',').map(x => x.trim()).filter(Boolean)
+        : null;
     const forceAll     = !!args.force;
     const forceCandles = forceAll || !!args['force-candles'];
     const forceSignals = forceAll || !!args['force-signals'];
@@ -318,7 +326,7 @@ async function main() {
                 }
             } else if (phase === 'signals') {
                 // Pure CPU — no await needed, no API calls made.
-                const r = processor.computeSignalsFromDisk(spot, expiryDate);
+                const r = processor.computeSignalsFromDisk(spot, expiryDate, { signalIds });
                 lastDetail = r.skipped ? r.skipped : `${r.written} duration files`;
             } else {
                 const r = await processor.processPastExpiry(

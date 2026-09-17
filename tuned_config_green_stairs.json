@@ -1,0 +1,57 @@
+{
+  "arm": "both",
+  "base_rate": 0.011822616518269335,
+  "precision_at_15pct_recall": 0.047313190657896784,
+  "inert_features": [
+    "ratio1",
+    "seqLength",
+    "ratio2",
+    "equalSteps",
+    "lastBody",
+    "firstBody",
+    "triggerBody"
+  ],
+  "thresholds": {
+    "tteHours": {
+      "best_low": 68.33,
+      "best_high": 197.25,
+      "train_rate": 0.0159630770813067,
+      "test_rate": 0.01585807479215457,
+      "test_lift": 1.2399753564842437,
+      "holds_out_of_sample": true
+    },
+    "cheapness": {
+      "best_low": 2156.886,
+      "best_high": 8073.459,
+      "train_rate": 0.02889551112583483,
+      "test_rate": 0.03085288218790414,
+      "test_lift": 2.4124500666650603,
+      "holds_out_of_sample": true
+    },
+    "distancePct": {
+      "best_low": 14.627,
+      "best_high": Infinity,
+      "train_rate": 0.022186227523933597,
+      "test_rate": 0.032160300017442876,
+      "test_lift": 2.514679745267547,
+      "holds_out_of_sample": true
+    },
+    "logJump": {
+      "best_low": 2156.885,
+      "best_high": 8072.763,
+      "train_rate": 0.02889551112583483,
+      "test_rate": 0.03085288218790414,
+      "test_lift": 2.4124500666650603,
+      "holds_out_of_sample": true
+    },
+    "duration": {
+      "best_low": -Infinity,
+      "best_high": 10.0,
+      "train_rate": 0.013168782163943085,
+      "test_rate": 0.011497888940898517,
+      "test_lift": 0.8990434920486228,
+      "holds_out_of_sample": false
+    }
+  },
+  "signal": "green_stairs"
+}

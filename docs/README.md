@@ -1,69 +1,93 @@
-# crypto_v2 — options signal research pipeline
+# Docs
 
-Systematic search for cheap OTM crypto options that become multibaggers, on
-Delta Exchange data.
+Two trees, different jobs.
 
-Node 18+. No dependencies, no build step, no `package.json`.
+- **`docs/`** — *running the project*. Fetching instruments and candles,
+  generating signals and patterns, the marker system, the viewers, and how to
+  diagnose a pipeline that looks stuck or empty. Operational.
+- **`docs/ML/`** — *the research*. Labels, features, models, controls, and what
+  was measured. Evidential. Start at [`ML/README.md`](ML/README.md).
+
+If you are asking "why is this viewer empty" you want this tree. If you are
+asking "does this strategy make money" you want `ML/`.
 
 ---
 
-## Documents
+## This tree
 
-| File | What is in it |
+| doc | what it covers |
 |---|---|
-| [`01-running.md`](01-running.md) | Every command, in order. Start here. |
-| [`02-architecture.md`](02-architecture.md) | File map, data layout, how the pieces fit |
-| [`03-signals.md`](03-signals.md) | The four signals, exact conditions |
-| [`04-pseudocode.md`](04-pseudocode.md) | Logic of every module |
-| [`05-query-tool.md`](05-query-tool.md) | Query language, fields, functions, holdout |
-| [`06-decisions.md`](06-decisions.md) | Why things are the way they are |
-| [`07-bugs-found.md`](07-bugs-found.md) | Bugs caught in testing, and the lessons |
-| [`08-open-questions.md`](08-open-questions.md) | Unresolved, with the options |
+| [`RUNBOOK.md`](RUNBOOK.md) | **The end-to-end sequence.** Steps 0-7 node, steps 8-10 python. Step 0 (loosen thresholds before extracting) is a correctness requirement, not an optimisation. |
+| [`01-running.md`](01-running.md) | Concepts, the two-marker design, diagnosing states A-K, every command, the viewers and their past/future split, troubleshooting. The longest and most useful doc here. |
+| [`02-architecture.md`](02-architecture.md) | Code and data layout, the two-marker design, the merged range format, duration sourcing, rate limits. |
+| [`03-signals.md`](03-signals.md) | The four hand-built signals and their parameters. |
+| [`04-pseudocode.md`](04-pseudocode.md) | Signal logic in pseudocode. |
+| [`05-query-tool.md`](05-query-tool.md) | The expression query language and `serve_query.js`. |
+| [`06-decisions.md`](06-decisions.md) | Design decisions for the node pipeline. |
+| [`07-bugs-found.md`](07-bugs-found.md) | Bugs found and fixed, with the symptom that exposed each. |
+| [`08-open-questions.md`](08-open-questions.md) | Historical. **All four sections are answered** in [`ML/DECISION_DOCUMENT.md`](ML/DECISION_DOCUMENT.md) §8.3. |
 
 ---
 
-## Thirty-second version
+## The viewers, at a glance
 
-Two independent halves.
+Nine HTTP viewers, each on its own port, each binding `0.0.0.0` and printing its
+LAN address. Override with `--port`.
 
-**Historical** — fetch candles for settled expiries, store them once, then run
-signals over stored candles as often as parameters change. Signal re-runs cost
-zero API calls, which is the whole reason candles are stored.
+| port | command | shows | expiries |
+|---|---|---|---|
+| 3100 | `serve_signals.js` | strength x payoff matrix, expiry grid | past |
+| 3200 | `serve_live.js` | live tape, EMA convergence, volatility map | future |
+| 3300 | `serve_multibaggers.js` | ground truth: every move that existed | past |
+| 3400 | `serve_trades.js` | trade calendar, all durations stacked | past |
+| 3500 | `serve_signals_cal.js` | signal calendar, all durations stacked | past |
+| 3600 | `serve_calibrate.js` | fixed-form successes/failures | past |
+| 3700 | `serve_query.js` | expression query with holdout | past |
+| 3800 | `serve_grids.js` | point-in-time heatmaps; expiry × time or expiry × strike (30m+ only) | **future** |
+| 3900 | `serve_grids_past.js` | settled-expiry heatmaps; expiry × time or expiry × strike, with payoff shading (30m+ only) | **past** |
+| 4000 | `serve_setups.js` | price-action setup review, one sheet per expiry — starts from a SETUP, not a signal | **past** |
 
-```
-node backfill.js --spot-candles --from 2024-01-01
-node backfill.js --from 2025-01-01 --to 2025-12-31 --candles-only --delay 500
-node backfill.js --from 2025-01-01 --to 2025-12-31 --signals-only
-```
+**An empty viewer is almost always the past/future split, not a bug.**
+3800 and 3900 are siblings asking opposite questions — see
+[`01-running.md`](01-running.md) §Viewers.
 
-**Live** — one process for future expiries. Candles are held in memory and
-discarded; only signals and a snapshot are written.
+Both grid viewers let you **click a cell** for a floating panel showing the spot
+price action at that firing, tiered so it is clear which parts were measured to
+predict (one) and which were measured not to (the rest). See §Click a square in
+`01-running.md`.
 
-```
-node live_runner.js
-node serve_live.js
-```
+Both grid viewers carry a **Layout** toggle: *expiry × time* ("where in a
+contract's life does this fire") and *expiry × strike* ("a move happened — what
+did it do to the board"). The strike layout is computed by the shared
+`surface.js`, a node port of `build_surfaces.py`. Payoff shading exists on 3900
+only, because 3800's forward window has not elapsed yet. Both default to hiding
+contracts marked **below 2.0 at entry** — see §Min premium in `01-running.md`
+before reading anything into a signal that appears to fire the wrong way.
 
-Then browse: `serve_signals_cal.js` (:3500), `serve_query.js` (:3700),
-`serve_trades.js` (:3400).
+Both grid viewers also apply a **30-minute minimum signal duration**
+(`MIN_DURATION_MINUTES`), which hides the 5m/10m/15m/20m rows. It is a display
+filter only — those signals are still written to disk and still shown by
+`serve_signals.js`, `serve_signals_cal.js` and `serve_query.js`.
 
 ---
 
-## Where the numbers stand
+## Data layout
 
-Roughly **20% of signals reach 10x**, measured on peak-from-entry with perfect
-exit. Strength scores barely rank: the observed hit rate across strength bands
-was 15/15/16/17/17%, which says the *pattern* may carry an edge while the
-*scoring* of it does not.
+```
+data/
+  instruments/     live + expired product metadata
+  candles/         option MARK candles        26 GB   (options retired as an earner)
+  spot_candles/    underlying candles
+  perp_candles/    220 Delta perpetuals, ts/o/h/l/c/v, TRADED with real volume   67 MB
+  funding/         funding-rate history
+  signals/         signal output per signal/spot/duration/expiry
+  patterns/        patterns.js output        9.6 GB
+  multibaggers/    ground truth moves
+  trades/          trades.js output
+  live/            live_runner.js output
+  markers/         completion markers
+```
 
-That flatness is what the query tool exists to attack — and why every result it
-shows carries a held-out number beside it.
-
----
-
-## Reading order if you are new to this
-
-1. `01-running.md` — get data on disk
-2. `03-signals.md` — what is being detected
-3. `05-query-tool.md` — how to interrogate it
-4. `06-decisions.md` — when something looks odd, the reason is probably here
+`data/perp_candles/` is the entire input to all current futures research and
+`fetch_perps.py` rebuilds it from the API in ~2.5 minutes. The large
+directories belong to closed hypotheses.

@@ -641,7 +641,7 @@ async function fetchAndStorePastCandles(spot, expiryDate, { force = false } = {}
  * Compute signals for a settled expiry using candles already on disk.
  * Zero API calls. Safe to re-run after any signal parameter change.
  */
-function computeSignalsFromDisk(spot, expiryDate) {
+function computeSignalsFromDisk(spot, expiryDate, opts = {}) {
     if (!candleStore.isCandlesComplete(spot, expiryDate)) {
         return { skipped: 'no_candles' };
     }
@@ -678,7 +678,9 @@ function computeSignalsFromDisk(spot, expiryDate) {
         `SIGNALS ${spot}/${expiryDate}: ${candlesBySymbol.size} instruments from disk, ` +
         `durations=[${activeDurations.join(',')}]`);
 
-    const { written } = runSignalsOverCandles(spot, expiryDate, activeDurations, candlesBySymbol);
+    // opts carries signalIds so a single broken signal can be regenerated
+    // without rewriting the three that are already correct.
+    const { written } = runSignalsOverCandles(spot, expiryDate, activeDurations, candlesBySymbol, opts);
 
     writer.markSignalsComplete(spot, expiryDate);
     return { instruments: candlesBySymbol.size, written };

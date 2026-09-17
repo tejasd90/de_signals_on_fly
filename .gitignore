@@ -1,3 +1,52 @@
 .DS_Store
-data
+venv
 logs
+out
+
+# ─── raw + derived DATA ───────────────────────────────────────────────────────
+# 54 GB on disk. All of it is rebuildable: data/perp_candles is 70 MB and
+# fetch_perps.py restores it from the API in ~2.5 min; everything else is
+# derived by the build_*.py scripts that ARE tracked.
+data
+options_analytics.db
+*.parquet
+*.db
+
+# derived feature / result directories
+events_ctx
+events_ctx2
+perp_brooks
+perp_liq
+perp_liq_24
+perp_liq_48
+exits
+holds
+liq
+runs
+discovery
+discovery_final
+discovery_parts
+disc
+disc25
+disc_final
+dataset_parts
+term_parts
+_prep
+
+# generated viewer payloads
+surfaces.json
+surfaces_compact.json
+
+# the forward trade journal — grows every run, and it is a record rather
+# than source. Back it up separately if you want the history.
+paper_trades.csv
+
+# ─── large binaries ───────────────────────────────────────────────────────────
+# Brooks PDFs (~48 MB) and the origin-conversation exports. Brooks/*.md, the
+# distilled summaries every rule was built from, ARE tracked.
+*.pdf
+*.zip
+context
+
+# derived result tables
+top_*_trades*.csv

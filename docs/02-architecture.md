@@ -168,3 +168,50 @@ duration needs no config edit.
 
 All workers share one exchange limit. Claims prevent duplicated *work*, not
 duplicated *budget*.
+
+---
+
+## The candles endpoint serves four different series, by symbol prefix
+
+The project has only ever called **two** endpoints — `/v2/history/candles` and
+`/v2/products`. No trades, no orderbook, no product metadata. Every result in
+`ML/` came through that one channel.
+
+What was not obvious for a long time: `/v2/history/candles` returns a *different
+series* depending on a prefix on the symbol. Same endpoint, same auth (none),
+same pagination. `api.fetchCandles()` needs only the prefix changed.
+
+| symbol passed | returns | volume |
+|---|---|---|
+| `MARK:C-BTC-92400-271125` | **mark** prices | `null` everywhere |
+| `C-BTC-92400-271125` (plain) | **traded** OHLCV | real |
+| `OI:C-BTC-57000-210826` | OHLC of the **open-interest** level | — |
+| `FUNDING:BTCUSD` | OHLC of the **funding rate** | — |
+
+Notes that cost time to establish:
+
+- **`processor.js:141` hardcodes the `MARK:` prefix**, which is why every stored
+  option candle is a mark price with null volume. That single line bounds what
+  any backtest on `data/candles/` can prove — a mark touching 25x is not a fill.
+  See `ML/FINDINGS.md` §7.
+- **`OI:` works on expired instruments** (189 hourly candles were read through a
+  settled 2026-08-21 expiry) and on perps (`OI:BTCUSD`). Open interest was never
+  lost and can be backfilled at any time.
+- **Implied volatility is NOT available historically.** `IV:`, `MARKIV:`,
+  `MARK_IV:`, `VOL:`, `MARKVOL:`, `IMPLIED:`, `PREMIUM:`, `SPOT:`, `INDEX:` all
+  return zero rows. `mark_vol` exists only in the live `/v2/tickers` snapshot,
+  alongside `greeks`, `oi`, `oi_contracts`, `oi_value_usd`. Capturing IV needs a
+  live cron; it cannot be backfilled.
+- **`FUNDINGRATE:` and `FUNDING_RATE:` return zero rows.** Only `FUNDING:` works.
+  Many symbols sit pinned at the 0.01 clamp, so for those the rate is a fixed
+  rent rather than a demand signal. Units are unverified — calibrate against a
+  real funding payment before using it for sizing.
+
+### The pagination trap
+
+`/v2/history/candles` **silently caps a single response at ~4000 rows**. It does
+not error and does not signal truncation. A one-shot request therefore makes
+every symbol look as though it listed on the same recent date.
+
+Always page backward, as `api.fetchCandles()` does. Also: `?states=live` on
+`/v2/products` returns zero products — the filter syntax is wrong; page instead.

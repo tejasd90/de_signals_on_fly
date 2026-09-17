@@ -28,6 +28,9 @@ const expiryMod = require('./expiry');
 const grouper   = require('./grouper');
 const candleStore = require('./candle_store');
 const api       = require('./api');
+const surfaceMod = require('./surface');
+const chart      = require('./chart_url');
+const pa         = require('./price_action');
 
 const args = process.argv.slice(2);
 const PORT = args.includes('--port') ? parseInt(args[args.indexOf('--port') + 1]) : 3800;
@@ -40,6 +43,12 @@ const DEFAULT_CANDLES_BACK = 40;
 // Symbols carried per cell for the hover readout. A cell with forty strikes is
 // not readable as a list anyway, and the payload would balloon.
 const MAX_SYMBOLS_PER_CELL = 14;
+
+// Shortest signal duration these grids will show. Deliberate floor, applied at
+// DISPLAY time only — the 5m/10m/15m/20m signal files are still written, still
+// on disk, and still visible in every other viewer. Only this page and its
+// sibling hide them. Set to 0 to get them back; nothing needs re-extracting.
+const MIN_DURATION_MINUTES = 30;
 
 // ─── Listing ──────────────────────────────────────────────────────────────────
 
@@ -65,7 +74,9 @@ function listDurations(signalId, spot) {
     if (!fs.existsSync(d)) return [];
     return fs.readdirSync(d)
         .filter(x => !x.startsWith('.') && !x.startsWith('_') && !isNaN(x))
-        .map(Number).sort((a, b) => a - b);
+        .map(Number)
+        .filter(x => x >= MIN_DURATION_MINUTES)
+        .sort((a, b) => a - b);
 }
 
 // ─── Firing extraction ────────────────────────────────────────────────────────
@@ -221,15 +232,20 @@ function buildGrid(signalId, spot, duration, type, before, minValue, candlesBack
         const ci = tIndex.get(r.ts);
         if (ci === undefined) continue;
         const k = `${xi.get(r.expiry)},${ci}`;
-        if (!bySymbol.has(k)) bySymbol.set(k, new Set());
-        bySymbol.get(k).add(r.symbol);
+        if (!bySymbol.has(k)) bySymbol.set(k, { set: new Set(), at: new Map(), expiry: r.expiry, iso: r.ts });
+        const e = bySymbol.get(k);
+        e.set.add(r.symbol);
+        if (!e.at.has(r.symbol)) e.at.set(r.symbol, new Date(r.ts).getTime());
     }
 
     const cells = {};
     let max = 0, total = 0;
-    for (const [k, set] of bySymbol) {
-        const syms = [...set].sort();
-        cells[k] = { n: syms.length, syms: syms.slice(0, MAX_SYMBOLS_PER_CELL) };
+    for (const [k, e] of bySymbol) {
+        const syms = [...e.set].sort();
+        const shown = syms.slice(0, MAX_SYMBOLS_PER_CELL);
+        cells[k] = { n: syms.length, syms: shown, iso: e.iso,
+                     urls: shown.map(sym =>
+                        chart.chartUrl(spot, e.expiry, sym, e.at.get(sym), duration)) };
         if (syms.length > max) max = syms.length;
         total += syms.length;
     }
@@ -343,6 +359,25 @@ function renderPage() {
   .readout{margin-top:6px;min-height:32px;color:var(--accent);font-size:11px;
            font-variant-numeric:tabular-nums;line-height:1.35}
   .readout .syms{color:var(--muted);font-size:10.5px;word-break:break-all}
+  .readout .syms a{color:var(--accent);text-decoration:none;border-bottom:1px dotted currentColor;margin-right:9px}
+  .readout .syms a:hover{color:#fff;border-bottom-style:solid}
+  /* Floats with the viewport rather than sitting above the grids. The boards
+     stack by duration and get tall, so a panel anchored to the document meant
+     scrolling back to the top to read it. Docked to whichever side was NOT
+     clicked, so it never covers the cell you just picked. */
+  .pa{display:none;position:fixed;top:80px;width:352px;max-height:74vh;overflow-y:auto;
+      padding:11px 13px;border:1px solid var(--line);border-radius:7px;
+      background:var(--surface);z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.6)}
+  .pa.on{display:block}
+  @media(max-width:900px){.pa{left:8px!important;right:8px!important;width:auto;max-height:52vh}}
+  .pa h4{margin:0 0 3px;font-family:'Space Grotesk',sans-serif;font-size:13px;color:var(--accent)}
+  .pa .meta{color:var(--muted);font-size:11px;margin-bottom:8px}
+  .pa .tier{margin-top:7px;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#5a6070}
+  .pa .row{display:flex;align-items:center;gap:9px;padding:2.5px 0;font-size:11.5px}
+  .pa .sw{width:26px;height:11px;border-radius:2px;flex:none}
+  .pa .hit{color:var(--muted);font-size:10.5px;margin-left:auto;white-space:nowrap}
+  .pa .note{color:#5a6070;font-size:10px;margin-top:9px;line-height:1.5}
+  .pa .x{float:right;cursor:pointer;color:var(--muted);font-size:15px;line-height:1}
   .legend{display:flex;gap:13px;flex-wrap:wrap;font-size:10.5px;color:var(--muted);margin-top:10px}
   .legend .k{display:inline-flex;align-items:center;gap:5px}
   .sw{width:13px;height:13px;border-radius:2px;display:inline-block;
@@ -365,6 +400,24 @@ function renderPage() {
   <div class="bar">
     <span><label for="spot">Spot</label><br><select id="spot"></select></span>
     <span><label>Signal</label><div class="radios" id="sigs"></div></span>
+    <span><label>Layout</label><div class="radios" id="layout">
+      <button data-v="time" aria-pressed="true">expiry × time</button>
+      <button data-v="strike" aria-pressed="false">expiry × strike</button></div></span>
+    <span class="surfOnly"><label for="minprem">Min premium</label><br>
+      <select id="minprem">
+        <option value="0">all</option>
+        <option value="0.25">0.25</option>
+        <option value="1">1</option>
+        <option value="2" selected>2</option>
+        <option value="5">5</option>
+      </select></span>
+    <span class="surfOnly"><label for="band">Strike band</label><br>
+      <select id="band">
+        <option value="10">±10%</option>
+        <option value="20">±20%</option>
+        <option value="30" selected>±30%</option>
+        <option value="0">all</option>
+      </select></span>
     <span><label for="minVal">Min strength</label><br>
       <input type="number" id="minVal" value="0" step="1" style="width:110px"></span>
     <span><label for="empty">Empty durations</label><br>
@@ -389,6 +442,7 @@ function renderPage() {
     <div class="hint" id="tlHint"></div>
   </div>
 
+  <div id="pa" class="pa"></div>
   <div id="grids"></div>
   <div class="legend" id="legend"></div>
 </div>
@@ -398,14 +452,164 @@ function renderPage() {
 // count reads even without seeing the legend.
 const SCALE=['#2b3648','#3a5570','#4d7a91','#6a9d7f','#9db866','#c9b053','#d4823f','#d4703a'];
 const $=id=>document.getElementById(id);
+${chart.CLIENT_HELPER}
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let TIMES=[], DATA=[], SIGNAL=null;
+let LAYOUT='time', SURF=null, PASTATS=null;
+
+/* Colour = P(25x) among tradeable events, not the max ratio. See price_action.js
+   for why max cannot be used. On this LIVE board the cell itself has no ratio,
+   so only the label statistics are shaded. */
+function colForHit(h){
+  if(!(h>0)) return null;
+  const t=Math.max(0,Math.min(1,(h-0.02)/0.04));
+  return SCALE[Math.min(SCALE.length-1,Math.floor(t*(SCALE.length-0.001)))];
+}
+
+/* Put the panel beside the click, inside the viewport, on the opposite side so
+   it never hides the cell that was just clicked. */
+function placePA(el, td){
+  const r=td.getBoundingClientRect(), vw=window.innerWidth, vh=window.innerHeight;
+  if(r.left + r.width/2 < vw*0.6){ el.style.right='18px'; el.style.left='auto'; }
+  else                           { el.style.left='18px';  el.style.right='auto'; }
+  const h=el.offsetHeight;
+  let top=r.top + r.height/2 - h/2;
+  top=Math.max(12, Math.min(vh - h - 12, top));
+  el.style.top=top+'px';
+}
+
+async function showPA(td){
+  if(!PASTATS){ try{ PASTATS=await (await fetch('/api/pa-stats')).json(); }catch(_){ PASTATS={ok:false}; } }
+  if(!PASTATS.ok) return;
+  const iso=td.dataset.ei; if(!iso) return;
+  const d=await (await fetch('/api/pa?signal='+encodeURIComponent(SIGNAL)+
+    '&spot='+encodeURIComponent($('spot').value)+'&expiry='+encodeURIComponent(td.dataset.e)+
+    '&duration='+encodeURIComponent(td.dataset.d||'')+
+    '&iso='+encodeURIComponent(iso)+'&type='+encodeURIComponent(td.dataset.ty))).json();
+  const syms=td.dataset.s?td.dataset.s.split(' '):[];
+  // A real listener, not an inline onclick: the handler lives inside a template
+  // literal, so quoting it inline emits bare quotes that terminate the JS string
+  // and silently kill the whole script block.
+  let h='<span class="x" id="paX" title="close">&times;</span>'+
+    '<h4>'+esc(String(iso).slice(0,16).replace('T',' '))+'  ·  '+esc(td.dataset.e)+'</h4>'+
+    '<div class="meta">'+(td.dataset.d?esc(td.dataset.d)+'m  ·  ':'')+
+    (td.dataset.ty==='C'?'calls':'puts')+'  ·  '+syms.length+' strike'+(syms.length===1?'':'s')+
+    '  ·  live board, outcome not yet known</div>';
+  if(!d.labels||!d.labels.length){
+    h+='<div class="note">No price action recorded for this moment.</div>';
+  } else {
+    // Order matters: what was measured to PREDICT first, then the two axes that
+    // were measured and found not to, then description. The headings say which
+    // is which so the panel never implies an untested label matters.
+    // What the market WAS doing first, then the two rules measured to predict,
+    // then everything measured not to. The headings carry the verdict so the
+    // panel can never imply an untested label matters.
+    const TIERS=[['state','what the 4h chart was doing'],
+                 ['measured','MEASURED TO PREDICT — does the signal agree with it?'],
+                 ['regime','MEASURED TO PREDICT — the 20-day filter, adds on top'],
+                 ['role','structural role — measured, does NOT add'],
+                 ['energy','energy at the signal timeframe — measured, INVERTED (louder = worse)'],
+                 ['context','context — real, but measured NOT to add on top'],
+                 ['structure','structure — bar mechanics, not scored']];
+    for(const [tier,head] of TIERS){
+      const rows=d.labels.filter(l=>l.tier===tier); if(!rows.length) continue;
+      h+='<div class="tier">'+head+'</div>';
+      for(const l of rows){
+        const bg=tier==='structure'?null:colForHit(l.hit25);
+        h+='<div class="row"><span class="sw" style="background:'+(bg||'#2b3648')+'"></span>'+
+           esc(l.text)+'<span class="hit">'+(l.hit25!=null?(100*l.hit25).toFixed(2)+'% hit 25x':'')+
+           (l.n?'  ·  n='+l.n.toLocaleString():'')+'</span></div>';
+      }
+    }
+    h+='<div class="note">Shade = P(25x) for events carrying that label, measured on SETTLED '+
+       'trades (filled, entry premium 2-20). Only the first tier was measured to predict.</div>';
+  }
+  const el=$('pa');
+  el.innerHTML=h; el.classList.add('on');
+  const px=$('paX'); if(px) px.addEventListener('click',()=>el.classList.remove('on'));
+  placePA(el, td);
+}
 
 function colFor(n,max){
   if(!n) return null;
   if(max<=1) return SCALE[SCALE.length-1];
   const t=(n-1)/(max-1);
   return SCALE[Math.min(SCALE.length-1,Math.floor(t*(SCALE.length-0.001)))];
+}
+
+/* ── Expiry x STRIKE, live board ──────────────────────────────────────────────
+   Rows are expiries not yet settled at the selected moment; columns are absolute
+   strikes. Cells count firings inside the forward window. There is deliberately
+   NO payoff shading here: the window has not elapsed, so any ratio would be a
+   partial number that looks final. Use 3900 for that.                         */
+function renderSurface(type,grid,mx,dur){
+  const cols=(SURF.cols||{})[type]||[], rows=SURF.rows||[];
+  grid=grid||[];
+  if(!cols.length) return '<div class="empty">No '+(type==='C'?'calls':'puts')+' on the board.</div>';
+  const px=SURF.spotPx, step=Math.max(1,Math.ceil(cols.length/18));
+
+  let h='<div class="gridScroll"><table class="hm"><thead><tr>'+
+        '<th class="corner">expiry / strike →</th>';
+  cols.forEach((k,i)=>{
+    const m=px?((k-px)/px*100):null;
+    const lab=(i%step===0||i===cols.length-1)?(k>=1000?(Math.round(k/100)/10)+'k':String(k)):'';
+    h+='<th class="colh" title="'+k+(m==null?'':'  ('+(m>=0?'+':'')+m.toFixed(1)+'% from spot)')+'">'+lab+'</th>';
+  });
+  h+='</tr></thead><tbody>';
+  rows.forEach((r,ri)=>{
+    h+='<tr><th class="rowh" title="'+r.tte.toFixed(0)+'h to expiry">'+esc(r.expiry)+'</th>';
+    (grid[ri]||[]).forEach((c,ci)=>{
+      if(!c||!c.n){ h+='<td class="zero"></td>'; return; }
+      const bg=colFor(c.n,mx);
+      h+='<td'+(bg?' style="background:'+bg+'"':' class="zero"')+
+         ' data-sk="1" data-d="'+(dur||'')+'" data-ty="'+type+'" data-e="'+esc(r.expiry)+'" data-t="'+r.tte.toFixed(0)+
+         '" data-k="'+cols[ci]+'" data-n="'+c.n+
+         '" data-du="'+(c.ratio||0)+
+         '" data-s="'+esc((c.syms||[]).join(' '))+'" data-ei="'+esc(c.iso||'')+
+         '" data-u="'+esc((c.urls||[]).join(' '))+'">'+c.n+'</td>';
+    });
+    h+='</tr>';
+  });
+  return h+'</tbody></table></div><div class="readout"></div>';
+}
+
+function renderSurfaceAll(){
+  if(!SURF||!SURF.rows||!SURF.rows.length){
+    $('grids').innerHTML='<div class="empty">No expiry was live at this moment.</div>'; return; }
+  const nC=(SURF.cols.C||[]).length, nP=(SURF.cols.P||[]).length;
+  if(!SURF.boards||!SURF.boards.length){
+    $('grids').innerHTML='<div class="empty">Nothing entered on the selected day on '+
+      'any duration at or above the 30m floor.</div>'; return; }
+  let h='';
+  if(SURF.minPremium>0) h+='<div class="note">Contracts marked below '+SURF.minPremium+
+    ' at entry are hidden — set "min premium" to <b>all</b> to see them.</div>';
+  // Longest duration first, same order as the time-axis view.
+  SURF.boards.slice().reverse().forEach(b=>{
+    h+='<div class="durRow"><div class="durHead"><span class="d">'+b.duration+'m</span>'+
+       '<span class="c">'+SURF.rows.length+' live expiries</span>'+
+       '<span class="c">'+nC+' call / '+nP+' put strikes</span>'+
+       (SURF.spotPx?'<span class="c">spot '+Math.round(SURF.spotPx).toLocaleString()+'</span>':'')+
+       '<span class="c">'+b.total.C+' call / '+b.total.P+' put strike-firings that day</span>'+
+       '<span class="c">peak '+b.max+' in one cell</span></div>'+
+       '<div class="pair">'+
+         '<div class="pane"><div class="t">Calls</div>'+renderSurface('C',b.grid.C,b.max,b.duration)+'</div>'+
+         '<div class="pane"><div class="t">Puts</div>'+renderSurface('P',b.grid.P,b.max,b.duration)+'</div>'+
+       '</div></div>';
+  });
+  $('grids').innerHTML=h;
+
+  for(const td of document.querySelectorAll('table.hm td[data-sk]')){
+    td.addEventListener('click',()=>showPA(td));
+    td.addEventListener('mouseenter',()=>{
+      const out=td.closest('.pane').querySelector('.readout');
+      const syms=td.dataset.s?td.dataset.s.split(' '):[];
+      out.innerHTML='<b>strike '+(+td.dataset.k).toLocaleString()+'</b>  ·  exp '+esc(td.dataset.e)+
+        '  ·  '+td.dataset.t+'h to expiry  ·  '+(td.dataset.ty==='C'?'call':'put')+
+        '  ·  '+td.dataset.n+' firing'+(td.dataset.n==='1'?'':'s')+
+        (+td.dataset.du?', signal ratio '+(+td.dataset.du).toFixed(2)+'x':'')+
+        '<div class="syms">'+symLinks(syms,td.dataset.u?td.dataset.u.split(' '):[])+'</div>';
+    });
+  }
 }
 
 function renderGrid(grid,duration,type){
@@ -436,7 +640,8 @@ function renderGrid(grid,duration,type){
       if(!c){ h+='<td class="zero"></td>'; return; }
       h+='<td style="background:'+colFor(c.n,grid.max)+'" data-d="'+duration+'" data-ty="'+type+
          '" data-e="'+esc(e)+'" data-t="'+esc(t)+'" data-n="'+c.n+
-         '" data-s="'+esc(c.syms.join(' '))+'">'+c.n+'</td>';
+         '" data-s="'+esc(c.syms.join(' '))+'" data-ei="'+esc(c.iso||'')+
+         '" data-u="'+esc((c.urls||[]).join(' '))+'">'+c.n+'</td>';
     });
     h+='</tr>';
   });
@@ -480,6 +685,7 @@ function renderAll(){
   $('grids').innerHTML=h;
 
   for(const td of document.querySelectorAll('table.hm td[data-n]')){
+    td.addEventListener('click',()=>showPA(td));
     td.addEventListener('mouseenter',()=>{
       const out=td.closest('.pane').querySelector('.readout');
       const syms=td.dataset.s?td.dataset.s.split(' '):[];
@@ -487,16 +693,28 @@ function renderAll(){
         '  ·  '+td.dataset.d+'m  ·  '+(td.dataset.ty==='C'?'calls':'puts')+
         '  ·  exp '+esc(td.dataset.e)+
         '  ·  '+esc(String(td.dataset.t).slice(0,16).replace('T',' '))+
-        '<div class="syms">'+syms.map(esc).join('  ')+
+        '<div class="syms">'+symLinks(syms,td.dataset.u?td.dataset.u.split(' '):[])+
         (syms.length<+td.dataset.n?'  … +'+(+td.dataset.n-syms.length)+' more':'')+'</div>';
     });
   }
+}
+
+function applyLayoutVis(){
+  document.querySelectorAll('.surfOnly').forEach(e=>e.style.display=LAYOUT==='strike'?'':'none');
+  document.querySelectorAll('.timeOnly').forEach(e=>e.style.display=LAYOUT==='strike'?'none':'');
 }
 
 async function load(){
   if(!SIGNAL) return;
   const t=TIMES[+$('time').value]||'';
   $('nowLabel').textContent=t?String(t).slice(0,16).replace('T',' '):'—';
+  if(LAYOUT==='strike'){
+    SURF=await (await fetch('/api/surface/'+encodeURIComponent(SIGNAL)+'/'+
+      encodeURIComponent($('spot').value)+'?before='+encodeURIComponent(t)+
+      '&minprem='+encodeURIComponent($('minprem').value||0)+
+      '&band='+encodeURIComponent($('band').value||30))).json();
+    return renderSurfaceAll();
+  }
   DATA=await (await fetch('/api/grids/'+encodeURIComponent(SIGNAL)+'/'+
     encodeURIComponent($('spot').value)+'?before='+encodeURIComponent(t)+
     '&min='+encodeURIComponent($('minVal').value||0)+
@@ -542,6 +760,16 @@ async function loadTimeline(){
   $('spot').innerHTML=spots.map(s=>'<option>'+esc(s)+'</option>').join('');
   $('spot').addEventListener('change',loadTimeline);
   $('time').addEventListener('input',load);
+  $('layout').addEventListener('click',e=>{
+    const b=e.target.closest('button[data-v]'); if(!b) return;
+    LAYOUT=b.dataset.v;
+    $('layout').querySelectorAll('button').forEach(x=>
+      x.setAttribute('aria-pressed',String(x.dataset.v===LAYOUT)));
+    applyLayoutVis(); load();
+  });
+  $('band').addEventListener('change',load);
+  $('minprem').addEventListener('change',load);
+  applyLayoutVis();
   $('minVal').addEventListener('change',load);
   $('candles').addEventListener('change',load);
   $('empty').addEventListener('change',load);
@@ -562,6 +790,29 @@ function json(res, b) {
     res.end(s);
 }
 
+// ─── Startup self-check ───────────────────────────────────────────────────────
+// The whole UI lives in one <script> block built by string concatenation inside
+// a template literal. One stray quote makes the browser discard the ENTIRE block
+// and the page renders with empty dropdowns and no error — which is exactly what
+// happened on 2026-09-16 when an inline onclick emitted bare quotes. The server
+// was fine, every API worked, and the page was dead.
+//
+// HANDOFF 3.7: a stage that can do zero work must say so loudly. So parse the
+// emitted script at boot and refuse to pretend everything is fine.
+function selfCheck() {
+    try {
+        const m = /<script>([\s\S]*?)<\/script>/.exec(renderPage());
+        if (!m) { console.error('SELF-CHECK: no <script> block found in the page'); return false; }
+        new Function(m[1]);          // parse only, never executed here
+        return true;
+    } catch (err) {
+        console.error('\n!!! SELF-CHECK FAILED — the client script does not parse !!!');
+        console.error('    ' + err.message);
+        console.error('    The page will load but every control will be dead.\n');
+        return false;
+    }
+}
+
 http.createServer((req, res) => {
     const [rawPath, rawQuery] = req.url.split('?');
     const url = decodeURIComponent(rawPath);
@@ -573,6 +824,12 @@ http.createServer((req, res) => {
             return res.end(renderPage());
         }
         if (url === '/api/signals') return json(res, listSignals());
+        if (url === '/api/pa-stats') return json(res, { ok: pa.available(), stats: pa.stats() });
+        if (url === '/api/pa') {
+            const hit = pa.lookup(q.get('signal'), q.get('spot'), q.get('expiry'),
+                                  q.get('duration'), q.get('iso'), q.get('type'));
+            return json(res, hit || { labels: [] });
+        }
 
         let m = url.match(/^\/api\/spots\/([^/]+)$/);
         if (m) return json(res, listSpots(m[1]));
@@ -581,6 +838,24 @@ http.createServer((req, res) => {
         if (m) return json(res, timeline(m[1], m[2]));
 
         m = url.match(/^\/api\/grids\/([^/]+)\/([^/]+)$/);
+        let ms = url.match(/^\/api\/surface\/([^/]+)\/([^/]+)$/);
+        if (ms) {
+            const before = q.get('before') || '';
+            const beforeMs = new Date(before).getTime();
+            if (Number.isNaN(beforeMs)) return json(res, null);
+            // withPayoff:false — on a LIVE board the forward window has not
+            // elapsed, so a peak ratio here would be a partial number dressed up
+            // as a final one. 3900 is where payoff is real.
+            return json(res, surfaceMod.buildSurface(ms[2], Math.floor(beforeMs / 1000), {
+                signalId:     ms[1],
+                horizonHours: parseInt(q.get('horizon')) || 72,
+                bandPct:      parseFloat(q.get('band')),
+                minPremium:   parseFloat(q.get('minprem')) || 0,
+                minDuration:  MIN_DURATION_MINUTES,
+                withPayoff:   false,
+            }));
+        }
+
         if (m) return json(res, buildAll(m[1], m[2], q.get('before') || '',
                                          parseFloat(q.get('min')) || 0,
                                          parseInt(q.get('candles')) || DEFAULT_CANDLES_BACK,
@@ -592,6 +867,7 @@ http.createServer((req, res) => {
         res.writeHead(500); res.end('Server error');
     }
 }).listen(PORT, '0.0.0.0', () => {
+    selfCheck();
     console.log(netinfo.banner('Signal heatmaps — expiry × time', PORT, [
         `signals : ${listSignals().join(', ') || '(none)'}`,
     ]));

@@ -143,6 +143,20 @@ function computeSignals(candles, instrument = '', opts = {}) {
             }
 
         } else if (isGreen(candle) && redSeq.length >= MIN_SEQ) {
+            // CONTAINMENT (added 2026-09-17, Tejas's rule)
+            // The green trigger must stay BELOW the first — and largest — red
+            // candle, on both its high and its close. A green that pokes above
+            // the first red's high has already retraced the whole squeeze, so
+            // the compression the pattern is built on is gone: what is left is
+            // an ordinary bounce, not a coiled one. Both tests are required —
+            // close alone lets a long upper wick through, high alone lets a bar
+            // that closed strongly through.
+            const firstRed = redSeq[0];
+            if (candle.high >= firstRed.high || candle.close >= firstRed.close) {
+                redSeq.length = 0;   // green always resets, contained or not
+                continue;
+            }
+
             // Strict green trigger after a sufficient squeeze.
             // All bodies below are guaranteed non-zero, so no division by zero.
             const firstRedBody = bodyLen(redSeq[0]);

@@ -35,7 +35,8 @@ const logger = require('../logger');
 function computeSignals(candles, instrument, ctx, opts = {}) {
     // Overridable: see red_squeeze.js.
     const minValue = opts.minSignalValue !== undefined ? opts.minSignalValue
-                   : (typeof c !== 'undefined' ? c.THRESH : JUMP_THRESH);
+                   : c.THRESH;   // spot/mean(lows) scale; see otm_wall.js for why
+                                       // this must never be copied blindly.
     if (!candles || candles.length < c.MIN_SEQ + 2) return [];
     const spotByTs = (ctx && ctx.spotByTs) || new Map();
 
@@ -65,6 +66,15 @@ function computeSignals(candles, instrument, ctx, opts = {}) {
 
         // ── Green trigger after a long enough squeeze ──
         const patternStartCandle = redSeq[0];
+
+        // CONTAINMENT (added 2026-09-17, Tejas's rule) — see red_squeeze.js for
+        // the reasoning. The green must stay below the first (largest) red on
+        // BOTH high and close, or the squeeze has already been undone.
+        if (candle.high >= patternStartCandle.high ||
+            candle.close >= patternStartCandle.close) {
+            redSeq.length = 0;
+            continue;
+        }
         const spotAtStart        = spotByTs.get(patternStartCandle.dtstring);
 
         // Moneyness at pattern start — the looser test, so an instrument that
