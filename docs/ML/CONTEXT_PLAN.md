@@ -1230,3 +1230,54 @@ categorically different from trend-line breaks. Pooled across the grid, TL is at
 least as strong as CL (TL 34/324 significant vs CL 13/268), and the conjunction
 is not reliably better than either. What survived is not "channel lines are
 special" but "downside break geometry predicts, upside break geometry does not".
+
+### Sustain vs fade: the "absorption / overbought" claim (2026-09-18)
+
+Tejas's Nifty pair — Dec-2023 broke a swing high after a calm stretch, gapped the
+ATH and SUSTAINED nine months to 26,000; Sep-2024 made the ATH already extended
+and gave it all back by April. His mechanism: the market ABSORBS opposite-side
+attempts (which produces the calm) before a move that sustains, and is unstable
+and won't sustain when already overbought/oversold.
+
+**It cannot be tested on the option set**, for two measured reasons. Horizon:
+his moves run months, option events resolve in days. Collinearity: a break means
+price is already far from the line, so "break while NOT extended" had **n=0**.
+
+`spot_sustain.py` tests it on its own terms — 8,252 daily 20-day breakouts across
+158 Delta perpetuals, 121 weeks. Pre-state measured strictly before the event
+bar; outcomes at 5/20/60 days; resampling unit is the CALENDAR WEEK across all
+symbols (N_eff 5.8 makes symbol-weeks fiction). Extension quintile is nearly
+collinear with direction (Q1 = 1,160 up/491 down, Q5 = 200 up/1,451 down), so
+everything is run WITHIN direction.
+
+**Half the claim fails, half survives.**
+
+| | up breaks | down breaks |
+|---|---|---|
+| extension → sustain, 60d | +3.48pp, P=0.212 | **−7.06pp, P=0.974** |
+| extension → return, 20d | −2.67%, P=0.637 | **−7.50%, P=0.967** |
+| absorption → sustain, 60d | +0.76pp, P=0.428 | +1.23pp, P=0.350 |
+| absorption → return, 20d | +4.34%, P=0.188 | +2.71%, P=0.213 |
+
+1. **ABSORPTION IS NULL EVERYWHERE.** All P between 0.188 and 0.826, no
+   consistent sign across horizon or direction. His proposed *mechanism* — that
+   absorbing opposite attempts produces a calm that precedes a decisive move — is
+   not supported. This also matches the earlier option-side result, where
+   "call breaks, absorbed first" hit 0.12% against a 3.78% base.
+2. **"OVERBOUGHT/OVERSOLD WON'T SUSTAIN" HOLDS, BUT ONLY DOWNSIDE.** Down-breaks
+   made while already extended down sustain far less: 60d sustain falls
+   monotonically 19.0 → 23.0 → 20.4 → 14.7 → 11.7% across extension quintiles.
+3. **NOTHING ON UP BREAKS** — which is exactly where both his Nifty examples
+   live. The Dec-2023-sustains vs Sep-2024-fades distinction does not reproduce.
+
+**The reconciliation with the option result.** There, "put breaks, already
+extended down" was the BEST cell (dEV +1.130, P=0.036) at option horizons of
+days. Here, extended down-breaks sustain WORST at 60 days. Both are true and
+together they say something usable: a crash into an already-oversold tape gives a
+sharp continuation over DAYS, then mean-reverts over MONTHS. Buy the puts, do not
+hold the view.
+
+Multiplicity: 16 cells (2 vars x 2 directions x 2 horizons x 2 outcomes); two are
+significant, both the same variable and direction with consistent sign across
+horizons. Coherent, but ~0.5 cells would be expected by chance, so this is mild
+evidence, not a result to size on.
