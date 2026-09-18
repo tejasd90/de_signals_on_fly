@@ -1165,3 +1165,68 @@ used is BELOW break-even at 100x (1.012%). But no price-action rule improved it.
 Caveat: ~32 rule × band × target cells were examined. P=0.025 is not impressive
 against that count on its own; the conjunction earns its keep by being
 pre-specified from his Oct 10 description and by surviving both controls.
+
+### Full test of the channel-line claim (2026-09-18, supersedes the section above)
+
+The first report of "CL AND TL, dEV +0.447, P=0.025" was one cell out of many,
+measured before any multiplicity control, at a construction that never fired
+during the episode the claim came from. The complete test changed the answer
+three times; all three states are recorded because the sequence is the lesson.
+
+**Build.** `channel_grid.py` (18 local constructions: n_swings x fractal k x
+timeframe) and `structural_channels.py` (hull lines + the parallel return line,
+lookbacks sized so each timeframe can hold a multi-month line). Two real bugs
+were found in the structural selection and fixed: "longest sloping hull segment"
+degenerated to the window edge (returned span equalled the lookback on nearly
+every bar), and extrapolation was unbounded (negative prices on 18 of 72 bars at
+lb400, reporting "broken" throughout).
+
+**Control 1, placebo — insufficient.** Flipping the direction convention gave
+0/896 significant vs 62/826 real (placebo min p 0.069). Decisive-looking, but the
+wrong null: on a directional feature the flipped rule is an anti-rule, guaranteed
+to look bad if the geometry reads direction at all — which is beta, not skill.
+
+**Control 2, count of bootstrap-significant cells under permutation — WRONG.**
+It reported family-wise p = 0.520 and "dead". The error: under within-week
+permutation dEV is not centred on zero (null medians +0.098 R4, +0.184 CL&TL),
+because these masks fire more in weeks when options paid anyway. Counting cells
+with bootstrap p<0.05 therefore flags null cells constantly.
+
+**Control 3, Westfall-Young maxT (`maxt.py`) — correct.** Standardising each cell
+against its own permutation null: R4 positive control z=17.09 (FWER p<0.001), and
+24 of 64 cells survive family-wise correction at 25x. The geometry does carry
+real within-week selection.
+
+**Variance decomposition, the number that matters.** Within-week permutation sd
+0.0504; weekly block bootstrap sd 0.3334 — **6.6x**. The permutation z-scores are
+large because they hold weeks fixed. Between-week variation dominates and is what
+decides whether a rule repeats, which is why maxT says "real" while the block
+bootstrap says P=0.060.
+
+**Where the effect actually lives: PUTS ONLY.**
+
+| side | keep | hit | base | dEV | dProfit/wk | P |
+|---|---:|---:|---:|---:|---:|---:|
+| calls | 5.4% | 3.05% | 3.79% | **-0.179** | +47.12 | 0.702 |
+| puts | 6.6% | **8.18%** | 3.99% | **+1.006** | +51.68 | **0.011** |
+
+Puts clear the direction control in all five realised-forward-return buckets
+(2.23 / 1.19 / 2.48 / 2.15 / 2.14x). Calls are below 1.0 in four of five
+(0.00 / 0.36 / 0.42 / 0.27 / 1.40x) — actively harmful. Downside breaks cascade
+through liquidations; upside breaks get faded.
+
+**Held-out 2026, put side:** `cz1440_s6k3` CL&TL hit 8.63% vs 2.58% base,
+dEV +1.349, dProfit/wk +176.53, **P=0.043** — the only thing in this whole study
+significant out of sample in the live regime.
+
+**Caveats that stop this being a green light.** Parameter fragility is real:
+`cz240_s4k2` is significant in 2024-25 (P=0.042) and dead in 2026 (P=0.303),
+while `cz1440_s6k2` is the reverse. On the put-only maxT only 4 of 64 cells
+survive family-wise, and `cz1440_s6k3|CL` is not among them (FWER p=0.713) even
+though it wins on the bootstrap. No single construction is robustly best.
+
+**Tejas's actual claim is NOT supported.** He argued channel-line breaks are
+categorically different from trend-line breaks. Pooled across the grid, TL is at
+least as strong as CL (TL 34/324 significant vs CL 13/268), and the conjunction
+is not reliably better than either. What survived is not "channel lines are
+special" but "downside break geometry predicts, upside break geometry does not".
