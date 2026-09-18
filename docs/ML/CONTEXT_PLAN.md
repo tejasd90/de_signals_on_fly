@@ -1369,3 +1369,50 @@ into two independent liquidation points instead of one netted one. The funding
 does differ, because a long-on-A/short-on-B pair carries different net exposure
 than a single netted book — so the two are not the same position, and the
 comparison should be made at equal net exposure, not equal gross size.
+
+### Consolidated hit rates, and what survives on TRADED prices (2026-09-18)
+
+Break-even at 25x is 4.33% of premium. MARK prices, full population, 142 weeks:
+
+| rule | keep | firing weeks | hit25 | dEV | P | hit100 | P |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| base (every activated) | 100% | 142 | 3.89% | −0.110 | — | 1.026% | — |
+| **R4** always-in | 25.7% | **142** | 5.96% | +0.510 | **0.000** | 1.799% | **0.002** |
+| CL&TL | 6.0% | 70 | 5.82% | +0.478 | 0.060 | 1.647% | 0.159 |
+| **CL&TL puts** | 3.2% | 36 | **8.18%** | +1.058 | **0.012** | 2.329% | 0.075 |
+| R4 + CL&TL puts | 2.4% | 36 | 8.36% | +1.090 | 0.029 | 2.626% | 0.102 |
+| CL&TL puts + extended down | 2.1% | 30 | **8.98%** | +1.226 | 0.029 | 3.033% | 0.062 |
+| CL&TL **calls** | 2.7% | 36 | **3.05%** | −0.210 | 0.752 | 0.844% | 0.620 |
+
+Three readings that matter more than the maximum:
+- **R4 is the only rule significant at BOTH targets and the only one firing in all
+  142 weeks.** Every high-percentage put rule fails at 100x (P > 0.06).
+- Stacking R4 onto the put rule buys almost nothing (8.18 → 8.36%) and *worsens*
+  significance (0.012 → 0.029): they read overlapping information.
+- R4 splits evenly by side (puts 5.95%, calls 5.97%); CL&TL does not at all
+  (8.18% vs 3.05%). On calls the break geometry is BELOW the 3.89% base rate.
+
+**TRADED-PRICE CHECK — and the trap in it.** `fetch_traded.py` fetched only "the
+contracts R4+R5 actually selects". So that subset IS the R4+R5 population, and
+computing a "base rate" or re-testing R4 inside it conditions on the selection.
+My first pass did exactly that and produced two artifacts: a 6.34% "base rate"
+(which is really R4+R5's own hit rate on prints, consistent with the documented
+6.01%) and R4 appearing to *lose* (−0.117, P=0.831) because it was being applied
+twice.
+
+What the subset legitimately tests is a marginal addition inside R4+R5:
+
+| within R4+R5, on prints | keep | wks | hit25 | dEV | P |
+|---|---:|---:|---:|---:|---:|
+| R4+R5 population itself | 100% | 141 | 6.34% | +0.503 | — |
+| + CL&TL, puts only | 7.2% | 36 | **8.78%** | +0.575 | **0.160** |
+| + CL&TL, calls only | 3.7% | 25 | 4.55% | −0.470 | 0.767 |
+
+**So the put refinement is NOT confirmed on traded prices.** Right sign, good
+point estimate (6.34 → 8.78%), but P=0.160 on 36 firing weeks. The call side is
+negative on prints too, which is at least consistent.
+
+**Bottom line on "best percentage":** the only figure backed by prints remains
+**~6.0–6.3% from R4+R5(+containment)** against a 4.33% break-even. The 8.2–9.0%
+put numbers are mark-price only, rest on 30–36 firing weeks, and their traded
+counterpart is unproven.
