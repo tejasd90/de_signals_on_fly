@@ -53,3 +53,6 @@ top_*_trades*.csv
 
 # 1-minute ETH history (21 MB, regenerate with fetch_eth_1m.py)
 data/eth_1m.parquet
+
+# event-level channel-line features (regenerate with channel_lines.py)
+events_cl.parquet

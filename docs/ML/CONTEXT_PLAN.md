@@ -1093,3 +1093,75 @@ supports it:
 
 So dropping them costs nothing that was ever measured to be worth anything. Keep
 the signal's STRUCTURE (it defines the event) and let CONTEXT do the grading.
+
+---
+
+## Channel lines and the tail target (2026-09-18) — Tejas's four episodes
+
+He supplied four dated crypto episodes and one sharp claim:
+
+> "a strong indication of immediate breakout-breakdown is channel line break.
+>  Trendlines breaking only break the trend, but channel line breaks are breakouts."
+
+### The episodes are real, and real on TRADED prices
+
+| episode | ≥100x | max | note |
+|---|---:|---:|---|
+| A · 19–22 Sep 25 range break | 5 | 560x | entries 21 Sep 20:10, 22 Sep 01:20 |
+| B · 23 Sep–6 Oct 25 reversal | 42 | 1,088x | 100x days 25 Sep → 6 Oct |
+| C · 10–11 Oct 25 bloodbath | 204 | 15,435x | **mark-price artifact**, entries pinned at the 0.100 floor |
+| D · 16 Jan–6 Feb 26 bear leg | 59 | 6,652x | 10 contracts ≥100x on TRADED prices with 3M volume |
+
+Episode C's biggest ratios are **calls entered 11 Oct 02:45** — the bounce off
+the crash low, not the crash. Episode D validates on traded candles, so the
+tails are genuinely tradeable and not a mark-price story.
+
+### Two gaps his claim exposed
+
+1. `brooks_context.py` builds only ONE channel line — the bull channel's upper
+   return line — and measures only OVERSHOOT of it (R7, dEV −0.024, P=0.590).
+   That is Brooks' exhaustion reading. The **bear channel's lower return line**,
+   which is what his Oct 10 and Jan 30 examples are about, was never constructed
+   (the bear branch at `brooks_context.py:173` fits the trend line and stops).
+   Now built in `channel_lines.py` → `events_cl.parquet`.
+2. Every prior result targeted **25x**; his episodes are 100x–9,000x. Added.
+
+### Result: the distinction is real, but NOT the way he framed it
+
+At 25x, premium 2–20, 240m context, 97,909 events, 142 weeks, base hit 3.89%,
+break-even 4.33%:
+
+| rule | keep | hit | dEV | dProfit/wk | P |
+|---|---:|---:|---:|---:|---:|
+| CL only (no TL) | 2.3% | 4.20% | +0.073 | +77.96 | 0.365 |
+| TL only (no CL) | 13.1% | 3.90% | −0.025 | +67.66 | 0.546 |
+| **CL AND TL** | 5.8% | 5.71% | **+0.447** | +92.24 | **0.025** |
+| R4 alone | 25.7% | 5.96% | +0.510 | +151.52 | 0.000 |
+| **R4 AND CL AND TL** | 2.4% | **9.64%** | **+1.397** | +100.46 | **0.001** |
+
+Neither break works alone. **Only the conjunction pays** — which is exactly his
+Oct 10 account: the bull trend line broke on Oct 7, and the Oct 10 17:30 bar
+then broke the bear channel line. Sequence, not either event.
+
+Survives the direction control (lift 1.90/1.66/0.79/1.15/1.53 across realised
+forward-return quintiles) and survives marginality to R4 on EV (+0.887, P=0.029)
+— though **inside R4 it fails profit/week (−47.97)**, trap #10 again. The usable
+form is the conjunction R4 ∧ CL ∧ TL, positive on both numbers.
+
+### Two findings that cut against it
+
+**It decays, and is gone in 2026.** 2024 dEV +0.783 (P=0.033) · 2025 +0.440
+(P=0.082) · **2026 −0.091 (P=0.593)**. Tejas's own read — markets "constantly in
+trapping mode" now — matches the data. Do not trade this on 2024 evidence.
+
+**The tail re-target found nothing.** At 100x the rules are dead: CL −0.170
+(P=0.680) in the 2–20 band, and in the cheap band every rule has NEGATIVE
+profit/week. The cheap band itself is where the tail lives — premium <2 hits
+1.14–1.21% against a 1.083% break-even, while the 2–20 band the whole project
+used is BELOW break-even at 100x (1.012%). But no price-action rule improved it.
+100x events cluster ferociously: only 49 of 140 weeks contain one, and the top
+10 days hold 30% of them (8 in a single Aug-2026 week).
+
+Caveat: ~32 rule × band × target cells were examined. P=0.025 is not impressive
+against that count on its own; the conjunction earns its keep by being
+pre-specified from his Oct 10 description and by surviving both controls.
