@@ -1416,3 +1416,54 @@ negative on prints too, which is at least consistent.
 **~6.0–6.3% from R4+R5(+containment)** against a 4.33% break-even. The 8.2–9.0%
 put numbers are mark-price only, rest on 30–36 firing weeks, and their traded
 counterpart is unproven.
+
+### Was 4h the right timeframe for R4? (2026-09-18)
+
+R4's timeframe was never chosen on merit. `brooks_context.py` fixes the ladder at
+60/240/1440 for a DATA reason stated in its own docstring — six of the twelve
+signal durations have no stored spot series — and 4h simply won within that
+ladder. 6h, 8h, 12h and weekly were never candidates. `data/spot_grouped/` does
+carry all of them, so `alwaysin_tf.py` answers it. Always-in is unchanged
+(`close > EMA20 > EMA50`); only the bar size varies.
+
+| timeframe | keep | hit25 | dEV | P | hit100 | P100 |
+|---|---:|---:|---:|---:|---:|---:|
+| 1h | 25.6% | 5.33% | +0.354 | 0.000 | 1.557% | 0.001 |
+| 2h | 25.6% | 5.27% | +0.336 | 0.000 | 1.581% | 0.003 |
+| **4h (current)** | 25.7% | 5.96% | +0.510 | 0.000 | **1.799%** | **0.002** |
+| 6h | 26.0% | 5.87% | +0.486 | 0.000 | 1.784% | 0.027 |
+| 8h | 26.4% | 5.95% | +0.504 | 0.000 | 1.732% | 0.041 |
+| **12h** | 26.6% | **6.04%** | **+0.538** | 0.000 | 1.778% | 0.033 |
+| daily | 26.8% | 5.23% | +0.333 | 0.015 | 1.440% | 0.138 |
+| weekly | 32.6% | **2.40%** | **−0.368** | **0.999** | 0.639% | 0.876 |
+
+**A broad plateau from 4h to 12h with smooth degradation on both sides.** Too
+fast is noise, too slow is stale. That shape — not any single P — is the evidence
+the effect is real. Weekly is not merely useless but ACTIVELY HARMFUL (2.40%
+against a 3.89% base), consistent with the standing note that weekly trend-line
+breaks are measurably harmful.
+
+**Answering the question directly: no, 6h/12h/daily do not improve it.** 12h edges
+4h at 25x (6.04 vs 5.96%) by an amount well inside noise; 4h is better at 100x;
+daily is clearly worse; weekly is harmful.
+
+**The combination is more interesting, and still not an improvement.** Requiring
+agreement on 4h AND 12h gives 6.76% vs 5.96%, dEV +0.705 vs +0.510, and at 100x
+2.18% vs 1.80%. But:
+
+- **Marginal test fails.** Inside the 4h population, adding 12h is dEV +0.196 at
+  **P=0.058**, with **dProfit/wk −0.22** — literally zero added weekly profit.
+- **It is less stable.** 4h alone is significant in all three years (2024 P=0.007,
+  2025 P=0.002, 2026 P=0.036). 4h AND 12h loses 2026 (P=0.106).
+
+Both survive the direction control in all five forward-return buckets, and both
+work on both sides (4h: calls P=0.002, puts P=0.009).
+
+**Verdict: keep 4h.** The combination buys no extra profit and is weaker in the
+live year. The ONE reason to prefer it is trade reduction — same weekly profit
+from 16.9% of events instead of 25.7%, a 34% cut in trade count. Given that
+overtrading is the stated real problem, that is a genuine practical argument even
+though it is not a statistical improvement.
+
+Multiplicity: 8 timeframes + 11 combinations = 19 cells. The plateau shape is
+what should be believed, not the maximum.
