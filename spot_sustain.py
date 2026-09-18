@@ -42,7 +42,7 @@ import numpy as np, pandas as pd
 BREAK_N=20; PRE=20; HORIZONS=(5,20,60)
 
 def daily(fp):
-    d=pd.read_parquet(fp)
+    d=pd.read_parquet(fp).sort_values("ts")   # o=first/c=last need ts order
     d["day"]=(d.ts//86400).astype(int)
     g=d.groupby("day").agg(o=("o","first"),h=("h","max"),l=("l","min"),
                            c=("c","last"),ts=("ts","first")).reset_index()
@@ -78,8 +78,14 @@ def events(g,sym):
             row=dict(sym=sym,ts=int(g.ts.iloc[i]),i=i,dirn=d,lvl=lvl,c=c[i],
                      absorb=(1-eff_p[i])*ovm[i], ttr=ttr[i], ext=d*ext_raw[i])
             for H in HORIZONS:
-                j=min(i+H,n-1)
-                if j<=i: continue
+                # FULL horizon only. j=min(i+H,n-1) used to truncate the window
+                # near each symbol's series end; a shorter window is easier to
+                # "sustain" and damps the return, biasing both upward. Outcomes
+                # are NaN when the whole horizon is not available, per horizon,
+                # so a 20d result is still kept when only 60d is unavailable.
+                j=i+H
+                if j>n-1:
+                    row[f"ret{H}"]=np.nan; row[f"sus{H}"]=np.nan; continue
                 row[f"ret{H}"]=d*(c[j]/c[i]-1)
                 seg=c[i+1:j+1]
                 row[f"sus{H}"]=float(np.all(seg>lvl) if d>0 else np.all(seg<lvl))
@@ -89,6 +95,8 @@ def events(g,sym):
 def blockboot(df,col,mask,n=2000,seed=0):
     """Resample CALENDAR WEEKS across all symbols."""
     rng=np.random.default_rng(seed)
+    ok=df[col].notna().to_numpy()
+    df=df[ok]; mask=np.asarray(mask,bool)[ok]
     wk=df.week.to_numpy(); y=df[col].to_numpy(); m=np.asarray(mask,bool)
     weeks=np.unique(wk); W=len(weeks); idx={w:np.where(wk==w)[0] for w in weeks}
     out=[]
@@ -107,6 +115,8 @@ if __name__=="__main__":
         if g is None: continue
         rows+=events(g, os.path.basename(fp)[:-8])
     E=pd.DataFrame(rows).dropna(subset=["absorb","ext","ttr"])
+    for H in HORIZONS:
+        print(f"  horizon {H}d: {int(E[f'sus{H}'].notna().sum()):,} of {len(E):,} events have a full window")
     E["week"]=((E.ts+19800)//604800).astype(int)
     E["d"]=pd.to_datetime(E.ts,unit="s")
     E.to_parquet("spot_breakouts.parquet",index=False)

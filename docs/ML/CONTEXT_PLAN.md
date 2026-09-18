@@ -1281,3 +1281,91 @@ Multiplicity: 16 cells (2 vars x 2 directions x 2 horizons x 2 outcomes); two ar
 significant, both the same variable and direction with consistent sign across
 horizons. Coherent, but ~0.5 cells would be expected by chance, so this is mild
 evidence, not a result to size on.
+
+---
+
+## Audit of the whole session (2026-09-18) — bugs found, claims corrected
+
+### BUG 1 (material): truncated forward windows in `spot_sustain.py`
+
+`j=min(i+H,n-1)` silently shortened the outcome window for breakouts near each
+symbol's series end. A shorter window is easier to "sustain" and damps the return,
+biasing both upward. It touched **963 of 8,252 events at 60d (11.7%)**.
+
+Consequence — the up-break baseline I quoted was wrong:
+
+| | reported | corrected |
+|---|---:|---:|
+| up-break sustain 60d | 13.1% | **9.1%** |
+| up-break ret60 | −5.49% | **−7.22%** |
+
+Fixed: outcomes are NaN per horizon when the full window is unavailable, so a 20d
+result is still kept when only 60d is missing. `blockboot` now drops NaN rows.
+
+### BUG 2 (latent): `daily()` aggregated `o=first`/`c=last` without sorting
+
+Correct only because the perp parquets happen to be ts-ordered. Hardened.
+
+### CORRECTION 1: the spike→range→break verdict was half artifact
+
+`spike_range_break.py` guarded its own windows correctly, so **clean** setup
+events were compared against a **contaminated** baseline. Against the corrected
+baseline the gap roughly halves and every P moves toward 0.5:
+
+| | before | after |
+|---|---|---|
+| setup vs base, ret60 | −3.5 to −9.8%, P 0.65–0.87 | **−1.6 to −7.8%, P 0.56–0.82** |
+| setup sus60 vs base | 4–9% vs 13.1% | 3.6–8.6% vs **9.1%** |
+
+So the setup is **not clearly worse** than a generic up-break at 60 days. What
+survives is the 20-day advantage: 25–31% sustain vs 21.1%.
+
+### CORRECTION 2: the 2026 out-of-sample put result is thinner than stated
+
+It survives dropping January 2026 (dEV +0.535, P=0.044 vs +1.349, P=0.043 full),
+but **the rule fires in only 7 of 37 weeks in 2026**, and in only 5 months of 9
+(none at all in Apr, Jul, Aug, Sep). That P-value rests on seven firing weeks.
+
+### CORRECTION 3 (in the other direction): the full-period put result is robust
+
+Leave-one-month-out never breaks it — ex Jan-2026 +0.703 (P=0.027), ex Dec-2024
++1.283 (P=0.002), ex May-2025 +0.990 (P=0.011), ex Feb-2026 +1.022 (P=0.013).
+18 distinct firing months, top-3 hold 47% of hit weight. I over-stressed fragility.
+
+### CORRECTION 4: absorption before an UP break is now clearly adverse
+
+After the window fix, up-break absorption Q5−Q1 on ret60 moved from −5.69%
+(P=0.826) to **−8.53% (P=0.920)**. Tejas's "calm before the decisive move" is not
+merely null on the up side; it leans actively negative.
+
+### UNDER-CLAIMED: the grid backtest is on TRADED prices
+
+`fetch_eth_1m.py` pulls `symbol=ETHUSD` with **no `MARK:` prefix**, and 96.4% of
+the 1.36M bars carry nonzero volume. Given the mark-price blocker that bounds most
+option work here, the grid conclusions rest on firmer data than the option ones.
+
+### NEW: the grid and the put edge are opposite sides of one trade
+
+A grid is SHORT gamma; buying puts on downside breaks is LONG gamma. Measured
+overlap between the ETH grid's daily PnL and put-rule firing days:
+
+| grid PnL decile | grid PnL | put rule fires |
+|---|---:|---:|
+| 1 (worst) | −$4,633 | **24.2%** of days |
+| 7–10 (best) | +$1,024 to +$5,504 | 6.3–8.5% |
+
+The rule fires ~3x more often on the grid's worst days than its best
+(correlation −0.075; −$600 avg grid day when firing vs +$590 when not). Because
+the put rule is +EV standalone (dEV +1.006), it is a **positive-carry hedge for
+the grid's left tail** — the ₹8 crore one-way-fall scenario — rather than
+protection that costs carry. This is the one genuinely new result of the audit.
+
+### The two-broker grid, settled by the path-length law
+
+His opening question. Grid gross = path length x size, independent of spacing and
+of how the book is split. Splitting the same size across two brokers cannot
+create harvest; it duplicates the fee bill per unit of path and fragments margin
+into two independent liquidation points instead of one netted one. The funding
+does differ, because a long-on-A/short-on-B pair carries different net exposure
+than a single netted book — so the two are not the same position, and the
+comparison should be made at equal net exposure, not equal gross size.
