@@ -1467,3 +1467,70 @@ though it is not a statistical improvement.
 
 Multiplicity: 8 timeframes + 11 combinations = 19 cells. The plateau shape is
 what should be believed, not the maximum.
+
+---
+
+## What quant funds actually do, and the one structural thing missing here (2026-09-18)
+
+Tejas asked how ML-driven funds make money and whether the same approach applies.
+
+**They make money four ways, and only one resembles this project.** Market making
+(the largest by volume — earns spread and rebates; the ML is defensive, predicting
+the next ticks to avoid adverse selection; needs colocation). Statistical
+arbitrage (rank thousands of names on weak signals, long/short, market-neutral;
+per-name IC of 0.02-0.05 is normal). Execution alpha. Risk-premia harvesting.
+
+**The thing missing here is BREADTH, not features.** IR ~ IC x sqrt(breadth).
+This project predicts direction on 1-2 instruments over 142 weeks: breadth ~1. A
+desk with IDENTICAL skill gets a vastly higher Sharpe by making the bet thousands
+of times at once. Our 5.96%-vs-4.33% is a perfectly respectable IC; the design
+around it is the problem.
+
+**The N_eff 5.8 objection does not apply to cross-sectional trading.** Measured
+on 158 perps with >=250 days:
+
+| | mean pairwise corr | effective breadth |
+|---|---:|---:|
+| raw returns | 0.434 | **4.3** |
+| residual (market removed) | −0.006 | **58.2** |
+
+Market-neutralising converts 4.3 effective bets into 58.2 — a 13.5x gain, worth
+sqrt(13.5) ~ 3.7x on IR for the same skill. N_eff 5.8 measured RAW returns.
+
+### Measured (`xsec.py`): the low-volatility anomaly is present in crypto perps
+
+IC vs forward residual return, and a dollar-neutral decile book with real costs:
+
+| signal | IC(5d) | ann ret | Sharpe | maxDD | turnover/reb | cost/yr |
+|---|---:|---:|---:|---:|---:|---:|
+| vol20 (prefer low vol) | +0.107 | **55.4%** | **2.06** | −23.1% | 0.409 | 0.6% |
+| illiq (prefer liquid) | +0.096 | 49.5% | 1.94 | −18.5% | 0.381 | 0.6% |
+| mom60 | +0.046 | 24.8% | 1.09 | −14.7% | 0.471 | 0.7% |
+| rev1 | +0.033 | 19.4% | 0.88 | −21.0% | 1.518 | 2.3% |
+| carry | −0.009 | **−5.8%** | −0.37 | −48.0% | 0.495 | 0.7% |
+
+Weekly block bootstrap on vol20, 142 weeks: **+54.8% ann [+28.6, +80.4],
+P(<=0)=0.0003.** Stable by year (Sharpe 1.69 / 2.11 / 2.77). Survives equal-RISK
+weighting (2.06 -> 1.73), so it is not a leverage artifact. It is NOT a size tilt
+— corr(vol20 rank, log-volume rank) = +0.044. This is Frazzini-Pedersen
+betting-against-beta, replicated in crypto.
+
+`carry` coming out negative independently reproduces the funding-carry
+falsification, which is a useful internal consistency check.
+
+### Why this is not yet tradeable
+
+- **The short leg is 137% of the total.** Long (low-vol) −20.7%/yr, short
+  (high-vol) +76.6%/yr. The entire profit is shorting high-vol alts.
+- **Survivorship and listing bias sit exactly on that leg.** `fetch_perps.py`
+  pulls symbols LIVE on Delta today, so failed/delisted coins are absent, and
+  Delta lists coins after they have already run. Both flatter a short-alts book.
+- **Not actually neutral:** beta to market −0.203, correlation −0.600. Worst
+  months are market melt-ups (2024-09: −11.9% while market +20.1%). Short gamma.
+- **Execution:** the 0.02% maker assumption is least credible on illiquid alt
+  perps, which is where all the profit is.
+
+**Verdict:** the breadth argument is right and the effect is real and documented,
+but the implementable version is far weaker than the headline. The honest next
+step is a delisted-inclusive universe and a liquidity-capped, beta-hedged version
+— not sizing the 55%.
