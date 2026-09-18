@@ -56,3 +56,6 @@ data/eth_1m.parquet
 
 # event-level channel-line features (regenerate with channel_lines.py)
 events_cl.parquet
+events_cgrid.parquet
+events_sch.parquet
+channel_full_results.csv
