@@ -1534,3 +1534,74 @@ falsification, which is a useful internal consistency check.
 but the implementable version is far weaker than the headline. The honest next
 step is a delisted-inclusive universe and a liquidity-capped, beta-hedged version
 — not sizing the 55%.
+
+---
+
+## Steps 1-3 on the cross-sectional direction (2026-09-19)
+
+### Step 1 — survivorship does NOT explain the perp edge
+
+`fetch_dead.py` recovered the 22 delisted perps (median total return **-74%** over
+their listed life). Two traps handled: the API serves frozen zero-volume bars at
+the last price after delisting (trimmed), and PEPE/SHIB/BONK/FLOKI are RENAMES of
+live 1000x contracts, not deaths (tagged, not counted as failures).
+
+| universe | ann | Sharpe | maxDD |
+|---|---:|---:|---:|
+| live-only (original) | +61.6% | 2.27 | -23.1% |
+| + 22 delisted | **+60.6%** | 2.24 | -27.5% |
+
+Almost no change — the dead names are only **4.6% of gross exposure**. My main
+worry was wrong. **The fix is PARTIAL though:** Delta retains only 26 expired
+perps, so names delisted long ago are purged and unrecoverable. Older
+survivorship cannot be ruled out.
+
+### Step 2 — tradeability
+
+**Beta-hedging IMPROVES it**: +58.4%, Sharpe 2.44, maxDD -27.5% -> **-18.2%**. The
+residual -0.203 market beta was hurting, not flattering. Capacity degrades
+gracefully with a 0.5%-of-ADV position cap: $1M book 76.3%, $20M 57.4%, $100M
+47.6%. The cap *helps* at small size by excluding untradeable microcaps.
+
+BUGFIX: the first cap clipped portfolio WEIGHTS against a DOLLAR limit, so it
+never bound and the liquidity test was vacuous.
+
+Still **119% of profit from the short leg** (long -10.6%, short +65.7%).
+
+### Step 3 — relative value in options: FAILED
+
+The hypothesis: this project measured AUC 0.95 for ranking contracts WITHIN an
+episode against 0.57 between episodes, so a market-neutral book should use the
+ranking skill and skip the timing skill.
+
+`opt_xsec.py` computes EXACT terminal values (European, cash-settled:
+`max(0, S_T-K)`), which also gives a number never measured here — buy-and-hold to
+expiry: mean **+20.9%**, median **-104%**, **77.6% expire worthless**. The mean is
+useless on a distribution this skewed.
+
+Long/short within the same spot+expiry+instant+type, 32,979 groups, 141 weeks:
+
+| ranking | spread | P(<=0) |
+|---|---:|---:|
+| long near-the-money, short far-OTM | **+44.2%** | 0.005 |
+| long cheap premium, short rich | -6.3% | 0.586 |
+| signal_value cheapness | -5.5% | 0.771 |
+
+**The cheapness rankings do nothing** (P 0.41-0.77) — which is the actual Step 3
+hypothesis, and it is refuted. The only thing that works is moneyness, which is
+not our model's skill but the known structural over-pricing of far-OTM options.
+
+**And it is untradeable anyway:**
+- worst single short leg **184,517% of premium** (1,845x)
+- a shorted contract returns >1000% in **1.48%** of groups, >3000% in 0.60%
+- year by year: 2024 +23.2% (P=0.004), **2025 -13.7% (P=0.896)**, 2026 +156.6%
+
+**LIMITATION:** I tested `entry_premium` and `signal_value` as cheapness proxies,
+NOT the trained model's score that produced AUC 0.95. A fair test of Step 3 needs
+the model's own predictions as the ranking. What is refuted is the proxy version.
+
+**RETRACTION:** a line printed during this run asserted "the average cheap OTM
+option is a loser held to expiry". The numbers in the same output contradict it —
+premium 0-5 has mean held-to-expiry return **+60.6%** and premium >20 has
+**-8.5%**. Both are means on a wildly skewed distribution and neither is a claim
+worth making without the weekly bootstrap.
