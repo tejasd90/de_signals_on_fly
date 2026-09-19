@@ -61,3 +61,5 @@ events_sch.parquet
 channel_full_results.csv
 spot_breakouts.parquet
 discretionary_calls.csv
+data/perp_dead/
+perp_dead_manifest.csv
