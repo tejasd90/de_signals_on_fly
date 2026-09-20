@@ -1605,3 +1605,69 @@ option is a loser held to expiry". The numbers in the same output contradict it 
 premium 0-5 has mean held-to-expiry return **+60.6%** and premium >20 has
 **-8.5%**. Both are means on a wildly skewed distribution and neither is a claim
 worth making without the weekly bootstrap.
+
+---
+
+## Three answers (2026-09-20)
+
+### What "spot" means in this project
+
+`spot_store.js:14` — `getSpotSymbol(): BTC -> MARK:BTCUSD`. So **`data/spot_candles/`
+is the perpetual future's MARK price**: not the underlying spot index, and not
+traded prices. It carries NO volume and is the same series whose use for option
+candles is the standing mark-price blocker.
+
+Against traded perp candles (`data/perp_candles/`, plain symbol, has volume):
+median difference 0.32 bp (BTC) / 0.47 bp (ETH), identical to 0.01% on 82.5% /
+74.5% of hourly bars — but p99 is 281 / 22 bp and the max is **1012 bp**. They
+agree in calm and diverge in stress, which is when signals fire. New spot-side
+work should use `data/perp_candles/`.
+
+### The 44 MA pullback-reversal claim: REFUTED
+
+Setup: green candle touching the MA from above, in an uptrend (defined off the
+200-day average, so it is not the line being tested). Control: green candle in
+the SAME uptrend, NOT near the MA — because most MA-bounce claims are really
+"buy dips in an uptrend" with the average adding nothing.
+
+**44 is not special.** Sweeping 20/30/40/44/50/60/100/200 gives a perfectly smooth
+curve of edges (−1.50, −2.11, −2.12, **−1.82**, −2.17, −2.29, −3.21, −4.27 at
+10 days). Nothing distinguishes 44 from 40 or 50. A real level effect would show
+a plateau, as the always-in timeframe sweep did.
+
+**And the sign is wrong.** Market-adjusted (cross-sectional mean removed), the
+setup UNDERPERFORMS its control: −0.15% at 5d (P=0.61), −0.45% at 10d (P=0.71),
+**−1.46% at 20d (P=0.964)**. It worsens monotonically with MA length, which is
+economically sensible: a pullback deep enough to reach the average is evidence
+the trend is weakening, not that it is about to resume.
+
+The bear version ("from below", his weaker case) is null — and the sign is wrong
+there too: a useful short would fall MORE than its control, and it falls less.
+
+### Exhaustion lows: they exist, are hugely valuable, and are not findable
+
+Made precise: bar i qualifies if you buy THE CLOSE and never go underwater within
+H bars. Candidates restricted to real down-moves (below the 50-day average and
+down >10% over 20 days). 33,570 candidates, 158 symbols, 118 weeks.
+
+**DEFINITION BUG CAUGHT MID-RUN.** The first version asked whether the bar's LOW
+was revisited. A wide bar closing near its high satisfies that for free — its low
+is simply far away. That made `close_pos` and `rng_atr` look strongly predictive
+(base 9.9%, Q5 17.8%) while their forward returns were the WORST in the sample,
+which is what exposed it.
+
+| horizon | base rate | return if permanent | if not | best marker |
+|---:|---:|---:|---:|---|
+| 3d | 3.40% | +10.9% | −0.58% | +0.80pp, P=0.101 |
+| 5d | 2.52% | +14.5% | −0.77% | +0.73pp, P=0.098 |
+| 20d | 1.02% | **+37.5%** | −2.56% | +0.63pp, P=0.032 |
+| 40d | 0.67% | **+64.9%** | −3.60% | +0.38pp, P=0.121 |
+
+The prize is real and enormous. Nothing finds it. Volume spike −0.0pp (P=0.541),
+depth below MA +0.0pp (P=0.425), drawdown-so-far +0.4pp (P=0.165). The best is
+range expansion at +0.6pp — moving 1-in-200 to 1-in-83.
+
+**Two classic capitulation markers point the WRONG way:** long lower tail
+(1.5% → 0.9%, P=0.876) and closing near the high (1.6% → 0.5%). The "hammer"
+and "absorption" readings are anti-predictive here, consistent with the earlier
+finding that absorption is null-to-adverse.
