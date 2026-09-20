@@ -1671,3 +1671,67 @@ range expansion at +0.6pp — moving 1-in-200 to 1-in-83.
 (1.5% → 0.9%, P=0.876) and closing near the high (1.6% → 0.5%). The "hammer"
 and "absorption" readings are anti-predictive here, consistent with the earlier
 finding that absorption is null-to-adverse.
+
+---
+
+## Scaling into a pullback: the 1-2-3 ladder (2026-09-20)
+
+Tejas's proposal: after an upmove, buy 1 unit, then 2 units at -1%, 3 at -2%, and
+so on — to get size without a small pullback wiping out a levered entry.
+
+### The arithmetic (`pyramid.py`)
+
+After K levels the position is the triangular number N=(K+1)(K+2)/2. Liquidation
+is when `capital + N*CV*(P-avg) < MM*N*CV*P`, so the capital needed to survive to
+price P is exactly `C = N*CV*[avg - P*(1-MM)]`.
+
+| pullback | levels | units held | avg entry | notional | **capital needed** | **max opening leverage** |
+|---:|---:|---:|---:|---:|---:|---:|
+| 8% | 9 | 45 | −5.33% | 41.4x | 1.30x | 0.77x |
+| 12% | 13 | 91 | −8.00% | 80.1x | 3.84x | 0.26x |
+| **16%** | **17** | **153** | **−10.67%** | **128.5x** | **8.48x** | **0.118x** |
+| 20% | 21 | 231 | −13.33% | 184.8x | 15.86x | 0.063x |
+| 30% | 31 | 496 | −20.00% | 347.2x | 50.47x | 0.020x |
+
+All X columns are multiples of the FIRST lot's notional. **The ladder consumes
+leverage rather than using it**: surviving 16% requires holding 8.5x the opening
+lot in cash, i.e. opening at 0.118x leverage. The stated goal — size with
+leverage — is unreachable by this structure.
+
+### The empirical premise is false
+
+Ladder fired after a >15% ten-day upmove, 60-day window:
+
+| universe | episodes | median deepest pullback | reaches −16% | capital consumed (med / p90) |
+|---|---:|---:|---:|---:|
+| all 158 perps | 1,490 | **34.9%** | 81.8% | 75.5x / 241.5x |
+| BTC+ETH only | 16 | **18.5%** | 56.2% | 12.8x / 101.9x |
+| top-20 by volume | 91 | 24.8% | 63.7% | 29.2x / 161.3x |
+
+Pullbacks after an upmove are not shallow. Even on the majors the MEDIAN is
+18.5%, deeper than the 16% the ladder was sized for. On the full universe the
+ladder returns mean −12.46x against −0.09x for simply buying one unit and
+holding, with a 5th percentile of −200.72x. (Majors samples are 16–30 episodes;
+their positive means are noise, not evidence.)
+
+### The structural flaw, and the fix
+
+A RISING ladder puts the smallest size where the thesis is most likely right
+(the entry, if the trend continues) and the largest size at the worst price. It
+inverts the sizing you want. Capital to survive a given depth, by shape and step:
+
+| shape | step | 16% | 20% | 30% | 40% |
+|---|---:|---:|---:|---:|---:|
+| **rising (his)** | 1% | 8.5 | 15.9 | **50.5** | 116.1 |
+| rising | 5% | 0.6 | 1.0 | 2.8 | 6.1 |
+| flat | 2% | 0.7 | 1.1 | 2.4 | 4.2 |
+| **flat** | **5%** | 0.3 | 0.5 | **1.1** | 1.8 |
+| falling | 5% | 0.2 | 0.3 | 0.6 | 0.8 |
+
+**Flat size at 5% steps survives 30% on 1.1x capital where the rising 1% ladder
+needs 50.5x — a 46-fold difference for identical protection.** In practice, for
+₹1L of capital on ETH, surviving 30% means opening **0.9 lots** with the rising
+ladder versus **43.2 lots** flat-5%. Same capital, same protection, 48x the
+opening size — which is precisely the "large quantity" the proposal wanted.
+
+Sizing formula: `base_lots = capital / (need(D) x contract_value x P0)`.
