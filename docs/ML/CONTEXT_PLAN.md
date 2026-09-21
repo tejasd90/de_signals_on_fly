@@ -1799,3 +1799,42 @@ the break paid) and `dash_live.txt` (confirmed levels still unbroken, distance i
 **Live at the time of writing:** the ETH descending line (5 rejections) and the
 BTC descending line (4 rejections) BOTH broke on 2026-09-18 and have held above
 for four consecutive daily closes (ETH 2,714 vs line 2,507; BTC 84,308 vs 79,872).
+
+### Level breaks, corrected framing (2026-09-21)
+
+Tejas challenged the framing, correctly. Two corrections resulted.
+
+**1. The 32.8% is a max-across-chain oracle, not a tradeable rate.** Per CONTRACT
+on break days: P(2x) 34.1%, P(5x) 11.6%, P(25x) 2.20%, P(100x) 0.59% — against
+32.1% / 10.7% / 1.66% / 0.25% off break days. So 1-in-45 for 25x, not 1-in-3.
+
+**Where it IS tradeable** (event level, weekly block bootstrap):
+
+| slice | n | hit | dEV | P(<=0) |
+|---|---:|---:|---:|---:|
+| all contracts, break day, 25x | 151,066 | 3.51% | +0.138 | 0.002 |
+| >10% OTM, break day, 25x | 37,455 | 4.66% | +0.394 | 0.059 |
+| **>10% OTM, break day, 100x** | 37,455 | **2.22%** | **+1.340** | **0.022** |
+| >10% OTM, NON-break day, 100x | 28,675 | 0.38% | −0.379 | 0.995 |
+
+The same strikes are +EV on break days and clearly −EV otherwise. The edge lives
+at the 100x target on deep OTM, not at 25x.
+
+**2. "Play every day from the 3rd rejection" reframing.** 261 confirmed levels,
+6,264 live days, 258 break days = **4.1% of live days**. Median time from
+confirmation to break is only **6 days**, and 98.9% eventually break — partly
+geometric, since a converging trendline meets price soon after its third touch.
+
+**Fakeouts: 67% of breaks close back within 10 bars** (74.1% at exactly 3
+rejections, 62.2% at 6+). **But it does not matter to an option buyer:** hit100
+on >10% OTM is 2.23% when the break holds and 2.21% when it fakes out. A trap is
+still a big move. This is the key practical finding.
+
+**Tightness before the break is significantly BACKWARDS.** 5d/20d compression:
+tightest quartile traps 74.5%, loosest 58.9%, difference +15.5pp at P=0.000. The
+10-bar range version is null (−4.9pp, P=0.893). Third failure for the
+coil-before-break idea and the first that is significantly inverted. What DOES
+separate real from fake is how far the breaking close travels past the level:
+most decisive quartile traps 42.9% vs 78.8% for the most marginal (P=0.000).
+
+Data refreshed through 2026-09-21 (spot candles and all 220 perps).

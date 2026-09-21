@@ -1,6 +1,6 @@
 # What we found — in plain English
 
-**Updated 2026-09-17.** Technical version: `CONTEXT_PLAN.md`. This one avoids
+**Updated 2026-09-21.** Technical version: `CONTEXT_PLAN.md`. This one avoids
 jargon.
 
 Two parts. **Part A is what to do.** Part B is the full log of everything tried,
@@ -505,3 +505,97 @@ Your signals lose money taken as they come. Filtered to the quarter that agree
 with the 4-hour trend, they make money. That single filter beat a 175-input
 machine-learning model and 33 other ideas, and the strength numbers you wanted to
 delete turned out to be worth exactly nothing.
+
+
+---
+
+# PART C — LEVELS THAT HAVE BEEN REJECTED 3+ TIMES (2026-09-21)
+
+## The idea, in one line
+
+A price level that has turned the market away three or more times is one lots of
+people are watching. When it finally gives way, something big tends to happen.
+
+## First, a number that is easy to misread
+
+We measured: **on days when such a level broke, 32.8% of the time a 100x option
+move began.** Against 18.4% on ordinary days. That sounds like a one-in-three
+shot at 1:100, which would be extraordinary.
+
+**It is not that.** That number asks "did a 100x exist ANYWHERE in the option
+chain that day" — across every strike and every expiry, hundreds of contracts.
+It is a thermometer for "was it a big day", not a bet you can place.
+
+Here is the same day, measured per contract — what actually happens if you buy
+**one** option:
+
+| | break day | ordinary day |
+|---|---:|---:|
+| chance it doubles | 34.1% | 32.1% |
+| chance of 5x | 11.6% | 10.7% |
+| chance of 25x | **2.2%** | 1.7% |
+| chance of 100x | **0.59%** | 0.25% |
+
+So 1-in-45 for 25x, not 1-in-3. The gap between 32.8% and 2.2% is the difference
+between "a big move happened somewhere" and "the contract I chose caught it".
+
+## Where the edge actually is
+
+Not in any old strike. It is in the **far out-of-the-money ones, aiming at 100x**:
+
+| what you buy, on a break day | hit rate | need to break even | verdict |
+|---|---:|---:|---|
+| any contract, aiming 25x | 3.51% | 4.33% | loses |
+| >10% out of the money, aiming 25x | 4.66% | 4.33% | marginal |
+| **>10% OTM, aiming 100x** | **2.22%** | **1.08%** | **+EV, P=0.022** |
+| >10% OTM, aiming 100x, NO break that day | 0.38% | 1.08% | **loses badly** |
+
+That last row is the important one. **The same strikes are profitable on a break
+day and clearly unprofitable otherwise.** The break is doing the work.
+
+## Two in three breaks are traps — and it does not matter
+
+67% of breaks close back through the level within 10 days. That sounds fatal.
+
+For a futures trader it is. For an **option buyer it is irrelevant**, because you
+are paid for the MOVE, not for the break holding:
+
+| | chance of 100x |
+|---|---:|
+| break held | 2.23% |
+| break faked out | **2.21%** |
+
+Identical. A trap is still a big move. This is the single most useful thing we
+learned from this idea.
+
+## Can you see a break coming?
+
+Partly, and not the way we expected.
+
+- **More rejections = fewer traps.** 3 rejections -> 74% traps; 6+ -> 62%.
+- **A decisive break is far more real.** Breaks that close furthest past the
+  level trap 42.9% of the time; the most marginal ones trap 78.8%.
+- **Tightness before the break does NOT help. It actively hurts.** The most
+  compressed run-ups traps 74.5% of the time versus 58.9% for the loosest
+  (P=0.000). This is the third separate test where "quiet coil before the move"
+  came out wrong, and the first where it came out *significantly backwards*.
+
+## How long a level stays live
+
+Across 261 confirmed levels: **98.9% eventually break**, and the median one
+breaks **6 days** after its third rejection. So this is not a months-long vigil —
+but only 4.1% of "live" days are break days, so waiting is mostly cost.
+
+## What to actually do
+
+1. Watch `dash_live.txt` for confirmed, unbroken levels.
+2. Do nothing until a daily **close** goes past one. Wicks do not count.
+3. Then buy **far out-of-the-money** (>10%), and target **100x, not 25x**.
+4. Do not be scared off by the trap rate. You are buying the move.
+5. Prefer levels with 5+ rejections — fewer traps, bigger payoffs.
+
+## What this does NOT tell you
+
+Direction. The measurement says a big move is about 1.8x likelier — not whether
+it is up or down, nor which expiry. Picking the strike is the part this project
+does well; picking the direction is the part it does badly.
