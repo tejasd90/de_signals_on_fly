@@ -1735,3 +1735,67 @@ ladder versus **43.2 lots** flat-5%. Same capital, same protection, 48x the
 opening size — which is precisely the "large quantity" the proposal wanted.
 
 Sizing formula: `base_lots = capital / (need(D) x contract_value x P0)`.
+
+---
+
+## Levels rejected 3+ times, and what their breaks pay (2026-09-21)
+
+Tejas's idea: a level the market has turned away from three or more times is one
+it has repeatedly agreed on, so breaking it should be a bigger event than
+breaking an undefended level — and the option expiry that breaks it should carry
+the outsized multiples.
+
+`levels.py` finds three kinds — horizontal clusters of major swings, convex-hull
+trendlines, and channel lines — with a deliberately asymmetric test:
+**rejection** = came within 0.6 ATR, did NOT close beyond, then travelled 1.2 ATR
+away (wicks through are fine); **break** = a CLOSE beyond. A level is confirmed
+only from its THIRD rejection, never retroactively, which is exactly the timing
+Tejas described for the Oct-2025 line (unknowable in October, two touches by
+February, confirmed by the June rejection).
+
+### It works, and it replicates
+
+Break days vs all other days, P(a >=100x option move starts that day):
+
+| | break days | on | off | lift | P(<=0) | median best multiple |
+|---|---:|---:|---:|---:|---:|---|
+| BTC daily, >=3 rej | 119 | **32.8%** | 18.4% | 1.78x | **0.001** | 61.4x vs 34.8x |
+| ETH daily, >=3 rej | 127 | **37.0%** | 20.4% | 1.81x | **0.001** | 70.9x vs 37.9x |
+| ETH daily, >=5 rej | 51 | **39.2%** | 21.7% | 1.81x | 0.013 | **86.0x** vs 38.5x |
+| ETH 4h, >=8 rej | 66 | 36.4% | 21.6% | 1.68x | 0.004 | 60.2x vs 39.5x |
+
+Consistent across both symbols, both timeframes, and most rejection thresholds.
+Across all 1,848 broken levels the median best multiple on a break day is 45x and
+27% of breaks coincide with a >=100x move.
+
+Caveat: `data/multibaggers` takes the max across strikes, so this is an INDICATOR
+that a large move occurred, not a tradeable return. It says a big move is likelier
+— not the direction, strike or expiry.
+
+### Imminence: only proximity and (inversely) rejection count
+
+Conditional on being within 3 ATR of a confirmed unbroken level, P(break within
+5 bars), by quartile:
+
+| factor | Q1 -> Q4 |
+|---|---|
+| distance to level | 55.9% -> 27.6% -> 14.0% -> **6.7%** |
+| range compression | 27.5% -> 26.0% -> 24.9% -> 25.7% (**flat**) |
+| bars since confirmation | 32.2% -> 23.8% -> 26.3% -> 21.7% |
+| **rejection count** | **40.6%** -> 23.7% -> 16.2% -> **9.2%** |
+
+Compression is flat — the "coil before the break" idea fails again, as it did in
+the quiet-range and absorption tests. The useful finding is the INVERSION: levels
+with more rejections break less often but pay more when they do (86x vs 70.9x
+median). Heavily-defended levels are rarer, slower and bigger, which is exactly
+the profile the "each expiry is a game to break it" framing wants.
+
+### Dashboards
+
+`levels_dash.py --build` writes `dash_past.txt` (every broken level ranked by what
+the break paid) and `dash_live.txt` (confirmed levels still unbroken, distance in
+% and ATR, rejection count, last rejection date).
+
+**Live at the time of writing:** the ETH descending line (5 rejections) and the
+BTC descending line (4 rejections) BOTH broke on 2026-09-18 and have held above
+for four consecutive daily closes (ETH 2,714 vs line 2,507; BTC 84,308 vs 79,872).
