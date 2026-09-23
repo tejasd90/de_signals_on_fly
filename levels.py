@@ -85,7 +85,15 @@ def horizontal_levels(a, tf):
             if abs(px2-px)<=TOL_ATR*A[j2]: grp.append((j2,px2)); used[i2]=True
         used[i]=True
         if len(grp)<2: continue
-        levels.append(dict(kind=kind, price=float(np.mean([p for _,p in grp])),
+        # LOOK-AHEAD FIX. The price used to be the mean of EVERY touch in the
+        # cluster, including touches that occur after confirmation and even
+        # after the break -- i.e. the level was fitted with its own future. The
+        # level is now anchored on the FIRST MIN_REJ touches only, which is all
+        # a trader could know at the moment it becomes tradeable.
+        grp=sorted(grp)
+        anchor=grp[:MIN_REJ]
+        levels.append(dict(kind=kind, price=float(np.mean([p for _,p in anchor])),
+                           anchor_i=int(anchor[-1][0]),
                            seeds=[jj for jj,_ in grp], tf=tf))
     return levels, A
 
@@ -95,7 +103,8 @@ def count_rejections(a, A, level):
     level is only 'confirmed' from that bar onward — never retroactively."""
     ts,o,h,l,c=a[:,0],a[:,1],a[:,2],a[:,3],a[:,4]
     P=level["price"]; kind=level["kind"]
-    rejects=[]; i=0; n=len(c); armed=False; touch_i=None
+    rejects=[]; n=len(c); armed=False; touch_i=None
+    i=level.get("anchor_i",0)          # nothing before the anchor is knowable
     while i<n:
         if not np.isfinite(A[i]): i+=1; continue
         near = (abs(h[i]-P)<=TOL_ATR*A[i]) if kind=="R" else (abs(l[i]-P)<=TOL_ATR*A[i])
@@ -174,12 +183,13 @@ def trendlines(a, A, tf, min_touch=MIN_REJ, max_span=500):
                         confirmed_ts=int(ts[ci]), break_i=brk,
                         break_ts=int(ts[brk]) if brk else None,
                         rejects=[int(ts[t]) for t in touches]))
-    # dedupe: keep the longest-lived line per (kind, break bar)
+    # Dedupe on the CONFIRMATION bar, using only the anchor span -- keyed on
+    # break_i and ranked by n_rej it was selecting among candidates with
+    # knowledge of how each one turned out.
     best={}
     for L in out:
-        k=(L["kind"],L["break_i"])
-        if k not in best or L["n_rej"]>best[k]["n_rej"] or \
-           (L["n_rej"]==best[k]["n_rej"] and L["anchor"][1]-L["anchor"][0]>best[k]["anchor"][1]-best[k]["anchor"][0]):
+        k=(L["kind"],L["confirmed_i"])
+        if k not in best or (L["anchor"][1]-L["anchor"][0])>(best[k]["anchor"][1]-best[k]["anchor"][0]):
             best[k]=L
     return list(best.values())
 
