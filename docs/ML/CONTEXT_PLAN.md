@@ -1989,3 +1989,45 @@ So in normalised terms it is CLEAREST on the daily; what the lower timeframe add
 is the shape of the touch, not a closer approach. A first attempt at this test
 used a 0.25 ATR cutoff and reported "retest invisible at every timeframe" — a
 threshold artifact, corrected.
+
+### What ATR means here, and candle quality (2026-09-25)
+
+**ATR** is the average true range over 14 bars — the size of a typical recent bar,
+in price units. On BTC daily in May 2026 it was 1,875 points (2.30% of price), so
+0.6 ATR = 1,125 points and 0.77 ATR = 1,444. On ETH daily it was 72 points. It is
+a ruler that rescales with volatility, so "near the line" means the same thing in
+a quiet market and a violent one, and on BTC and ETH alike. It has **no relation
+to the trendline** — purely a property of recent bars.
+
+**The break test uses no ATR at all.** In `levels.py` a break is `close > line`,
+full stop. ATR enters only when counting TOUCHES, i.e. deciding whether a line has
+been defended three times and is worth watching. Tejas's worry that the 17 Aug
+break was "rejected because of ATR" does not apply — that break was detected and
+is the top row of the day's output.
+
+**Multiple valid fits are already embraced.** The detector enumerates every pair
+of major swing highs and keeps each line reaching 3+ touches — 128 confirmed lines
+on BTC daily alone. It never picks one canonical line.
+
+**His actual point — candle quality should count on its own — is CONFIRMED:**
+
+| rule (top quartile of break days) | days | P(100x,0-3d) | lift | P(<=0) |
+|---|---:|---:|---:|---:|
+| **big breaking bar (range/ATR)** | 174 | 83.3% | **+17.1pp** | **0.000** |
+| solid body, not a wick | 174 | 76.4% | +8.7pp | 0.003 |
+| oldest line >= 100d | 146 | 82.9% | +15.8pp | 0.000 |
+| at least one wedge | 52 | 86.5% | +18.4pp | 0.001 |
+| **big bar AND old line** | **63** | **90.5%** | **+22.7pp** | **0.000** |
+
+The conjunction is the strongest cell found in the level work. 17 Aug qualifies:
+bar 2.73 ATR (87th pctile), body 0.87 (84th), oldest line 315d.
+
+**Two non-predictors that sharpen the definition:**
+- *how far past the line it closed*: +1.1pp, P=0.397 — null for payoff, even
+  though the same measure strongly predicts fewer TRAPS (42.9% vs 78.8%). Both
+  hold, and they fit: traps do not matter to an option buyer, who is paid for the
+  move either way.
+- *closed near its high*: −0.9pp, P=0.579 — null, as it was in the exhaustion test.
+
+So "quality" means the SIZE of the breaking bar, not its close position or how
+far it cleared the line. A big bar is itself the move being bought.
