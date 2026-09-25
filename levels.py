@@ -35,7 +35,11 @@ the whole option pipeline references — see de-signals-spot-is-mark.
 import os, json, argparse
 import numpy as np, pandas as pd
 
-TOL_ATR   = 0.60     # how close counts as a touch
+TOL_ATR   = 0.60     # UNDERSHOOT tolerance: how far SHORT of the level still
+                     # counts as a touch. Overshoot is unlimited -- a wick
+                     # through that closes back is the strongest rejection
+                     # there is, and conflating the two directions into one
+                     # symmetric band silently threw those away.
 AWAY_ATR  = 1.20     # how far it must travel back to call it a rejection
 MIN_REJ   = 3
 CONFIRM   = 3        # swing confirmation lag, bars
@@ -107,7 +111,13 @@ def count_rejections(a, A, level):
     i=level.get("anchor_i",0)          # nothing before the anchor is knowable
     while i<n:
         if not np.isfinite(A[i]): i+=1; continue
-        near = (abs(h[i]-P)<=TOL_ATR*A[i]) if kind=="R" else (abs(l[i]-P)<=TOL_ATR*A[i])
+        # ONE-SIDED tolerance. This used to be abs(h-P) <= TOL, i.e. "how close
+        # did it get", which silently rejected the most convincing rejections of
+        # all: a bar that spikes 2 ATR THROUGH the level and closes back below.
+        # Tejas asked for leniency on overshoot and this was not delivering it.
+        # A touch is now "reached the level, from the correct side, or beyond";
+        # whether it BROKE is decided by the close alone, as before.
+        near = (h[i] >= P - TOL_ATR*A[i]) if kind=="R" else (l[i] <= P + TOL_ATR*A[i])
         beyond = (c[i]>P) if kind=="R" else (c[i]<P)
         if beyond:                                   # a close through ends the level
             return rejects, i
@@ -172,7 +182,7 @@ def trendlines(a, A, tf, min_touch=MIN_REJ, max_span=500):
                     if lv<=0: break
                     beyond=(c[x]>lv) if kind=="R" else (c[x]<lv)
                     if beyond: brk=x; break
-                    near=(abs(h[x]-lv)<=TOL_ATR*A[x]) if kind=="R" else (abs(l[x]-lv)<=TOL_ATR*A[x])
+                    near=(h[x]>=lv-TOL_ATR*A[x]) if kind=="R" else (l[x]<=lv+TOL_ATR*A[x])
                     if near and (not touches or x-touches[-1]>=CONFIRM): touches.append(int(x))
                 if len(touches)>=min_touch:
                     ci=touches[min_touch-1]

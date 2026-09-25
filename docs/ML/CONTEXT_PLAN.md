@@ -1895,3 +1895,45 @@ each calendar month) make it bind — 37% of days.
 
 **Still untested:** whether a break that is retested-and-held (as 18 Aug was)
 pays more than one that is not. That is the natural next measurement.
+
+### Daily break profile: is 17 Aug actually odd? (2026-09-25)
+
+`daily_profile.py` writes `daily_break_profile.csv` — one row per day for all
+1,000 days (696 with at least one break) carrying n_breaks, max_age, n_wedges,
+max_rej and directional agreement.
+
+**17 Aug 2026 against the full distribution:**
+
+| metric | 17 Aug | median | p90 | rank | pct |
+|---|---:|---:|---:|---:|---:|
+| breaks | 10 | 2.0 | 8.0 | 50 of 1000 | 93.7% |
+| **oldest line** | **315** | 15.1 | 138.9 | **27** | **97.3%** |
+| **wedges** | **3** | 0.0 | 0.0 | **17** | **97.2%** |
+| most-rejected | 8 | 4.0 | 8.0 | 60 | 89.8% |
+| one-directional | 1.00 | 1.00 | — | — | 42.1% |
+
+Genuinely odd — top 3% on age and wedges — but not unique. Two honest points:
+directional agreement does NOT discriminate (most break days are one-directional),
+and 19 Aug still outscores it on the profile (16 breaks, 292d, **10 wedges**,
+14,603x best). The break→retest→run structure that makes the 17th the signal is
+not captured by any of these columns.
+
+**Which columns actually predict** (base P(100x within 0-3d) = 69.3%):
+
+| metric | days | P(100x) | lift | P(<=0) |
+|---|---:|---:|---:|---:|
+| **max_age >= 100** | 146 | 82.9% | **+15.8pp** | **0.000** |
+| **n_wedges >= 1** | 52 | 86.5% | **+18.6pp** | **0.001** |
+| n_wedges >= 3 | 28 | 85.7% | +17.3pp | 0.010 |
+| max_age >= 250 | 40 | 85.0% | +16.9pp | 0.028 |
+| n_breaks >= 8 | 108 | 75.0% | +6.5pp | 0.063 |
+| **n_breaks >= 15** | 15 | 73.3% | +4.6pp | **0.337** |
+| max_rej >= 8 | 102 | 74.5% | +5.8pp | 0.124 |
+
+**Line AGE and WEDGE presence predict; break COUNT does not.** This corrects the
+earlier emphasis — comparing "16 breaks on the 19th vs 10 on the 17th" was
+reading a column with no predictive value. Combining the two survivors is worse
+than either alone (25 days, P=0.065), so use them separately.
+
+`levels_dash.py` now emits a BROKE IN THE LAST 3 SESSIONS block carrying age and
+wedge, with break count deliberately demoted.

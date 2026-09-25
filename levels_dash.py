@@ -102,9 +102,53 @@ def past_dash(out="dash_past.txt", min_rej=3):
     print(f"wrote {out}  ({len(R)} broken levels)")
     return R
 
+def broke_recently(days=3):
+    """Levels that broke in the last `days` sessions, with the two columns that
+    MEASURE: line age and whether it was a wedge. Break COUNT is deliberately not
+    highlighted -- it fails to predict payoff (>=15 breaks gives P=0.337) while
+    age>=100d gives P=0.000 and wedge>=1 gives P=0.001."""
+    import wedge as W
+    out=[]
+    for spot in ("BTC","ETH"):
+        for tf in (1440,360,240):
+            conf,arr=LV.all_levels(spot,tf)
+            if arr is None: continue
+            last=pd.Timestamp(arr[-1,0],unit="s").normalize()
+            wd={w["break_i"] for w in W.find_wedges(spot,tf)}
+            for L in conf:
+                if not L["break_ts"]: continue
+                d=pd.Timestamp(L["break_ts"],unit="s").normalize()
+                if (last-d).days>days: continue
+                age=(L["break_i"]-L["anchor"][0])*tf/1440.0 if L["type"]=="trendline" \
+                    else (L["break_i"]-L.get("anchor_i",L["break_i"]))*tf/1440.0
+                out.append(dict(spot=spot,tf=tf,kind=L["kind"],
+                    level=L["price_at_break"],n_rej=L["n_rej"],age=age,
+                    wedge=L["break_i"] in wd,day=d.date()))
+    return pd.DataFrame(out)
+
 def live_dash(out="dash_live.txt", min_rej=3, near_atr=4.0):
-    lines=["LIVE — confirmed levels (>=3 rejections) that are STILL UNBROKEN",
-           "="*96, ""]
+    lines=[]
+    B=broke_recently()
+    lines+= ["BROKE IN THE LAST 3 SESSIONS", "="*96, ""]
+    if len(B):
+        B=B.sort_values(["day","age"],ascending=[False,False])
+        lines.append(f"{'day':>12}{'spot':>5}{'tf':>6}{'dir':>4}{'level':>12}"
+                     f"{'rej':>5}{'age(d)':>8}{'WEDGE':>7}")
+        for _,r in B.iterrows():
+            sp,kd=r["spot"],r["kind"]
+            lines.append(f"{str(r['day']):>12}{sp:>5}{r.tf:>6}{kd:>4}{r.level:>12,.1f}"
+                         f"{r.n_rej:>5}{r.age:>8.0f}{'YES' if r.wedge else '-':>7}")
+        oldest=B.age.max(); nw=int(B.wedge.sum())
+        lines+=["", f"  oldest line broken: {oldest:.0f} days"
+                    f"{'   *** >=100d: measured +15.8pp, P=0.000 ***' if oldest>=100 else ''}",
+                    f"  wedge breaks: {nw}"
+                    f"{'   *** >=1 wedge: measured +18.6pp, P=0.001 ***' if nw>=1 else ''}",
+                    "  (break COUNT is not shown as a headline: it does not predict payoff,",
+                    "   P=0.337 at >=15 breaks. Age and wedge are the columns that measure.)"]
+    else:
+        lines.append("  nothing broke in the last 3 sessions")
+    lines+=["","", "LIVE — confirmed levels (>=3 rejections) that are STILL UNBROKEN",
+            "="*96, ""]
     rows=[]
     for spot in ("BTC","ETH"):
         conf,arr,A=enrich(spot,1440)
