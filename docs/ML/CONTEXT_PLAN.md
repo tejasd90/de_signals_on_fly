@@ -1838,3 +1838,60 @@ separate real from fake is how far the breaking close travels past the level:
 most decisive quartile traps 42.9% vs 78.8% for the most marginal (P=0.000).
 
 Data refreshed through 2026-09-21 (spot candles and all 220 perps).
+
+---
+
+## Wedges, and the Aug-17 reading (2026-09-25)
+
+Tejas pushed back on ranking break days by raw option multiples, pointed at the
+BTC daily structure, and proposed a WEDGE + expiry-proximity setup from an
+ADANIENT precedent (19 May 2023, week before the 25 May monthly expiry, 1:100).
+
+### His structural reading was correct in every detail
+
+Same line my detector found (anchored 2025-10-06, broke 2026-08-17 at 63,880):
+
+| date | high | line | gap | |
+|---|---:|---:|---:|---|
+| 2026-05-06 | 82,808.7 | 84,253.5 | −0.77 ATR | his 2nd point; my TOL_ATR is 0.60 so I score it a miss |
+| 2026-08-09 | 65,462.6 | 65,462.6 | 0.00 | his "small rejection a few days before" |
+| 2026-08-17 | — | 63,880.2 | close above | the break |
+| 2026-08-18 | low 64,012 | 63,682 | — | **low tagged the line from above and held** |
+
+Then 19 Aug closed at 69,318. So the real sequence is **break → retest → run**,
+which exposed a flaw in the payoff test: it asked "did a 100x start ON the break
+day", giving 17 Aug no credit and attributing the 19th to whatever weaker line
+broke that day. The window is now 0..3 days after the break.
+
+### With that window, the WEDGE carries everything
+
+`wedge.py` requires a confirmed descending resistance AND a confirmed support,
+both live, overlapping >=40 bars, with the gap narrowing to <80% of its start.
+
+| | n | P(100x, 0–3d) | median best | vs base | P(<=0) |
+|---|---:|---:|---:|---:|---:|
+| **BTC wedge break** | 31 | **71.0%** | 158.7x | **+18.1pp** | **0.024** |
+| BTC non-wedge break | 486 | 54.1% | 113.0x | +0.5pp | 0.434 |
+| **ETH wedge break** | 27 | **77.8%** | 148.3x | **+22.3pp** | **0.022** |
+| ETH non-wedge break | 475 | 58.3% | 119.6x | +3.4pp | 0.177 |
+
+**This revises the earlier finding.** Over 0–3 days an ordinary confirmed-level
+break adds nothing; the wedge subset hiding inside it was carrying the result.
+
+### The expiry half is not supported
+
+| | n | P(100x) | P(<=0) |
+|---|---:|---:|---:|
+| BTC wedge, <=10d to MONTHLY expiry | 9 | 66.7% | 0.177 |
+| BTC wedge, >10d | 22 | 72.7% | 0.035 |
+| ETH wedge, <=10d to MONTHLY expiry | 8 | 50.0% | 0.590 |
+| ETH wedge, >10d | 19 | **89.5%** | **0.001** |
+
+Wedge breaks FAR from monthly expiry pay more. n=8–9 near expiry, so this is weak
+either way — but it is certainly not the amplifier the ADANIENT case suggested.
+Note the first attempt at this test was vacuous: Delta has weekly expiries, so
+every day is within 10 days of *an* expiry. Monthly expiries only (the last in
+each calendar month) make it bind — 37% of days.
+
+**Still untested:** whether a break that is retested-and-held (as 18 Aug was)
+pays more than one that is not. That is the natural next measurement.
