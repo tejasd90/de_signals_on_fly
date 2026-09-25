@@ -1937,3 +1937,55 @@ than either alone (25 days, P=0.065), so use them separately.
 
 `levels_dash.py` now emits a BROKE IN THE LAST 3 SESSIONS block carrying age and
 wedge, with break count deliberately demoted.
+
+### The cube: event tier x expiry x target (2026-09-25)
+
+`cube.py`. Direction is never assumed — each event stakes 1 unit split across an
+OTM call and an OTM put (3–15% out, nearest 8%). Note the algebra: with ½ unit
+per leg and a leg paying T× its own stake, EV = T·P(leg hits) − 1 − fees, so
+**buying both sides does NOT lower the break-even per leg**. It halves variance
+and guarantees one leg dies. Break-even stays (1+COST)/T.
+
+Tiers rank days by `max_age` (the profile column that measures, P=0.000).
+
+**TARGET 100x — break-even 1.08%/leg**
+
+| tier | expiry | days | legs | P(leg) | EV/unit | P(EV<=0) |
+|---|---|---:|---:|---:|---:|---:|
+| **top 5%** | **weekly 3-9d** | 33 | 141 | **4.26%** | **+3.17** | 0.258 |
+| top 5% | immediate 0-2d | 33 | 260 | 1.54% | +0.46 | 0.367 |
+| top 10% | weekly 3-9d | 68 | 277 | 2.53% | +1.44 | 0.274 |
+| top 15% | weekly 3-9d | 102 | 404 | 1.73% | +0.65 | 0.355 |
+| any break day | weekly 3-9d | 685 | 2,512 | 0.64% | −0.45 | 0.768 |
+| **NO break day** | weekly 3-9d | 291 | 1,022 | **0.00%** | −1.08 | 1.000 |
+
+At 50x the same shape holds (top-5% weekly 4.26%, EV +1.05). At **25x and 10x
+almost everything is negative** — those bars (4.33% and 10.8%) are too high for
+OTM contracts even on the best days.
+
+**Three readings:**
+1. **The gradient is monotone in every column** — top5 > top10 > top15 > any break
+   > no break, at every target and expiry. Fifteen cells ordering correctly is
+   not what noise looks like.
+2. **Weekly (3–9d) beats the immediate expiry**, 4.26% vs 1.54% at 100x on top-5%
+   days. A 0–2 DTE contract often cannot survive the 2-day break→retest→run
+   sequence.
+3. **The no-break control is the strongest evidence**: 0.00%, zero of 1,022 legs,
+   against 4.26%.
+
+**But no cell is significant** — best P(EV<=0) is 0.258 on 33 days / 141 legs.
+Shape right, size promising, power absent. Do not size on this.
+
+### Multi-timeframe: not cheating, and the retest is scale-dependent
+
+Using a lower timeframe to resolve a retest is legitimate — it was available in
+real time. It becomes a search problem only if the timeframe is chosen after
+seeing which one confirms. `levels.py` runs 1440/360/240m and `daily_profile.py`
+aggregates all three, so lower timeframes are already in.
+
+The 18-Aug retest is the SAME bar at every resolution (low 64,012.3). What
+changes is ATR scaling: 0.32 ATR on daily, 0.85 on 6h, 0.88 on 4h, 1.37 on 1h.
+So in normalised terms it is CLEAREST on the daily; what the lower timeframe adds
+is the shape of the touch, not a closer approach. A first attempt at this test
+used a 0.25 ATR cutoff and reported "retest invisible at every timeframe" — a
+threshold artifact, corrected.
