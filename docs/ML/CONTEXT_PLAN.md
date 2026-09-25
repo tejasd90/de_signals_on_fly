@@ -2031,3 +2031,31 @@ bar 2.73 ATR (87th pctile), body 0.87 (84th), oldest line 315d.
 
 So "quality" means the SIZE of the breaking bar, not its close position or how
 far it cleared the line. A big bar is itself the move being bought.
+
+### Candle quality does NOT improve the cube (2026-09-25)
+
+Re-tiering the cube on the candle-quality rules, weekly 3–9d expiry, OTM both sides:
+
+| tier | days | legs | 100x hit / EV | 200x hit / EV |
+|---|---:|---:|---|---|
+| **top 5% by line AGE (existing)** | 33 | 141 | **4.26% / +3.17** | **2.84% / +4.59** |
+| top 10% by age | 68 | 277 | 2.53% / +1.44 | 1.44% / +1.81 |
+| big bar + old line | 61 | 238 | 1.68% / +0.60 | 1.26% / +1.44 |
+| big bar + wedge | 30 | 105 | 2.86% / +1.77 | 1.90% / +2.73 |
+| big bar only | 171 | 686 | 0.87% / −0.21 | 0.73% / +0.38 |
+| any break day | 685 | 2,512 | 0.64% / −0.45 | 0.44% / −0.21 |
+| NO break day | 291 | 1,022 | 0.00% / −1.08 | 0.00% / −1.08 |
+
+**Line age alone still wins.** Candle quality makes the cube worse.
+
+**Why, and it matters:** the +17.1pp candle-quality result was measured against
+`data/multibaggers`, which takes the MAX ACROSS THE WHOLE CHAIN — it answers "did
+a 100x exist somewhere that day". The cube buys ONE specified contract (8% OTM,
+weekly). A big breaking bar predicts the former and not the latter. This is the
+strike-oracle gap ([[de-signals-optimal-strike-oracle]]) reappearing, and it is
+why both measures are kept. **Candle quality is real on the oracle measure and
+does not survive the move to an implementable one.**
+
+Practical consequence: the trading rule is unchanged — **top-5% break day BY LINE
+AGE → weekly expiry → 8% OTM both sides → limit at 200x.** Candle quality belongs
+in the dashboard as context, not in the tier definition.
