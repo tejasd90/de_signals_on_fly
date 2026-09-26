@@ -2243,3 +2243,47 @@ the split was examined post hoc, so the call/put asymmetry is UNPROVEN.
 
 This is the third measurement artifact of the week, after the strike oracle and
 the per-contract weighting in the reverse search. All three inflated a result.
+
+### Can the five "stored energy" features combine? No (2026-09-26)
+
+`approach.py`, `combine5.py`. Five operationalisations of "coiled energy precedes
+the move", each null on its own:
+
+| feature | what it measures | result alone |
+|---|---|---|
+| comp | 5-bar / 20-bar range (squeeze) | null, then **significantly backwards** (+15.5pp more traps) |
+| ttr | prior 10-bar range in ATR | null |
+| overlap | mean bar overlap (absorption) | null; adverse on up-breaks |
+| travel | net directional move INTO the level | **null** (−0.3pp, P=0.534) |
+| effic | \|net\| / summed path into the level | **null** (+0.2pp, P=0.484) |
+
+The last two were built deliberately DIFFERENT from the squeeze — range
+contraction versus directional travel, since a market can be wide-ranged and
+still go nowhere. They failed anyway. Notably **steep** approaches are marginally
+BETTER (+5.9pp, P=0.062), the opposite of the energy-conservation thesis.
+
+**Combined, three ways:**
+
+1. **Correlation** — effective dimensionality **2.89 of 5**. comp/ttr/overlap
+   cluster (|r| 0.36–0.52), travel/effic cluster (0.48). Three things, not five.
+2. **One pre-specified composite** (equal-weight z, sign-aligned to the thesis):
+   top quartile 73.0%, **+4.4pp, P=0.134** — not significant, against age's
+   +15.4pp at P=0.000.
+3. **Model with a time split** (fit 2024-25, score 2026 untouched):
+
+| features | train AUC | HELD-OUT 2026 AUC |
+|---|---:|---:|
+| five energy features | 0.547 | **0.485** |
+| **age only** | 0.588 | **0.575** |
+| five + age | 0.601 | **0.566** |
+
+The five score **below chance out of sample**, and adding them to age DEGRADES
+age (0.575 → 0.566) while improving it in training (0.588 → 0.601) — textbook
+overfitting.
+
+**Verdict: "coiled energy precedes the break" is FALSIFIED**, in five independent
+operationalisations, individually and combined. Do not retry it in another form.
+
+Aug-17 remains a genuine instance (approach travel −1.36 ATR, 10th percentile,
+efficiency 0.07) — the reading of that chart is accurate, it just does not
+generalise.
