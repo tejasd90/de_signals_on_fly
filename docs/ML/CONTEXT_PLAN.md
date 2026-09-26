@@ -2287,3 +2287,48 @@ operationalisations, individually and combined. Do not retry it in another form.
 Aug-17 remains a genuine instance (approach travel −1.36 ATR, 10th percentile,
 efficiency 0.07) — the reading of that chart is accurate, it just does not
 generalise.
+
+### Nested structure: a wedge resolving INTO an older line (2026-09-26)
+
+Tejas's weekly BTC chart: an ascending wedge rises into the descending line off
+the early-2024 high, and the break happens where they meet. His claim is that the
+trendline "was not broken just anyhow, it was broken BY a pattern completing."
+
+`nested.py` operationalises it as a RATIO, not mere co-occurrence: a wedge breaks
+AND a separate line breaks whose age is >=3x the wedge's own span. Two lines of
+similar age breaking together is coincidence; a 13-day wedge taking out a 300-day
+line is structure resolving into structure. Median observed nest ratio 7.4x.
+
+**Oracle measure (P(100x within 0-3d), base 69.3%):**
+
+| condition | days | P(100x) | lift | P(<=0) |
+|---|---:|---:|---:|---:|
+| **NESTED** | 40 | **90.0%** | **+21.9pp** | **0.001** |
+| wedge only (no old line) | 27 | 88.9% | +20.4pp | 0.003 |
+| **both, but NOT nested** | 25 | **84.0%** | +15.5pp | 0.066 |
+| old line only (no wedge) | 118 | 82.2% | +14.9pp | 0.002 |
+| **neither** | 525 | **66.3%** | **−6.4pp** | 0.969 |
+
+Nested (90.0%) beats merely-coincident (84.0%), which is exactly his distinction.
+
+**And it SURVIVES the cube** — the first pattern-composition idea this session to
+pass both measures (candle quality and zone pooling each passed the oracle and
+failed here):
+
+| tier | days | legs | 100x EV | 200x EV | P(200x) |
+|---|---:|---:|---:|---:|---:|
+| **top 5% by line AGE** | 33 | 173 | **+2.39** | **+3.54** | **14%** |
+| NESTED | 40 | 194 | +1.49 | +3.04 | 37% |
+| wedge, any | 52 | 249 | +0.93 | +2.13 | 38% |
+| old line >=100d | 140 | 701 | +0.06 | +0.06 | 54% |
+| **neither** | 518 | 2,446 | **−0.76** | −0.67 | **99%** |
+
+**Verdict.** Composition is real — nested beats either component alone on both
+measures. But it does NOT beat line age (near-tied EV at 200x, far worse P), so
+it confirms the structure story rather than improving the tier.
+
+**The most usable output is the NEGATIVE filter:** "neither a wedge nor an old
+line" covers 518 days — three-quarters of all break days — at EV −0.76, P=0.99.
+Knowing when not to look is the most confident thing in the table.
+
+17 Aug 2026: 3 wedges, a 315-day line, **nest ratio 39.4x**.
