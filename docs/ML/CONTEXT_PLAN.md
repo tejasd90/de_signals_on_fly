@@ -2185,3 +2185,61 @@ weak-enrichment detector. Old-line breaks genuinely concentrate big moves (1.65x
 but catch one event in fourteen, and the break's own direction does not predict
 the move's. That is a much more modest claim than the forward tests implied, and
 the merged-event measure is the one to quote.
+
+---
+
+## SIGN BUG in moneyness_pct, and the full audit (2026-09-26)
+
+`build_events.py:176` defines `moneyness_pct = (strike - spot)/spot * 100`.
+Signed, so it is **+OTM for CALLS and −OTM for PUTS** (measured correlation with
+true distance: +1.000 and **−1.000**). Any filter like `between(3,15)` applied to
+both sides therefore selects OTM calls and **deep ITM puts** — median premium
+18.83 vs **2,524.34**.
+
+Found while investigating a null skew result, which was itself invalid for the
+same reason.
+
+### Audit of all six users
+
+| script | status |
+|---|---|
+| `build_events.py` | source; correct by its own convention |
+| `r4_control.py` | **clean** — already did `np.where(opt_type=='C', mny, -mny)` |
+| `phase3_model.py` | **clean** — same |
+| `significance.py` | stores `mny` (line 99), never filters on it — benign |
+| `cube.py` | **broken → fixed** |
+| `opt_xsec.py` | **broken → fixed, claim RETRACTED** |
+
+### Consequences
+
+**1. `cube.py` — survives, composition changes.** Top-5%-by-age, weekly, 100x:
+
+| | legs | hit | EV |
+|---|---:|---:|---:|
+| blended (old, calls + ITM puts) | 141 | 4.26% | +3.17 |
+| **blended (fixed, both OTM)** | 173 | 3.47% | +2.39 |
+| — **calls** | 88 | **6.82%** | **+5.74** |
+| — puts | 85 | 0.00% | −1.08 |
+
+The edge is on the CALL leg. The old 4.26% was OTM calls averaged with ITM puts,
+which are expensive and cannot 100x by construction.
+
+**2. The ">10% OTM on a break day" headline — survives and IMPROVES.**
+Break day @100x: old 2.16% dEV +0.910 P=0.043 → fixed 1.74% dEV **+0.557
+P=0.005** on a 67% larger sample. No-break day stays −ve (0.61%, P=0.112).
+
+**3. `opt_xsec.py` Step-3 result — RETRACTED.** "Long near-the-money, short
+far-OTM" was +44.2% at P=0.0055; corrected it is **+22.1% at P=0.204**. The put
+leg **flips sign** (+21.1% → −21.1%). Only the call side survives (+64.3%,
+P=0.026) and it was never affected.
+
+### The puts-0% question
+
+Not a bug. OTM puts reach 100x at 0.584% over 204,045 legs (max 5,009x) against
+calls at 0.554%. Eighty-five legs implies 0.5 expected hits, so zero is
+unremarkable; **6 of 88 calls is the anomaly**. Under a null of equal rates, all
+six landing on the call side has probability ≈(88/173)^6 ≈ 2% — suggestive, but
+the split was examined post hoc, so the call/put asymmetry is UNPROVEN.
+
+This is the third measurement artifact of the week, after the strike oracle and
+the per-contract weighting in the reverse search. All three inflated a result.

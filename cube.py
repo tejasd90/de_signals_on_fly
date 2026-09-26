@@ -33,7 +33,14 @@ def load():
     d["day"]=pd.to_datetime(d.entry_ts,unit="s").dt.normalize()
     d["dte"]=(pd.to_datetime(d.expiry)-d.day).dt.days
     d["bucket"]=pd.cut(d.dte,[-1,2,9,10**6],labels=["immediate 0-2d","weekly 3-9d","next 10d+"])
-    return d[(d.moneyness_pct>=3)&(d.moneyness_pct<=15)]
+    # SIGN BUG FIXED. moneyness_pct is +OTM for CALLS but -OTM for PUTS
+    # (correlation with true distance is +1.000 and -1.000 respectively). The
+    # old filter `between(3,15)` therefore selected OTM calls and deep ITM puts
+    # -- median premium 18.83 vs 2,524.34 -- so the "both sides" book was never
+    # symmetric. OTM is now required on both legs.
+    otm = np.where(d.opt_type=="C", d.moneyness_pct, -d.moneyness_pct)
+    d = d.assign(otm_pct=otm)
+    return d[(d.otm_pct>=3)&(d.otm_pct<=15)]
 
 if __name__=="__main__":
     d=load()
@@ -61,7 +68,7 @@ if __name__=="__main__":
                 s2=d[(d.day.isin(days))&(d.bucket==b)].copy()
                 if len(s2)<250: continue
                 # one OTM call and one OTM put per (day, spot, expiry), nearest 8% out
-                s2["dist"]=(s2.moneyness_pct-8).abs()
+                s2["dist"]=(s2.otm_pct-8).abs()
                 pick=(s2.sort_values("dist")
                         .groupby(["day","spot","expiry","opt_type"],as_index=False).first())
                 y=(pick.r>=T).astype(float).to_numpy()
