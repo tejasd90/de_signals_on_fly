@@ -2059,3 +2059,49 @@ does not survive the move to an implementable one.**
 Practical consequence: the trading rule is unchanged — **top-5% break day BY LINE
 AGE → weekly expiry → 8% OTM both sides → limit at 200x.** Candle quality belongs
 in the dashboard as context, not in the tier definition.
+
+### Zones: pooling rejections across nearby levels (2026-09-26)
+
+Tejas: a support/resistance level is a ZONE, not a price. If 2–3 nearby levels
+each got rejected a couple of times, those rejections belong to the same wall.
+Implemented as price-confluence: on each break day, cluster the broken levels by
+price (within 1 ATR, same direction) and pool their rejection counts.
+
+**On the oracle measure it rescues a dead metric:**
+
+| rule | days | P(100x,0-3d) | lift | P(<=0) |
+|---|---:|---:|---:|---:|
+| OLD: single level's rejections >=8 | 102 | 74.5% | +5.8pp | **0.115** |
+| **NEW: pooled rejections >=12** | 306 | 74.8% | +8.0pp | **0.001** |
+| NEW: pooled rejections >=20 | 147 | 76.9% | +8.8pp | 0.003 |
+| NEW: zone has >=3 levels | 326 | 74.8% | +8.3pp | 0.002 |
+| oldest line >=100d (reference) | 143 | 82.5% | +15.6pp | 0.000 |
+| zone>=3 AND old line | 98 | **84.7%** | +17.3pp | 0.000 |
+
+Per-line counting gave P=0.115; pooling the same information gives P=0.001.
+17 Aug 2026: a zone of **7 levels with 36 pooled rejections**, against a
+single-level max of 8.
+
+**But it does not improve the tradeable cube** (weekly 3–9d, OTM both sides):
+
+| tier | days | 100x hit / EV | 200x hit / EV |
+|---|---:|---|---|
+| **top 5% by line AGE** | 33 | **4.26% / +3.17** | 2.84% / +4.59 (P=12%) |
+| top 5% by pooled rejections | 36 | 3.57% / +2.49 | 2.86% / +4.63 (P=37%) |
+| **top 5% by ZONE SIZE** | 36 | **0.00% / −1.08** | **0.00% / −1.08** |
+| zone>=5 AND old line | 37 | 2.74% / +1.66 | 1.37% / +1.66 |
+
+Pooled rejections ties age on EV at 200x but with a far worse P-value; zone size
+alone is catastrophic.
+
+**THE PATTERN WORTH NAMING.** This is the SECOND consecutive feature to win on
+the oracle measure and fail on the implementable one (candle quality was the
+first). `data/multibaggers` asks "did a 100x exist ANYWHERE in the chain that
+day", which is close to a measure of how violent the day was — so anything
+correlated with "big day" scores well. Choosing WHICH CONTRACT to buy needs
+different information. **Line age is so far the only feature that survives both
+tests**, which suggests it is reporting something about the structure being
+broken rather than about the day being loud.
+
+Practical: keep zone pooling as a DESCRIPTION in the dashboard (it characterises
+a level far better than a per-line count), not as a tier.
