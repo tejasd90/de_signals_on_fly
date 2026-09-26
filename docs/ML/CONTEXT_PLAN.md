@@ -2105,3 +2105,46 @@ broken rather than about the day being loud.
 
 Practical: keep zone pooling as a DESCRIPTION in the dashboard (it characterises
 a level far better than a per-line count), not as a tier.
+
+### Reverse search: what the level system MISSES (2026-09-26)
+
+`events_browser.py` reads the day table two ways.
+
+    python events_browser.py --top 25                 rank days by age+wedges
+    python events_browser.py --reverse --target 100   start from paying days
+    python events_browser.py --day 2026-08-17         one day in detail
+
+Forward, the top of the table is **2026-08-19 (#1)** and **2026-08-17 (#3)** out
+of all 1,000 days, ranked on line age plus wedge count.
+
+**Reverse — every day a >=100x option move BEGAN (301 days):**
+
+| what the level system saw | share of paying days | share of ALL days |
+|---|---:|---:|
+| a level broke | 76.4% | 69.6% |
+| **an OLD line (>=100d) broke** | **26.6%** | **14.3%** |
+| a wedge broke | 9.3% | — |
+| a big bar (>=2 ATR) | 42.2% | — |
+| **NOTHING broke at all** | **23.6%** | — |
+
+Two things fall out.
+
+**"A level broke" is nearly useless as a filter** — 76.4% of paying days against
+69.6% of all days. Levels break on seven days in ten, so the event carries almost
+no information. Only the AGE qualifier discriminates (26.6% vs 14.3%, a 1.86x
+enrichment), which is the same conclusion the forward test reached.
+
+**About one paying day in five is invisible to the system.** Checked against a
+warm-up artifact — the detector is live from Jan-2024 and restricting to
+post-2024-05 only moves the figure from 23.6% to 21.6%, so this is real blindness,
+not start-up. Biggest genuine misses: 2025-04-04 (6,095x, 19 contracts), 2026-02-07
+(1,660x, 52 contracts), 2026-02-28 (1,466x, 49), 2026-03-18 (1,389x).
+
+Note 2026-02-07 sits inside Tejas's episode D: the system caught 31 Jan (8 breaks,
+a 739-day line) and missed 7 Feb entirely.
+
+**So the level system is a PARTIAL detector.** It is not wrong — old-line breaks
+really do enrich — but it sees one kind of setup and a fifth of the big days
+arrive by some other route. Worth pointing the same reverse search at
+`data/trades/` (`trades.js` merges moves across instruments into market events,
+a richer source than `multibaggers`) to characterise what those other routes are.
