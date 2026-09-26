@@ -2386,3 +2386,47 @@ reversed.
 **Caveats:** 122 vs 78 legs, and this was found by testing a combination rather
 than predicting it. Treat as a lead, not a result. Needs the Westfall-Young
 treatment before it earns a place in TOP10.
+
+### The unforecastable class, bounded (2026-09-26)
+
+Tejas raised the other side: moves with no prior price action at all. His example
+is 2026-09-04 12:30 UTC — BTC 81,324 -> 79,608, **2.49% in 15 minutes**, almost
+certainly a long-stop cascade into a near expiry. Nothing to react to.
+
+**Flash risk is overwhelmingly downside: 11 of the 12 largest 15-minute bars in
+BTC history are DOWN** (largest 9.69%, 2025-10-10).
+
+Classifying the 804 merged >=100x events by how fast the move completed:
+
+| speed (candles to peak) | events | share | any break | **old-line warning** | median ratio |
+|---|---:|---:|---:|---:|---:|
+| FLASH <=3 | 256 | 31.8% | 49.2% | **3.5%** | 183x |
+| fast 4–10 | 180 | 22.4% | 53.9% | 3.9% | 225x |
+| normal 11–30 | 166 | 20.6% | 58.4% | 5.4% | 274x |
+| slow >30 | 202 | 25.1% | 65.8% | **16.3%** | 246x |
+
+**The warning rate scales with duration — 3.5% to 16.3%, a 4.7x span.** The level
+system is a structure detector and is blind to liquidation mechanics by
+construction, not by failure.
+
+**The unreachable share is BOUNDED at 16.2%**: 130 of 804 events are flash moves
+with no break of any kind. Roughly one in six. Missing those is not a skill gap.
+
+### "Should I buy cheap deep OTM every day?" — measured, and no
+
+| strategy | hit100 | break-even | EV | P(EV<=0) |
+|---|---:|---:|---:|---:|
+| 3–15% OTM daily | 0.755% | 1.08% | −0.36 | **0.927** |
+| 15–50% OTM daily | 1.318% | 1.08% | +0.17 | 0.370 |
+| **>50% OTM daily ("cheap")** | **0.269%** | 1.08% | **−0.83** | **0.995** |
+
+The cheapest strikes are the worst — >50% OTM bleeds at P=0.995. The bleed-trap
+instinct is right, and it is MOST right for exactly the strikes that look most
+tempting after watching a flash move. Only 15–50% clears break-even, and not
+significantly.
+
+**Note for the journal.** The psychological asymmetry Tejas describes is
+structural, not irrational: a flash you were absent for arrives as pure loss with
+no counter-evidence, while a move you watched build arrives with context. The
+measured shape is that flashes are a sixth of big events and slow structural
+moves are a quarter, with a 4.7x higher warning rate.
