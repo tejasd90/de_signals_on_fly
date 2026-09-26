@@ -2430,3 +2430,48 @@ structural, not irrational: a flash you were absent for arrives as pure loss wit
 no counter-evidence, while a move you watched build arrives with context. The
 measured shape is that flashes are a sixth of big events and slow structural
 moves are a quarter, with a 4.7x higher warning rate.
+
+### BUG: the wedge detector was one-directional (2026-09-26)
+
+`find_wedges` looped only over R-line breaks, so **every wedge result reported
+before this covered UPWARD breaks only** and the downward half of the population
+was invisible. Fixed to scan both sides and tag `dirn`.
+
+**The missing half is the stronger half.** Day-0 window, base 30.6%:
+
+| set | days | P(100x) | lift | P(<=0) |
+|---|---:|---:|---:|---:|
+| UP only (what was measured) | 52 | 53.8% | +24.6pp | 0.002 |
+| **DOWN only (was invisible)** | 51 | **62.7%** | **+33.8pp** | **0.000** |
+| both | 103 | 58.3% | **+31.0pp** | 0.000 |
+
+### Do wedge breaks trap? Median yes, tail no
+
+Tejas: wedge breaks often trap and give huge moves the OTHER way, so buy cheap
+OTM both directions. Measured over the 10 bars after the break:
+
+| break | n | median move WITH | median move AGAINST | trap rate |
+|---|---:|---:|---:|---:|
+| UP | 78 | 1.47% | 1.22% | 47.4% |
+| DOWN | 72 | 1.86% | 1.52% | 43.1% |
+
+45.3% overall. So it is NOT a reversal bias (which would mean fading); the break
+direction simply carries little information about the MEDIAN move.
+
+**But the option payoff is strongly directional** (weekly 3-9d, OTM):
+
+| | calls hit100 / EV | puts hit100 / EV |
+|---|---|---|
+| wedge UP break | **4.13% / +3.05** | 0.00% / −1.08 |
+| wedge DOWN break | 0.75% / −0.34 | 0.78% / −0.31 |
+| any wedge | 2.35% / +1.27 | 0.39% / −0.69 |
+
+**Resolution: the median move is roughly symmetric, the TAIL is not.** A 1.22%
+counter-move does not take an OTM option to 100x; the moves that do reach 100x
+follow the break direction. So the practical rule is the opposite of "buy both
+sides" — on a wedge break, buy the BREAK DIRECTION, because you are buying the
+tail and the tail is directional even when the median is not.
+
+Caveats: puts at 0.00% is 128 legs against ~0.8 expected hits, i.e. sample size
+rather than proof. And down-break wedges pay NEITHER side at 100x despite being
+the stronger half on the oracle measure — the oracle-vs-implementable gap again.

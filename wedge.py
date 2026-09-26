@@ -52,20 +52,27 @@ def find_wedges(spot, tf, min_overlap=40):
     R=[L for L in conf if L["kind"]=="R" and L["type"]=="trendline"]
     S=[L for L in conf if L["kind"]=="S" and L["type"]=="trendline"]
     out=[]
-    for r in R:
-        if not r["break_i"]: continue
-        bi=r["break_i"]
-        for s in S:
-            lo=max(r["confirmed_i"], s["confirmed_i"])
-            hi=min(bi, s["break_i"] if s["break_i"] else len(arr)-1)
-            if hi-lo < min_overlap: continue
-            gap_lo=line_at(r,arr,lo)-line_at(s,arr,lo)
-            gap_hi=line_at(r,arr,bi)-line_at(s,arr,bi)
-            if not (gap_lo>0 and gap_hi>0 and gap_hi<gap_lo*0.8): continue   # converging
-            out.append(dict(spot=spot,tf=tf,break_i=bi,break_ts=r["break_ts"],
-                n_rej_R=r["n_rej"], n_rej_S=s["n_rej"],
-                overlap_bars=hi-lo, squeeze=gap_hi/gap_lo,
-                width_atr=gap_hi/A[bi] if A[bi]>0 else np.nan))
+    # BOTH DIRECTIONS. The original looped only over R-line breaks, so every
+    # wedge result up to 2026-09-26 covered UPWARD breaks only and the downward
+    # half of the population was invisible.
+    for brk_side, others, dirn in (("R", S, +1), ("S", R, -1)):
+        prim = R if brk_side=="R" else S
+        for p in prim:
+            if not p["break_i"]: continue
+            bi=p["break_i"]
+            for q in others:
+                lo=max(p["confirmed_i"], q["confirmed_i"])
+                hi=min(bi, q["break_i"] if q["break_i"] else len(arr)-1)
+                if hi-lo < min_overlap: continue
+                r_,s_ = (p,q) if brk_side=="R" else (q,p)
+                gap_lo=line_at(r_,arr,lo)-line_at(s_,arr,lo)
+                gap_hi=line_at(r_,arr,bi)-line_at(s_,arr,bi)
+                if not (gap_lo>0 and gap_hi>0 and gap_hi<gap_lo*0.8): continue
+                out.append(dict(spot=spot,tf=tf,break_i=bi,break_ts=p["break_ts"],
+                    dirn=dirn,
+                    n_rej_R=r_["n_rej"], n_rej_S=s_["n_rej"],
+                    overlap_bars=hi-lo, squeeze=gap_hi/gap_lo,
+                    width_atr=gap_hi/A[bi] if A[bi]>0 else np.nan))
     # one wedge per break bar, the longest-overlapping
     best={}
     for w in out:
