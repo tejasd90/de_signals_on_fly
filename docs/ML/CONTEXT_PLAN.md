@@ -2148,3 +2148,40 @@ really do enrich — but it sees one kind of setup and a fifth of the big days
 arrive by some other route. Worth pointing the same reverse search at
 `data/trades/` (`trades.js` merges moves across instruments into market events,
 a richer source than `multibaggers`) to characterise what those other routes are.
+
+### Reverse search on MERGED MARKET EVENTS — the honest coverage (2026-09-26)
+
+`trades_reverse.py`. `data/multibaggers` is per-contract, so one move is counted
+dozens of times; `trades.js` merges moves across instruments into events carrying
+maxRatio, participant count, hold time and — the new lever — a DIRECTION. The
+level system knows whether a RESISTANCE or SUPPORT line broke, so for the first
+time we can ask whether the break pointed the same way as the move.
+
+804 merged events reaching >=100x (377 calls, 427 puts), against proper per-spot
+base rates:
+
+| | on paying days | base | enrichment |
+|---|---:|---:|---:|
+| any break | 56.3% | 52.1% | **1.08x** |
+| break in the SAME direction | 32.5% | 28.3% | **1.15x** |
+| **old line (>=100d), same direction** | **7.2%** | **4.4%** | **1.65x** |
+| NOTHING broke | **43.7%** | — | — |
+
+**Direction is near-random: 32.5% same-direction vs 29.2% OPPOSITE.** A break
+pointing the wrong way is almost as common before a big move as one pointing the
+right way. Consistent across targets (100x/200x/500x) and across sides.
+
+**44% of big market events have no break at all** — nearly double the 23.6% the
+per-contract measure suggested. The per-contract version flattered itself because
+days with breaks have more participating contracts, so they were weighted more
+heavily; merging removes that and the coverage estimate roughly halves.
+
+**What survives:** only the old-line qualifier enriches, at 1.65x — real, and
+close to the 1.86x the per-contract reverse search found, so that part is robust.
+But it covers just **7.2% of big events**.
+
+**Net reading of the level work.** It is a low-coverage, direction-blind,
+weak-enrichment detector. Old-line breaks genuinely concentrate big moves (1.65x)
+but catch one event in fourteen, and the break's own direction does not predict
+the move's. That is a much more modest claim than the forward tests implied, and
+the merged-event measure is the one to quote.
