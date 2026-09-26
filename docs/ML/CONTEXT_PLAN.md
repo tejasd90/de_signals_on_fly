@@ -2332,3 +2332,57 @@ line" covers 518 days — three-quarters of all break days — at EV −0.76, P=
 Knowing when not to look is the most confident thing in the table.
 
 17 Aug 2026: 3 wedges, a 315-day line, **nest ratio 39.4x**.
+
+### Full audit, round 2 (2026-09-26)
+
+Hunted the four bug classes that have already bitten this project.
+
+**BUG (minor, fixed): phantom zeroes at the tail.** `data/multibaggers` lags the
+candle data, so the most recent days carried `best=0` because nothing had been
+computed, not because nothing moved — 16 days, **12 of which had a level break**,
+counted as breaks that paid nothing. Trimming them actually STRENGTHENS the
+result (old-line lift +15.9 → +17.3pp). A guard now trims the tail in
+`daily_profile.py`.
+
+**Clean:** `find_wedges` has no look-ahead (0 of 6 wedges lacked a confirmed
+support line before the break). No other signed field shows a per-side asymmetry
+— `moneyness_pct` was the only one. `multibaggers` covers 96.4% of days, so
+`fillna(0)` is otherwise legitimate.
+
+**Known and accepted:** the 0–3d outcome autocorrelates at 0.675 (lag 1) by
+construction, since adjacent days share up to 3 of their 4 outcome days. The
+weekly block bootstrap absorbs this because weeks, not days, are resampled.
+
+### MISSED 1 — the outcome window was never swept, and 0–3d was the wrong choice
+
+| window | base | old-line lift | P | wedge lift | P |
+|---|---:|---:|---:|---:|---:|
+| **day 0** | **30.6%** | **+32.4pp** | **0.000** | **+25.1pp** | 0.001 |
+| 0–1d | 47.9% | +25.5pp | 0.000 | +16.5pp | 0.029 |
+| 0–3d (adopted 2026-09-25) | 70.2% | +17.7pp | 0.000 | +17.5pp | 0.002 |
+| 0–5d | 82.4% | +9.1pp | 0.001 | +9.0pp | 0.048 |
+| 0–8d | 92.6% | +2.8pp | 0.073 | +2.0pp | 0.289 |
+
+The window was widened to 0–3d on the strength of the break→retest→run
+observation. The narrative was right but the measurement got WORSE: day 0 gives a
+2x enrichment (63% vs 30.6%) against 1.25x at 0–3d, because the base inflates
+toward 100% as the window widens. **Day 0 is the correct measurement window.**
+Reported lifts at 0–3d are therefore CONSERVATIVE, not inflated.
+
+### MISSED 2 — R4 INVERTS on break days
+
+| slice | legs | hit100 | EV | hit200 | EV |
+|---|---:|---:|---:|---:|---:|
+| top-5% break day, all | 185 | 3.24% | +2.16 | 2.16% | +3.24 |
+| + **R4 agrees** | 78 | 1.28% | +0.20 | 0.00% | −1.08 |
+| + **R4 DISagrees** | 122 | **4.92%** | **+3.84** | **3.28%** | **+5.47** |
+
+Opposite to R4's standalone behaviour. Coherent reading: an old resistance line
+breaking while the 4h always-in is still DOWN means the trend has not turned yet
+— you are early in the reversal. R4 agreement means the turn already happened and
+you are late. The break IS the reversal signal; R4 measures what is being
+reversed.
+
+**Caveats:** 122 vs 78 legs, and this was found by testing a combination rather
+than predicting it. Treat as a lead, not a result. Needs the Westfall-Young
+treatment before it earns a place in TOP10.

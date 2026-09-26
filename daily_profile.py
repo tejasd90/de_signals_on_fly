@@ -66,6 +66,15 @@ if __name__=="__main__":
     cal=cal.join(G).join(pay[["best","n100"]]).fillna(0)
     cal["best3"]=cal.best.rolling(4).max().shift(-3)
     cal["n100_3"]=cal.n100.rolling(4).max().shift(-3)
+    # PHANTOM-ZERO GUARD. multibaggers lags the candle data, so the most recent
+    # days have best=0 because nothing was computed, not because nothing moved.
+    # Left in, they count as breaks that paid nothing and dilute every lift.
+    last = cal[cal.best>0].index.max()
+    n_cut = int((cal.index>last).sum())
+    if n_cut:
+        print(f"  trimming {n_cut} tail days with no multibagger data "
+              f"(after {last.date()}) — they would score as false zeroes")
+        cal = cal[cal.index<=last]
     cal.to_csv("daily_break_profile.csv")
     print(f"wrote daily_break_profile.csv — {len(cal):,} days, "
           f"{int((cal.n_breaks>0).sum()):,} with at least one break\n")
