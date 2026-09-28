@@ -84,3 +84,39 @@ became 44% on merged events), and the **`moneyness_pct` sign convention**
 None of the three ever deflated a result. The cheap guard is a one-line sanity
 check on any new field — median premium by side, in the last case — before it is
 used in a filter.
+
+---
+
+## Approach path — FALSIFIED (2026-09-28)
+
+Hypothesis (his, from the weekly chart): the PATH a market takes into a level
+matters — a quiet, coiled, sideways approach loads more energy into the break.
+
+`approach.py`, 696 break days with a measurable approach, base P(100x, 0-3d) = 69.3%.
+
+| condition | days | P(100x) | lift | P |
+|---|---:|---:|---:|---:|
+| SIDEWAYS approach (travel bottom 25%) | 174 | 69.0% | -0.3 | 0.534 |
+| STEEP approach (travel top 25%) | 174 | 74.1% | +5.9 | 0.062 |
+| CHOPPY (efficiency bottom 25%) | 174 | 69.5% | +0.2 | 0.484 |
+| TRENDED (efficiency top 25%) | 174 | 70.7% | +1.9 | 0.325 |
+| **old line >=100d (reference)** | 143 | **82.5%** | **+15.5** | **0.001** |
+| sideways AND old line >=100d | 18 | 88.9% | +20.4 | 0.008 |
+| steep AND old line >=100d | 52 | 86.5% | +18.3 | 0.001 |
+
+**Null on its own.** Three of four cells are flat. The single flicker (steep,
++5.9pp P=0.062) points the OPPOSITE way from the hypothesis — a fast run in, not
+a quiet one.
+
+**The combinations do not beat line age alone.** 88.9% on n=18 and 86.5% on n=52
+against an 82.5% reference are both well inside noise at those counts. The
+approach path adds nothing to line age; line age already holds what there is.
+
+**His 17 Aug example measured travel -1.36 ATR (10th pctile), efficiency 0.07** —
+a textbook coiled approach, sitting squarely in the 69.0% / P=0.534 cell. The
+setup that generated the hypothesis falls in the deadest bucket in the table.
+
+This is the SIXTH operationalisation of "coiled energy precedes the break" to
+return null, after compression, quiet-range, absorption, net travel and path
+efficiency. Six independent framings, no survivors: treat as falsified, not
+unmeasured.
