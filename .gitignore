@@ -67,3 +67,5 @@ dash_past.txt
 dash_live.txt
 data/oi/
 daily_break_profile.csv
+
+data/premium_pa_cache*.npz

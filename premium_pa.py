@@ -1,41 +1,48 @@
 """
 Price action ON THE PREMIUM SERIES, not on the underlying.
 
-Every feature in this project so far reads spot: trendlines, ATR, wedges, always-in.
-The option enters only as a payoff to be scored. So his five named signals --
-premium rebounce, premium holding, stairs, wall, red squeeze -- were never
-representable, because they describe the OPTION CHART's own behaviour.
+Every feature in this project so far reads spot: trendlines, ATR, wedges,
+always-in. The option enters only as a payoff to be scored. So his five named
+signals -- premium rebounce, premium holding, stairs, wall, red squeeze -- were
+never representable, because they describe the OPTION CHART's own behaviour.
+Four of the five charts he sent were option charts.
 
-That gap matters more than it looks. docs record that Delta serves historical OI
+That gap matters more than it looks: docs record that Delta serves historical OI
 but NOT historical IV. The premium series is the only surviving record of IV. An
 option that refuses to decay while time passes and spot moves against it is an
 option whose IV is being bid -- information no spot feature can carry.
 
-Operationalised (H = lookback bars, 15m each):
-  hold    premium flat/up while spot moved ADVERSELY and theta ran. The IV proxy.
-  rebounce premium bounced >=REB off a local low without regaining its prior high.
-  stairs  >=2 up-legs, each a higher high, separated by low-range consolidation.
-  wall    a premium level touched >=3x from below and never exceeded.
-  squeeze premium's own range contracting vs H bars ago, majority red candles.
+Operationalised over a window of H bars ending at the entry bar (never past it):
+  hold     spot moved ADVERSELY and time ran, yet premium did not fall. IV proxy.
+  rebounce premium bounced >=REB off its window low, still short of the high.
+  stairs   >=2 up-legs, each a higher high, separated by quiet stretches.
+  wall     a level touched >=3x near the window high and never cleared.
+  squeeze  premium's own range contracting, majority red candles.
 
-Each is measured at entry using ONLY bars up to and including i. Scored on EV of
-holding to settlement, net of COST, with the week as the unit of independence.
+VECTORISED per contract. The first version called a per-entry feature function
+10.3M times on 16-element slices and, together with an O(N)-per-week bootstrap,
+ran 3h before being killed. Features are now computed for every bar of a contract
+in one pass; the bootstrap lives in fastboot.py.
 """
-import json, glob, os, re, sys
+import json, os, re, glob, sys
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view as swv
 from datetime import datetime, timezone
+from fastboot import week_codes, boot_diff
 
 COST = 0.0826
 RES = "15"
 STEP = 4
 MIN_PREM = 0.05
-H = 16                 # 4h of premium history
+H = 16
 REB = 0.25
+CACHE = "data/premium_pa_cache2.npz"
 SYM = re.compile(r"^([CP])-([A-Z]+)-(\d+)-(\d{6})\.json$")
+NAMES = ["hold", "rebounce", "stairs", "wall", "squeeze"]
 
-def load_spot(asset):
+def load_spot(a):
     m = {}
-    for p in glob.glob(f"data/spot_candles/{asset}/{RES}/*"):
+    for p in glob.glob(f"data/spot_candles/{a}/{RES}/*"):
         if os.path.basename(p).startswith("."): continue
         try: rows = json.load(open(p))
         except Exception: continue
@@ -43,126 +50,138 @@ def load_spot(asset):
             if r[4] is not None: m[int(r[0])] = float(r[4])
     return m
 
-def week_of(ts):
-    d = datetime.fromtimestamp(ts, tz=timezone.utc)
-    return f"{d.isocalendar()[0]}W{d.isocalendar()[1]:02d}"
+def contract_feats(o, h, l, c, sp, typ):
+    """(T,5) bool array; row i uses bars [i-H+1 .. i] only. Rows < H-1 are False."""
+    T = len(c)
+    F = np.zeros((T, 5), bool)
+    if T < H: return F
+    W  = swv(c,  H)          # (T-H+1, H)
+    Wh = swv(h,  H); Wl = swv(l, H); Wo = swv(o, H); Ws = swv(sp, H)
+    end = np.arange(H - 1, T)
+    good = np.isfinite(W).all(1) & np.isfinite(Ws).all(1) & (W[:, 0] > 0) & (Ws[:, 0] > 0)
 
-def feats(o, h, l, c, sp, typ, i):
-    """All windows end at i. No forward bars touched."""
-    a, b = i - H + 1, i + 1
-    if a < 0: return None
-    P, Ph, Pl = c[a:b], h[a:b], l[a:b]
-    S = sp[a:b]
-    if not (np.isfinite(P).all() and np.isfinite(S).all()): return None
-    if P[0] <= 0 or S[0] <= 0: return None
+    sm = (Ws[:, -1] - Ws[:, 0]) / Ws[:, 0] * 100
+    adverse = -sm if typ == "C" else sm
+    pchg = (W[:, -1] - W[:, 0]) / W[:, 0]
+    hold = (adverse > 0.15) & (pchg > -0.02)
 
-    # adverse spot move for this option type, in %
-    sm = (S[-1] - S[0]) / S[0] * 100
-    adverse = (-sm) if typ == "C" else sm      # >0 means spot went against it
-    pchg = (P[-1] - P[0]) / P[0]
+    lo = np.nanmin(Wl, 1); hi = np.nanmax(Wh, 1)
+    kmin = np.nanargmin(Wl, 1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        reb = (lo > 0) & (kmin < H - 2) & (W[:, -1] / lo - 1 >= REB) & (W[:, -1] < hi * 0.98)
 
-    # HOLD: spot moved against it, time passed, premium did not fall
-    hold = (adverse > 0.15) and (pchg > -0.02)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        rng = (Wh - Wl) / np.maximum(W, 1e-9)
+    med = np.median(rng, 1, keepdims=True)
+    quiet = rng < med
+    runmax = np.maximum.accumulate(Wh, axis=1)
+    prev = np.concatenate([np.full((len(Wh), 1), -np.inf), runmax[:, :-1]], 1)
+    prev_quiet = np.concatenate([np.zeros((len(Wh), 1), bool), quiet[:, :-1]], 1)
+    stairs = ((Wh > prev) & prev_quiet & ~quiet).sum(1) >= 2
 
-    # REBOUNCE: bounced off the window low, still under the window high
-    lo, hi = Pl.min(), Ph.max()
-    reb = False
-    if lo > 0:
-        k = int(np.argmin(Pl))
-        reb = (k < H - 2) and (P[-1] / lo - 1 >= REB) and (P[-1] < hi * 0.98)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        wall = ((np.abs(Wh - hi[:, None]) / np.maximum(hi[:, None], 1e-9) < 0.03).sum(1) >= 3) & (W[:, -1] < hi)
 
-    # STAIRS: legs of higher highs split by quiet stretches
-    rng = (Ph - Pl) / np.maximum(P, 1e-9)
-    quiet = rng < np.median(rng)
-    legs, run_hi, last = 0, -np.inf, False
-    for k in range(H):
-        if quiet[k]:
-            last = True
-        elif Ph[k] > run_hi and last:
-            legs += 1; run_hi = Ph[k]; last = False
-        run_hi = max(run_hi, Ph[k])
-    stairs = legs >= 2
+    r0 = rng[:, :H // 2].mean(1); r1 = rng[:, H // 2:].mean(1)
+    red = (W < Wo).mean(1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        squeeze = (r0 > 0) & (r1 / r0 < 0.7) & (red > 0.5)
 
-    # WALL: a level touched >=3x from below, never cleared
-    wall = False
-    if hi > 0:
-        near = np.abs(Ph - hi) / hi < 0.03
-        wall = near.sum() >= 3 and P[-1] < hi
+    for k, v in enumerate((hold, reb, stairs, wall, squeeze)):
+        F[end, k] = np.where(good, np.nan_to_num(v).astype(bool), False)
+    return F
 
-    # SQUEEZE: premium's own range compressing, mostly red
-    r1 = rng[-H // 2:].mean(); r0 = rng[:H // 2].mean()
-    red = (P < o[a:b]).mean()
-    squeeze = (r0 > 0) and (r1 / r0 < 0.7) and (red > 0.5)
-
-    return dict(hold=hold, rebounce=reb, stairs=stairs, wall=wall, squeeze=squeeze)
-
-def scan(asset, recs):
-    spot = load_spot(asset)
-    if not spot: return
-    days = sorted(d for d in os.listdir(f"data/candles/{asset}") if not d.startswith("."))
-    for day in days:
-        dd = f"data/candles/{asset}/{day}/{RES}"
-        if not os.path.isdir(dd): continue
-        for fn in os.listdir(dd):
-            m = SYM.match(fn)
-            if not m: continue
-            typ, _, strike, _ = m.groups(); strike = float(strike)
-            try: rows = json.load(open(os.path.join(dd, fn)))
-            except Exception: continue
-            if len(rows) < H + 6: continue
-            ts = np.array([int(r[0]) for r in rows])
-            o  = np.array([np.nan if r[1] is None else float(r[1]) for r in rows])
-            h  = np.array([np.nan if r[2] is None else float(r[2]) for r in rows])
-            l  = np.array([np.nan if r[3] is None else float(r[3]) for r in rows])
-            c  = np.array([np.nan if r[4] is None else float(r[4]) for r in rows])
-            sp = np.array([spot.get(int(t), np.nan) for t in ts])
-            if np.isnan(c).all() or np.isnan(sp).all(): continue
-            settle, exp_ts = c[-1], ts[-1]
-            if not np.isfinite(settle): continue
-            for i in range(H, len(c) - 1, STEP):
-                e = c[i]
-                if not np.isfinite(e) or e < MIN_PREM: continue
-                s0 = sp[i]
-                if not np.isfinite(s0): continue
-                f = feats(o, h, l, c, sp, typ, i)
-                if f is None: continue
+def scan():
+    wks, dte, otms, sr, typs, feats, sret = [], [], [], [], [], [], []
+    for asset in ("BTC", "ETH"):
+        spot = load_spot(asset)
+        if not spot: continue
+        for day in sorted(d for d in os.listdir(f"data/candles/{asset}") if not d.startswith(".")):
+            dd = f"data/candles/{asset}/{day}/{RES}"
+            if not os.path.isdir(dd): continue
+            for fn in os.listdir(dd):
+                m = SYM.match(fn)
+                if not m: continue
+                typ, _, strike, _ = m.groups(); strike = float(strike)
+                try: rr = json.load(open(os.path.join(dd, fn)))
+                except Exception: continue
+                if len(rr) < H + 6: continue
+                a = np.array(rr, dtype=object)
+                ts = a[:, 0].astype(np.int64)
+                def col(j):
+                    v = a[:, j]
+                    return np.array([np.nan if x is None else float(x) for x in v])
+                o, hh, ll, cc = col(1), col(2), col(3), col(4)
+                sp = np.array([spot.get(int(t), np.nan) for t in ts])
+                if not np.isfinite(cc[-1]): continue
+                F = contract_feats(o, hh, ll, cc, sp, typ)
+                idx = np.arange(H, len(cc) - 1, STEP)
+                if len(idx) == 0: continue
+                e = cc[idx]; s0 = sp[idx]
+                ok = np.isfinite(e) & (e >= MIN_PREM) & np.isfinite(s0)
+                idx = idx[ok]
+                if len(idx) == 0: continue
+                e, s0 = cc[idx], sp[idx]
                 otm = (s0 - strike) / s0 * 100 if typ == "P" else (strike - s0) / s0 * 100
-                recs.append((week_of(int(ts[i])), (exp_ts - ts[i]) / 3600.0, otm,
-                             settle / e, f["hold"], f["rebounce"], f["stairs"],
-                             f["wall"], f["squeeze"]))
+                wks.append(np.array([datetime.fromtimestamp(int(t), tz=timezone.utc).strftime("%GW%V") for t in ts[idx]]))
+                dte.append((ts[-1] - ts[idx]) / 3600.0)
+                otms.append(otm); sr.append(cc[-1] / e)
+                typs.append(np.full(len(idx), typ))
+                feats.append(F[idx])
+                # DIRECTION CONTROL. Realised spot move from entry to the contract's
+                # last bar. If a signal's edge is just exposure to a favourable spot
+                # move, it dies once this is held fixed.
+                s_end = sp[np.isfinite(sp)][-1] if np.isfinite(sp).any() else np.nan
+                sret.append(s_end / s0 - 1.0)
+        print(f"{asset}: {sum(len(x) for x in wks):,} entries", file=sys.stderr)
+    return (np.concatenate(wks), np.concatenate(dte).astype(np.float32),
+            np.concatenate(otms).astype(np.float32), np.concatenate(sr).astype(np.float32),
+            np.concatenate(typs), np.concatenate(feats),
+            np.concatenate(sret).astype(np.float32))
 
-NAMES = ["hold", "rebounce", "stairs", "wall", "squeeze"]
-
-def report(recs, title, filt=None):
-    R = recs if filt is None else [r for r in recs if filt(r)]
-    if len(R) < 200: print(f"\n{title}: too few ({len(R)})"); return
-    wk = np.array([r[0] for r in R])
-    ev = np.array([r[3] for r in R]) - 1 - COST
-    F  = {n: np.array([r[4 + k] for r in R], bool) for k, n in enumerate(NAMES)}
-    rng = np.random.default_rng(11); uw = np.unique(wk)
-    base = ev.mean()
-    print(f"\n{title}   n={len(R):,}  weeks={len(uw)}  base EV={base:+.4f}")
-    print(f"{'signal':<10}{'n':>9}{'fires':>8}{'EV':>10}{'dEV':>10}{'P(dEV>0)':>10}{'win%':>8}")
-    for n in NAMES:
-        s = F[n]
-        if s.sum() < 100: 
-            print(f"{n:<10}{s.sum():>9,}{'--':>8}{'':>10}{'':>10}{'':>10}{'':>8}"); continue
-        boot = []
-        for _ in range(2000):
-            pick = rng.choice(uw, len(uw), replace=True)
-            m = np.isin(wk, pick)
-            a, b = ev[m & s], ev[m & ~s]
-            if len(a) and len(b): boot.append(a.mean() - b.mean())
-        boot = np.array(boot)
-        print(f"{n:<10}{s.sum():>9,}{s.mean()*100:>7.1f}%{ev[s].mean():>10.4f}"
-              f"{ev[s].mean()-ev[~s].mean():>10.4f}{(boot>0).mean():>10.3f}"
-              f"{(ev[s]>0).mean()*100:>7.1f}%")
+def report(wk, ev, F, title, mask):
+    n = int(mask.sum())
+    if n < 500: print(f"\n{title}: too few ({n})"); return
+    code, nw = week_codes(wk[mask]); e = ev[mask]; f = F[mask]
+    print(f"\n{title}   n={n:,}  weeks={nw}  base EV={e.mean():+.4f}")
+    print(f"  {'signal':<10}{'fires':>9}{'rate':>8}{'EV':>10}{'dEV':>10}{'P(dEV>0)':>10}{'win%':>8}")
+    for k, nm in enumerate(NAMES):
+        s = f[:, k]
+        if s.sum() < 200:
+            print(f"  {nm:<10}{int(s.sum()):>9,}{'--':>8}"); continue
+        d = boot_diff(e, code, nw, s, 2000, seed=k + 1)
+        print(f"  {nm:<10}{int(s.sum()):>9,}{s.mean()*100:>7.1f}%{e[s].mean():>10.4f}"
+              f"{e[s].mean()-e[~s].mean():>10.4f}{(d>0).mean():>10.3f}{(e[s]>0).mean()*100:>7.1f}%")
 
 if __name__ == "__main__":
-    recs = []
-    for a in ("BTC", "ETH"):
-        scan(a, recs); print(f"{a}: {len(recs):,} cumulative", file=sys.stderr)
-    report(recs, "=== ALL ===")
-    report(recs, "=== OTM only (2-15%) ===", lambda r: 2 <= r[2] <= 15)
-    report(recs, "=== OTM 2-15%, >=12h to expiry ===", lambda r: 2 <= r[2] <= 15 and r[1] >= 12)
-    report(recs, "=== OTM 2-15%, <12h to expiry ===", lambda r: 2 <= r[2] <= 15 and r[1] < 12)
+    if os.path.exists(CACHE):
+        z = np.load(CACHE, allow_pickle=True)
+        wk, dte, otm, sr, typ, F, sret = (z["wk"], z["dte"], z["otm"], z["sr"],
+                                          z["typ"], z["F"], z["sret"])
+        print(f"cache: {len(wk):,} entries", file=sys.stderr)
+    else:
+        wk, dte, otm, sr, typ, F, sret = scan()
+        np.savez_compressed(CACHE, wk=wk, dte=dte, otm=otm, sr=sr, typ=typ, F=F, sret=sret)
+        print(f"cached -> {CACHE}", file=sys.stderr)
+    ev = sr - 1 - COST
+    report(wk, ev, F, "=== ALL ===", np.ones(len(ev), bool))
+    report(wk, ev, F, "=== OTM 2-15% ===", (otm >= 2) & (otm <= 15))
+    report(wk, ev, F, "=== OTM 2-15%, PUTS ===", (otm >= 2) & (otm <= 15) & (typ == "P"))
+    report(wk, ev, F, "=== OTM 2-15%, CALLS ===", (otm >= 2) & (otm <= 15) & (typ == "C"))
+    report(wk, ev, F, "=== OTM 2-15%, >=12h to expiry ===", (otm >= 2) & (otm <= 15) & (dte >= 12))
+
+    # ---- DIRECTION CONTROL ----------------------------------------------
+    # The positive half of the result lives entirely in CALLS, whose base EV is
+    # +0.236 -- that is 2024-2026 bull drift, not skill. Hold the realised spot
+    # move fixed: inside a narrow band of forward spot return, a genuine signal
+    # still separates, a trend-follower does not.
+    base = (otm >= 2) & (otm <= 15)
+    qs = np.nanquantile(sret[base], [0.2, 0.4, 0.6, 0.8])
+    print("\n\n############ DIRECTION CONTROL: within buckets of realised spot move ############")
+    print(f"spot-return quintile cuts: {np.round(qs*100,2)} %")
+    edges = np.concatenate([[-np.inf], qs, [np.inf]])
+    for t in ("C", "P"):
+        for b in range(5):
+            m = base & (typ == t) & (sret >= edges[b]) & (sret < edges[b+1])
+            report(wk, ev, F, f"=== {'CALLS' if t=='C' else 'PUTS'} | spot move quintile {b+1} "
+                              f"[{edges[b]*100:+.1f}%,{edges[b+1]*100:+.1f}%) ===", m)
