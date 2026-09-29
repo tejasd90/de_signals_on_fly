@@ -68,10 +68,13 @@ def find_wedges(spot, tf, min_overlap=40):
                 gap_lo=line_at(r_,arr,lo)-line_at(s_,arr,lo)
                 gap_hi=line_at(r_,arr,bi)-line_at(s_,arr,bi)
                 if not (gap_lo>0 and gap_hi>0 and gap_hi<gap_lo*0.8): continue
+                # gap_lo/gap_hi/span are additive: they let apex.py derive how
+                # many bars remained to the apex without re-deriving the lines.
                 out.append(dict(spot=spot,tf=tf,break_i=bi,break_ts=p["break_ts"],
                     dirn=dirn,
                     n_rej_R=r_["n_rej"], n_rej_S=s_["n_rej"],
                     overlap_bars=hi-lo, squeeze=gap_hi/gap_lo,
+                    gap_lo=gap_lo, gap_hi=gap_hi, span=bi-lo,
                     width_atr=gap_hi/A[bi] if A[bi]>0 else np.nan))
     # one wedge per break bar, the longest-overlapping
     best={}

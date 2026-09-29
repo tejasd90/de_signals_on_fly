@@ -120,3 +120,37 @@ This is the SIXTH operationalisation of "coiled energy precedes the break" to
 return null, after compression, quiet-range, absorption, net travel and path
 efficiency. Six independent framings, no survivors: treat as falsified, not
 unmeasured.
+
+---
+
+## Apex proximity — REJECTED (2026-09-29)
+
+Hypothesis (his, from the BankNifty weekly): a descending line off the Sep-2024
+and Feb-2026 highs and a rising line off the Oct-2025 and Apr-2026 lows converged
+near 57,500 around Sep 2026, and price resolved DOWN essentially at the crossing,
+to 53,890. Does breaking AT the apex beat breaking while the wedge is still wide?
+
+Conditioner on the surviving wedge result. Two measures, matched terciles:
+
+| | width_atr | bars-to-apex |
+|---|---:|---:|
+| BTC all (n=81) | +33.3pp (P=0.995) | +15.8pp (P=0.830) |
+| BTC down breaks | +45.5pp (P=0.991) | +22.0pp (P=0.840) |
+| ETH all (n=69) | -3.2pp (P=0.407) | -20.6pp (P=0.070) |
+| ETH down breaks | -16.7pp (P=0.132) | **-33.0pp (P=0.037)** |
+
+**Rejected.** The two measures agree WITHIN each asset, so the metric is sound.
+The assets disagree with EACH OTHER, and on ETH breaking FAR from the apex is
+nominally significant in the opposite direction. Two assets, opposite signs, one
+nominally significant each way, n=8-24 per cell: the signature of no effect plus
+small samples. BTC alone would have been the largest number in this project.
+
+**A wrong mechanism, recorded because the correction is the useful part.** The
+first explanation offered was that width_atr = gap/ATR is an ATR proxy, firing on
+volatile regimes rather than geometry. `apex_debunk.py` refutes it:
+spearman(width_atr, bars_to_apex) = +0.74 BTC / +0.78 ETH, while
+spearman(width_atr, ATR) = -0.24 / +0.28 -- weak and OPPOSITE signs. width_atr
+measures the apex well. The effect simply is not there.
+
+Note the wedge break ITSELF still survives (+24.6pp up, +33.8pp down). What fails
+is conditioning on WHERE in the convergence the break happens.

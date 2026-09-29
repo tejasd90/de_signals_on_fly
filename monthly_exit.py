@@ -98,7 +98,8 @@ def run():
                         v = C[k[0]] if len(k) and np.isfinite(C[k[0]]) else fin
                         res[f"timestop{d_}d"] = v/e
                     res["hold"] = fin/e
-                    rows_out.append((week_of(int(ts[i])), typ, res))
+                    yr = datetime.fromtimestamp(int(ts[i]), tz=timezone.utc).year
+                    rows_out.append((week_of(int(ts[i])), typ, res, yr))
     return rows_out
 
 def main():
@@ -106,10 +107,19 @@ def main():
     print(f"entries: {len(R):,}   (monthly, OTM 2-15%, 7-21d to expiry)")
     if not R: return
     wk = np.array([r[0] for r in R]); ty = np.array([r[1] for r in R])
+    yr = np.array([r[3] for r in R])
     keys = list(R[0][2].keys())
     rng = np.random.default_rng(13)
-    for label, sel in (("ALL", np.ones(len(R), bool)),
-                       ("PUTS", ty == "P"), ("CALLS", ty == "C")):
+    # BETA CONTROL. 2024-2026 was a crypto bull market. Calls printing +0.39 while
+    # puts lose under all nine rules is what drift looks like, not what skill looks
+    # like. If the call number is an edge it should appear in more than one year;
+    # if it is drift it will live in the up years and die in the rest.
+    sels = [("ALL", np.ones(len(R), bool)), ("PUTS", ty == "P"), ("CALLS", ty == "C")]
+    for y in sorted(set(yr.tolist())):
+        sels.append((f"CALLS {y}", (ty == "C") & (yr == y)))
+        sels.append((f"PUTS  {y}", (ty == "P") & (yr == y)))
+    for label, sel in sels:
+        if sel.sum() < 300: continue
         print(f"\n[{label}]  n={sel.sum():,}")
         print(f"  {'rule':<12}{'EV/trade':>10}{'P(EV>0)':>10}{'win%':>8}{'medX':>8}{'p95X':>8}")
         w_ = wk[sel]; uw = np.unique(w_)
