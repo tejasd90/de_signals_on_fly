@@ -71,11 +71,37 @@ Top quintile median EV **-0.046 vs -0.558** for the rest, Mann-Whitney
 separates days on the median, which is the statistic an account experiences.
 
 **But the shape is a U, not a ranking.** Q1 is as good as Q5. That breaks "one
-number" as stated. The likely reading is two distinct profitable regimes: Q5 has
-42% big-move days but options priced for it; Q1 has only 21.7% yet pays equally,
-consistent with a well-worn quiet range where options are CHEAP. The middle is
-where both effects are absent and the bleed happens. Directly testable by checking
-whether Q1 days carry lower implied vol.
+number" as stated.
+
+### The two-regime explanation was offered, tested, and REFUTED
+
+Proposed reading: Q5 = move likely but priced in; Q1 = well-worn quiet range so
+options are CHEAP and a move pays more per rupee. `pascore_ushape.py` measures
+median premium/spot in a fixed 4-8% OTM band:
+
+| quintile | median premium/spot | P(100x day) |
+|---|---:|---:|
+| Q1 | **0.298%** | 21.7% |
+| Q2 | 0.216% | 21.8% |
+| Q3 | 0.310% | 15.4% |
+| Q4 | 0.270% | 27.5% |
+| Q5 | **0.217%** | 42.0% |
+
+Q1 options are MORE expensive, not cheaper (Mann-Whitney p=0.944 against the
+hypothesis). The story is dead, and backwards -- the same failure mode as his own
+two inverted rules.
+
+**The flip favours Q5.** It carries the highest big-move rate AND the cheapest
+options: high probability at low cost, better than assumed. Q2 is equally cheap
+(0.216%) with only 21.8% big-move days, so cheapness alone is not the mechanism.
+
+**Q1 remains unexplained** -- expensive options, few big moves, decent median EV.
+
+CAVEAT on the refutation itself: premium/spot at fixed moneyness is IV x sqrt(time),
+so a day loaded with longer-dated contracts looks expensive without higher IV. That
+confound could explain Q1's premium AND its EV together (more time to reach the 10x
+cap). Two-regime is unsupported; the test is not clean enough to call it closed.
+Next test: days-to-expiry mix by quintile.
 
 Limits: Q5 absolute EV +0.25 with 95% CI [-0.04, +0.58] -- "better than the rest"
 is established, "profitable" is not. Q5 AND old-line (n=46, median +0.59, 54.3%
