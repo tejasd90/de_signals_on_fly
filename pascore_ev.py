@@ -16,9 +16,14 @@ from datetime import datetime, timezone
 
 COST = 0.0826
 RES = "60"
-MIN_PREM = 0.05
+# DUST FLOOR, scaled to spot. The first version used an absolute 0.05, which on
+# ETH at ~$2,300 is dust: such a mark settling at $17 prints 340x that nobody
+# could trade at size. ETH 2024-02-05 (13 contracts, ALL >=10x, median peak 357x)
+# alone supplied 53% of the summed EV across 1,943 days.
+MIN_PREM_FRAC = 0.0005          # premium must be >= 0.05% of spot
+CAP = 10.0                      # realistic take-profit; you do not ride a mark to 1400x
 SYM = re.compile(r"^([CP])-([A-Z]+)-(\d+)-(\d{6})\.json$")
-OUT = "data/day_option_ev.parquet"
+OUT = "data/day_option_ev2.parquet"
 
 def load_spot(a):
     m = {}
@@ -57,18 +62,29 @@ def build():
                     if np.isfinite(hi[k]) and hi[k] > run: run = hi[k]
                 for i in range(0, len(cl)-1, 6):
                     e = cl[i]
-                    if not np.isfinite(e) or e < MIN_PREM: continue
+                    if not np.isfinite(e): continue
                     sp = spot.get(int(ts[i]))
-                    if sp is None: continue
+                    if sp is None or e < MIN_PREM_FRAC * sp: continue
                     otm = (sp-strike)/sp*100 if typ == "P" else (strike-sp)/sp*100
                     if not (2 <= otm <= 15): continue
                     if not np.isfinite(fut[i]): continue
+                    # capped exit: sell at CAP x if ever touched, else settle.
+                    # Fixed in advance, causal, and the same family of rule as
+                    # monthly_exit.py's target-Nx.
+                    ratio_cap = CAP if fut[i] >= e * CAP else settle / e
                     rec.append((asset,
                                 datetime.fromtimestamp(int(ts[i]), tz=timezone.utc).strftime("%Y-%m-%d"),
-                                typ, settle/e - 1 - COST, fut[i]/e))
+                                typ, settle/e - 1 - COST, fut[i]/e,
+                                ratio_cap - 1 - COST))
         print(f"{asset}: {len(rec):,}", file=sys.stderr)
-    d = pd.DataFrame(rec, columns=["spot","day","typ","ev","peak"])
-    g = d.groupby(["spot","day"]).agg(ev=("ev","mean"), peak=("peak","median"),
+    d = pd.DataFrame(rec, columns=["spot","day","typ","ev","peak","evcap"])
+    # MEDIAN and share-positive alongside the mean. On a lottery payoff the sample
+    # mean does not converge in 1,943 days -- which is precisely what "one day
+    # supplies 53% of the total" means. The mean is kept only to show the damage.
+    g = d.groupby(["spot","day"]).agg(ev=("ev","mean"), evmed=("ev","median"),
+                                      evcap=("evcap","mean"), evcapmed=("evcap","median"),
+                                      pos=("evcap", lambda s:(s>0).mean()),
+                                      peak=("peak","median"),
                                       p10=("peak", lambda s:(s>=10).mean()), n=("ev","size"))
     g = g.reset_index(); g["day"] = pd.to_datetime(g.day)
     g.to_parquet(OUT); return g
