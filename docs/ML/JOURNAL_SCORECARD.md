@@ -5,7 +5,7 @@ the text; **commit times supply them**, which is what makes scoring possible at 
 `DECISION_DOCUMENT` has long flagged that whether Tejas's discretionary reads
 carry alpha is unanswerable because nothing was recorded. It is now answerable.
 
-**First scoring: 2026-09-28. Six entries, four resolved.**
+**First scoring 2026-09-28. Re-scored 2026-09-30: nine entries, seven resolved.**
 
 | # | committed (IST) | the call | outcome |
 |---|---|---|---|
@@ -13,8 +13,11 @@ carry alpha is unanswerable because nothing was recorded. It is now answerable.
 | 2 | 09-23 12:45 | 70% conviction BTC stays >80K, ETH >2500 | **holding** (lows 82,650 / 2,626.6) |
 | 3 | 09-24 14:29 | "markets going down, could breach levels for tomorrow's monthly expiry" | **WRONG.** BTC +0.37%, ETH +0.90% into the 25th; no expiry breach |
 | 4 | 09-27 17:09 | ETH 12h symmetric wedge; "personally I am biased for an upside breakout" | **WRONG so far.** ETH −2.24%; high only +0.29% above the call |
-| 5 | 09-28 09:28 | crypto tied to gold; 82,800 crucial for BTC, break → 80k | level broke (low 82,650), recovered; too early |
-| 6 | 09-28 11:27 | hammer + inverted hammer → range, 1:100 unlikely | unresolved |
+| 5 | 09-28 09:28 | crypto tied to gold; 82,800 crucial for BTC, break → 80k | **SPLIT.** Level broke (low 82,500) but 80k never came; recovered to 83,788 |
+| 6 | 09-28 11:27 | hammer + inverted hammer → range, 1:100 unlikely | **CORRECT.** BTC -0.77%/+1.67%, ETH -0.56%/+3.70% |
+| 7 | 09-28 11:38 | no Aug-17-19-style upside blast in the near future | **CORRECT so far.** Aug ref was BTC +26.8% / ETH +36.4% in a week (biggest days +7.3% / +17.5%). Since: BTC max +1.80%, ETH +2.26%, biggest daily move 0.69% |
+| 8 | 09-30 09:36 | wedge; explosive break on/before the 2 Oct weekly expiry; side unknown, slight bearish bias | **PENDING**, deadline Friday |
+| 9 | 09-30 16:51 | long-term wedge resolving at 199k, upside continuation bias | pending; unfalsifiable as written ("further upside or some reversal" covers both) |
 
 ## The gold claim, measured
 
