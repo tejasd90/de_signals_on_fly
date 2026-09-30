@@ -68,6 +68,13 @@ whether there will be room to move.
 problem; this removes a third of the opportunities to overtrade and removes the
 dead ones twice as fast as the live ones.
 
+**Memory depth is load-bearing and was checked** (`memory_depth.py`, 2026-09-30).
+Holding feature definitions fixed and varying only the lookback: L=20 and L=60
+score 0.597/0.610 against L=500's 0.619 on rangeatr QUIET, and on rangeatr BIG the
+short lookbacks (0.528/0.535) fall BELOW the 0.553 baseline while L=500 reaches
+0.602. **Keep the 500-bar lookback.** A brief conclusion that "the market's memory
+is short", drawn from the light-box failure, was wrong and is withdrawn.
+
 ---
 
 ## TIER 3 — Discretionary direction, gated (his edge, not the model's)
@@ -140,6 +147,13 @@ profit-withering. The plan has to be built against that, not around it.
 Tiers 2-4 are refinements to discretionary trading that should not receive capital
 until Tier 1 is running and Tier 3's journal has enough scored calls to mean
 anything.
+
+## Tested and discarded since the plan was written
+
+- **Light-box model** (LIGHTBOX.md), both halves. Pure absorption: gains of
+  +0.016/+0.008/-0.013/-0.004 over baseline with assets disagreeing in sign, and it
+  DEGRADES pascore when added. Reflection via two-flux/Kubelka-Munk: +0.001/+0.000/
+  -0.003/+0.002, zero to three decimals. Closed, no plan change.
 
 ## Open items that would change the plan
 

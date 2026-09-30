@@ -73,10 +73,22 @@ of memory, so the best-performing version sees barely a week back -- exactly wha
 the 5-day volatility baseline already encodes. **The deep-memory versions, which
 are what the idea was actually about, perform worst.**
 
-This is consistent with the rest of the 2026-09-30 work: the market's usable
-memory looks short. Long-range structure -- old levels, old trendlines, months-old
-ranges -- has now failed to predict in five separate formulations (pascore, apex,
-approach path, coiling, light-box).
+An earlier draft concluded from this that "the market's usable memory is short",
+citing five failed formulations. **That conclusion was wrong and is withdrawn.**
+`memory_depth.py` holds the pascore feature DEFINITIONS fixed and varies only the
+lookback:
+
+| target | side | baseline | L=20 | L=60 | L=250 | L=500 |
+|---|---|---:|---:|---:|---:|---:|
+| rangeatr | QUIET | 0.568 | 0.597 | 0.610 | 0.614 | **0.619** |
+| rangeatr | BIG | 0.553 | 0.528 | 0.535 | 0.593 | **0.602** |
+| mfe | QUIET | 0.560 | 0.573 | 0.583 | **0.617** | 0.611 |
+| mfe | BIG | 0.538 | 0.570 | 0.547 | 0.576 | **0.583** |
+
+Long memory wins in all four cells, and for `rangeatr BIG` the short lookbacks are
+BELOW baseline while L=500 is well above. Deep history genuinely helps. The
+light-box failed for its OWN reasons -- the occlusion formulation -- not because
+long-range structure is worthless.
 
 ## What would revive it
 
@@ -85,3 +97,30 @@ light rebounding inside the box so that shadowed regions receive indirect
 illumination. That is a genuinely different object (a radiosity solve) and is the
 one untested part of his specification. Worth doing only if a cheap version can be
 tried without adding several fitted parameters.
+
+
+## Reflection, tested separately (2026-09-30) — also null, DISCARDED
+
+v1 was pure absorption. His model had light rebounding inside the box so shadowed
+regions receive indirect illumination. `reflect.py` implements the principled
+version: the two-flux (Kubelka-Munk) model, standard for a scattering medium.
+Forward flux F and backward flux B along each price row, at each body
+`F_out = tau*F_in + rho*B_in`, `B_out = tau*B_in + rho*F_in`, iterated to
+convergence, with near-mirror walls (0.9) making the box closed. rho=0 IS v1, so
+the comparison is exact.
+
+| target | side | base | rho=0 (v1) | rho>0 (refl) | refl gain | per asset |
+|---|---|---:|---:|---:|---:|---|
+| rangeatr | QUIET | 0.627 | 0.617 | 0.618 | +0.001 | BTC +0.001, ETH +0.002 |
+| rangeatr | BIG | 0.586 | 0.580 | 0.580 | +0.000 | BTC +0.000, ETH -0.000 |
+| mfe | QUIET | 0.616 | 0.611 | 0.607 | -0.003 | BTC -0.004, ETH -0.002 |
+| mfe | BIG | 0.584 | 0.593 | 0.595 | +0.002 | BTC +0.004, ETH +0.001 |
+
+Zero to three decimals on both assets. And the light features sit BELOW the
+volatility baseline in three of four cells with or without reflection.
+
+Plausible reason: reflection redistributes light SMOOTHLY, and a smooth field adds
+no discriminating structure. Whatever information exists is in the occlusion
+pattern, which pure absorption already captures fully.
+
+**The light-box is now tested in full, both halves, and is closed.**

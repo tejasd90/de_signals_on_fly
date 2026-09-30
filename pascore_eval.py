@@ -25,7 +25,7 @@ warnings.filterwarnings("ignore")
 
 COMPS = ("hits","novel","disp","rejmag","side","ovl","round")
 WEIGHTS = ("harmonic","log","power","exp")
-LOOKBACKS = (250,500)
+LOOKBACKS = (20, 60, 250, 500)
 DRIFTS = (0.0,0.002,0.006)
 TFS = (1440,360)
 

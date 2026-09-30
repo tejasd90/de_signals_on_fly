@@ -51,7 +51,7 @@ import numpy as np, pandas as pd
 from numpy.lib.stride_tricks import sliding_window_view as swv
 from levels import load_tf, atr
 
-LOOKBACKS = (250, 500)
+LOOKBACKS = (20, 60, 250, 500)
 DRIFTS    = (0.0, 0.002, 0.006)          # ATR per bar of allowed level drift
 WEIGHTS   = ("harmonic", "log", "power", "exp")
 TOL0      = 0.60                          # matches levels.py's swept tolerance
