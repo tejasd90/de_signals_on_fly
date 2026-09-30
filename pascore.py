@@ -103,11 +103,16 @@ def components(arr, L, drift, wname):
     out["disp"][idx] = (hc * wc[None, :]).sum(1)
 
     # rejection magnitude: how far price left the level after touching it
-    fwd = np.full(len(c), np.nan)
+    # LOOK-AHEAD BUG, FIXED. fwd[j] measured the move over bars j+1..j+REJ_FWD, and
+    # the window ends at i-1, so fwd[i-1] read bars i..i+REJ_FWD-1 -- at and after
+    # the decision bar. Under harmonic weights those bars carry 43-48% of the total
+    # weight, so this was not a rounding error. Shifting by REJ_FWD means the
+    # latest usable term is the rejection that had already COMPLETED by bar i-1.
     fmax = pd.Series(h).rolling(REJ_FWD).max().shift(-REJ_FWD).to_numpy()
     fmin = pd.Series(l).rolling(REJ_FWD).min().shift(-REJ_FWD).to_numpy()
     with np.errstate(invalid="ignore"):
         fwd = np.maximum(fmax - c, c - fmin) / np.where(A > 0, A, np.nan)
+    fwd = np.roll(fwd, REJ_FWD); fwd[:REJ_FWD] = np.nan
     Fw = swv(np.nan_to_num(fwd, nan=0.0), L)[:-1]
     denom = (hit * w[None, :]).sum(1)
     out["rejmag"][idx] = np.where(denom > 0, (hit * Fw * w[None, :]).sum(1) / np.maximum(denom, 1e-12), 0.0)
@@ -146,7 +151,17 @@ def daily_frame(spot, tfs=(1440, 360)):
                     comp, _ = components(arr, L, dr, wname)
                     day = pd.to_datetime(arr[:, 0], unit="s").normalize()
                     df = pd.DataFrame(comp); df["day"] = day
-                    g = df.groupby("day").max()
+                    # LOOK-AHEAD BUG, FIXED. P was c[i], the bar's OWN close, and the
+                    # target is whether a 100x entry happened DURING that day. On a
+                    # big-move day the close sits far from every prior bar, so `hits`
+                    # collapsed -- and `hits` carried the largest (negative) coefficient.
+                    # Diagnostic before the fix: corr(score, SAME-day |ret|) was +0.41 /
+                    # +0.31 against +0.07 / +0.09 for NEXT-day. It was describing the
+                    # move, not predicting it. shift(1) makes every input known BEFORE
+                    # the day it is asked about. The weekly-block shuffle control did
+                    # not catch this: permuting labels leaves the same-day relationship
+                    # intact inside each block.
+                    g = df.groupby("day").max().shift(1)
                     g.columns = [f"{c}|{wname}|{L}|{dr}|{tf}" for c in g.columns]
                     frames.append(g)
     return pd.concat(frames, axis=1) if frames else None

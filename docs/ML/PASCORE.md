@@ -1,3 +1,13 @@
+# RETRACTED 2026-09-30 — see AUDIT_2026-09-30.md
+
+> **Everything below was produced with two look-ahead leaks.** After fixing them
+> the held-out AUC across 24 specs is 0.428-0.545 (median **0.499**), BTC is
+> **0.431 (P=0.010, worse than chance)** while ETH is 0.574, and the +20.1pp
+> within old-line days falls to +5.3pp (P=0.728). **The score does not work.**
+> The text is kept unedited as the record of what a leak looks like from inside.
+
+---
+
 # Price action as a single number (his idea, 2026-09-30)
 
 His proposal: at the current bar draw a horizontal line, count the past bars it

@@ -154,3 +154,24 @@ measures the apex well. The effect simply is not there.
 
 Note the wedge break ITSELF still survives (+24.6pp up, +33.8pp down). What fails
 is conditioning on WHERE in the convergence the break happens.
+
+
+---
+
+## QUALIFICATION on the level/wedge results (2026-09-30 audit)
+
+`audit_sameday.py` and `audit_ordering.py` (see AUDIT_2026-09-30.md) show the two
+surviving level results are largely SAME-DAY co-occurrence, not forecasts:
+
+| feature | same day | next day |
+|---|---:|---:|
+| old line >=100d | +16.8pp (P=0.999) | +6.7pp (P=0.908) |
+| wedge break | +20.0pp (P=1.000) | +4.8pp (P=0.804) |
+
+And within a break day, the break usually arrives AFTER the option is already
+running: BTC wedges 25.9% before (median lead -2.5h), ETH wedges 35.7% (-3.9h),
+BTC old lines 38.2% (-0.7h).
+
+**These entries remain in the table but are NOT tradeable as stated.** A signal
+whose median lead is negative is a description of a move in progress. The
+forecastable residual is the next-day figure, and neither is significant.
