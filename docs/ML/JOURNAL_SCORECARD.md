@@ -17,7 +17,7 @@ carry alpha is unanswerable because nothing was recorded. It is now answerable.
 | 6 | 09-28 11:27 | hammer + inverted hammer → range, 1:100 unlikely | **CORRECT.** BTC -0.77%/+1.67%, ETH -0.56%/+3.70% |
 | 7 | 09-28 11:38 | no Aug-17-19-style upside blast in the near future | **CORRECT so far.** Aug ref was BTC +26.8% / ETH +36.4% in a week (biggest days +7.3% / +17.5%). Since: BTC max +1.80%, ETH +2.26%, biggest daily move 0.69% |
 | 8 | 09-30 09:36 | wedge; explosive break on/before the 2 Oct weekly expiry; side unknown, slight bearish bias | **PENDING**, deadline Friday |
-| 9 | 09-30 16:51 | long-term wedge resolving at 199k, upside continuation bias | pending; unfalsifiable as written ("further upside or some reversal" covers both) |
+| 9 | 09-30 16:51 | long-term wedge resolving at **100k** (he confirms 199k was a typo), upside continuation bias | pending; still unfalsifiable as written ("further upside move, or some reversal" covers both outcomes) |
 
 ## The gold claim, measured
 
@@ -54,3 +54,36 @@ itself — trade the structural reads, log the biased ones without sizing them.
 Entries need no format change. What would sharpen scoring at zero cost:
 a horizon ("next 2 days"), a falsifier ("wrong if BTC closes above X"), and a
 confidence number — entry 2 already does all three and is the easiest to score.
+
+
+## Checking entry 9 against our own line detector (2026-09-30)
+
+He corrected the target to 100k. `levels.py` on BTC daily, independently of his chart:
+
+**No wedge is visible to the detector.** Exactly ONE live trendline exists -- a
+rising support anchored 2026-06-25, 97 days old, 3 touches, currently at **66,654**
+with spot **24.6% above it**. There is NO live resistance trendline: all 53
+descending lines ever found are already broken, most recently 2025-04-12. No
+ceiling means no convergence.
+
+That does not refute his chart -- he may be reading a weekly structure, or one our
+swing detection misses -- but the code gives it no support.
+
+**What the detector does find is a coincidence worth recording:**
+
+| level | distance | rejections |
+|---:|---:|---:|
+| 91,216 | +9.8% | **5** |
+| 94,144 | +13.4% | 3 |
+| **101,093** | **+21.7%** | 3 |
+
+His corrected 100k target lands almost exactly on a 3-rejection level at 101,093,
+found by swing clustering with no knowledge of his chart. **The wedge geometry may
+be wrong while the destination is right.**
+
+The nearer obstacle is 91,216 with 5 rejections -- the strongest overhead structure
+by touch count, and anything travelling to 100k passes through it first.
+
+**Caution carried from AUDIT_2026-09-30.md**, relevant to entry 8: even if the
+wedge is real and breaks explosively, TRADING the break is late -- the break
+arrives after the option is already running 62-74% of the time.
