@@ -52,6 +52,12 @@ def windowed(tail):
 def _exp_date(name):          # BTC_60_2026-09-16.parquet -> Timestamp
     return pd.Timestamp(name.rsplit("_", 1)[1].replace(".parquet", ""))
 
+# A 2-day contract has only 2 DAILY bars, so build_expiry skips it at res 1440 --
+# which left the 1d view with ~140 expiries instead of 986, losing the immediate
+# and next slots, the two that matter most. So the requirement is computed at a
+# FINE resolution and aligned to whatever candle resolution is being viewed.
+SOURCE_RES = {"1440": "240", "240": "240", "60": "60", "15": "15"}
+
 def load_req(asset, res, t0=None, t1=None):
     """Long table: one row per (ts, expiry) with both percentages for C and P.
 
@@ -64,7 +70,8 @@ def load_req(asset, res, t0=None, t1=None):
     lo = pd.Timestamp(t0, unit="s") - pd.Timedelta(days=1) if t0 else None
     hi = pd.Timestamp(t1, unit="s") + pd.Timedelta(days=70) if t1 else None
     fr = []
-    for fp in sorted(glob.glob(f"{REQ}/{asset}_{res}_*.parquet")):
+    src = SOURCE_RES.get(str(res), str(res))
+    for fp in sorted(glob.glob(f"{REQ}/{asset}_{src}_*.parquet")):
         e = _exp_date(os.path.basename(fp))
         if lo is not None and e < lo: continue
         if hi is not None and e > hi: continue
@@ -166,6 +173,19 @@ def payload(asset, res, limit=1500):
     t0, t1 = int(c.ts.min()), int(c.ts.max())
     r = load_req(asset, res, t0, t1)
     slots = assign_slots(r)
+    # Align the (finer-resolution) requirement rows onto the candle timestamps,
+    # so the heatmap joins exactly even when the two grids differ.
+    if len(slots):
+        step = int(np.median(np.diff(c.ts.to_numpy()))) if len(c) > 2 else 86400
+        aligned = []
+        for name, g in slots.groupby("slot"):
+            m = pd.merge_asof(c[["ts"]].sort_values("ts").astype("int64"),
+                              g.sort_values("ts").astype({"ts": "int64"}),
+                              on="ts", direction="backward", tolerance=step)
+            m["slot"] = name
+            aligned.append(m.dropna(subset=["expiry"]))
+        slots = pd.concat(aligned, ignore_index=True) if aligned else slots
+
     tail = max(limit * 3, 1500)
     e = events(asset, res, tail=tail)
     if len(e):
