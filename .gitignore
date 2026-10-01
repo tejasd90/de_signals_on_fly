@@ -73,3 +73,4 @@ data/pascore_*.parquet
 data/day_option_ev.parquet
 data/day_option_ev*.parquet
 data/lightbox.parquet
+data/dashreq/
