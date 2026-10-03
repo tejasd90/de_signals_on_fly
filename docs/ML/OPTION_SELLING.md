@@ -99,7 +99,11 @@ SELLER wants. Held-out days only, with the straddle entered at 00:00 UTC.
 - **Leak check:** corr with today's range −0.21, with tomorrow's −0.17. That is a forecast, not a description.
 - **Thin:** only ~6 months of held-out days, 214 quiet straddles.
 - **What matters for stress-free trading:** it cut the worst loss from −21.5% to −6.9% of spot.
-- **Next:** rebuild the predictor walk-forward to get 2+ years of held-out days.
+- **Walk-forward rebuild (`quiet_wf.py`, 2026-10-03):** refit monthly on all earlier days and scored only
+  on the next month. That gives 544 held-out asset-days, Dec 2025 – Sep 2026 (the features need
+  history, so this is as far back as it goes). 1–3d straddle on predicted-quiet days: **+0.146% vs
+  −0.271%, CI [+0.067, +0.770], P = 0.008**, and the same sign in 2025 and 2026. Worst −17.7% vs −21.5%,
+  p5 −3.7% vs −4.8%. Same-day straddles: still nothing. **This is the strongest seller filter so far.**
 
 ## 3. Implied vs realised
 

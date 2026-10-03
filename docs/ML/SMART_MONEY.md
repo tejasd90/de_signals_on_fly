@@ -217,3 +217,45 @@ already in the price and pays neither side. Funding is clamped at 0.01 for long 
 **Reading:** a good month for a pattern says NOTHING about next month. That is his trap exactly:
 the last pattern seen is not more likely to repeat. The long-run ordering of patterns IS stable,
 though. Keep the ranking, ignore the recent streak.
+
+## 7. Follow-ups run 2026-10-03
+
+**The 13:30 IST cliff is Deribit's settlement: CONFIRMED** (`deribit_dvol.py`). Deribit's public
+DVOL index (30-day implied vol, hourly, Nov 2025 – Oct 2026) has its largest mean hourly fall in the
+bar opening 08:00 UTC: BTC −0.29%, ETH −0.32%. That is the lowest of all 24 hours for both, against a
+median hour of ~0. It rises 12:00–14:00 UTC (+0.15 to +0.27%), matching Delta's rebound around
+19:00–20:00 IST. Delta's option marks follow the global implied-vol curve, and that curve re-marks
+when Deribit's daily expiry rolls off.
+
+**Mode 1: can it be spotted early, and does averaging pay?** (`mode1_avg.py`; 99 Friday expiries,
+5% OTM pair fixed 7 days out)
+- **Early identification:** the side whose premium held up better on day 1 is still standing at
+  expiry in 61% of expiries, and in **79%** of mode-1 expiries.
+- **Averaging** (equal money on days 1–3, exit at 2x average cost or at 3 DTE), net of cost:
+
+| side | exit at 3 DTE | held to expiry |
+|---|---|---|
+| **STRONGER** (held up better on day 1) | +0.035 [−0.119, +0.194], win 46% | −0.044 |
+| coin flip | −0.093 | — |
+| **weaker** (melting) | **−0.273** [−0.410, −0.132], win 27% | −0.371 |
+
+"Easily 5x" does not appear at a 2x exit. But the rule **never average the melting side** is
+clear (−0.27 vs +0.04). Exiting before the last 3 days beats holding to expiry, as he said.
+
+**Informed positioning in OI** (`fetch_opt_oi_week.py` → `data/opt_oi_week.parquet`, hourly OI over the last
+8 days of 281 Friday expiries; `oi_positioning.py`). At every 4h point 7 to 1 days out:
+- **Call building** = OI added in the last 24h to calls 2–8% OTM, relative to the whole chain. Put building is the same for puts.
+- **Outcome** = buying the 3–6% OTM option of that expiry and holding it, net of cost.
+
+| | n | call return | put return | next-72h up / down |
+|---|---|---|---|---|
+| all | 8,528 | +1.01 | +0.17 | 3.76% / 3.77% |
+| call building (top 10%) | 853 | +0.13 | +0.37 | 3.62% / 3.58% |
+| call building while price QUIET | 213 | +2.24 (CI of diff −2.9..+7.2, P = 0.34) | +0.38 | 3.95% / **2.56%** |
+| put building while price QUIET | 229 | +1.24 | +0.78 (P = 0.28) | 3.55% / 3.08% |
+
+- **Rank correlation of net flow with the next-72h direction is +0.047.**
+- **Nothing is significant.** The one hint matches the Aug-19 picture: quiet + call building
+  came before SMALLER downside (2.6% vs 3.8%), not a bigger upside.
+- **The verdict:** informed positioning, if it exists, does not leave a usable footprint in Delta's
+  option OI. Delta's book is small next to Deribit's, which is where the positioning would be visible.
