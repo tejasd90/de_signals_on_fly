@@ -459,6 +459,16 @@ sensitivity: +0.055 at 0.01%/8h, +0.035 at 0.03%, **-0.035 at 0.10%**.
 **Verdict: not a validated edge.** A plausible, known structural effect that does
 not clear significance on the available history.
 
+**Note 2026-10-02:** the same short-alt effect, harvested market-neutrally across
+207 perps instead of directionally, IS significant: the cross-sectional low-vol
+book (`xsec2.py`, beta-hedged, 5-day rebalance, incl. 22 delisted names) gives
+**+59.4%/yr, vol 23.9%, Sharpe 2.48, maxDD −18.2%, P(<=0)=0.0003, CI [+34%, +84%]**.
+The short leg is **117%** of the price return (long −8.8%/yr, short +61.6%/yr).
+Numbers rerun 2026-10-02 and identical to PLAN.md Tier 1. Detail in CONTEXT_PLAN.md
+"Steps 1-3 on the cross-sectional direction"; the earlier 55.4% / Sharpe 2.06 /
+137% (`xsec.py`) and 58.4% / 2.44 / 119% (`xsec2.py`, 2026-09-19 data) figures
+there are older versions of this number.
+
 ## 21. The constraint has MOVED
 
 It is no longer symbols — 129 are in and calibration is fixed. It is now
@@ -486,6 +496,11 @@ Options are retired as an earning instrument. Futures earn; options were to hedg
 
 **And the edge is STRONGEST on the hedgeable pair:** BTC+ETH alone at 24h gives
 **AUC 0.7024** vs 0.6840 pooled. Best predictive result anywhere in this project.
+
+**Superseded 2026-10-02:** this comparison is not like-for-like (different test
+populations). On identical BTC+ETH test rows: 0.6942 trained on BTC+ETH alone,
+**0.7319** trained on all 129 symbols. Pooling creates the edge, it does not
+dilute it. See §34.
 
 ## 23. Fees were the binding cost, and leverage multiplies them
 
@@ -531,7 +546,8 @@ controlled by leverage and position size, which are free.
 
 ## 25. Where the game stands
 
-- Engine: AUC 0.7024 on BTC+ETH at 24h, well calibrated.
+- Engine: AUC 0.7024 on BTC+ETH at 24h, well calibrated. (**Superseded
+  2026-10-02:** like-for-like 0.6942 BTC+ETH-trained / 0.7319 pooled-trained, §34.)
 - Economics: gross edge positive, rises with selectivity, survives maker fees at
   top-1% selectivity (~1 signal/day across BTC+ETH).
 - Blocker: unchanged — **142 independent weeks**. No config clears significance.

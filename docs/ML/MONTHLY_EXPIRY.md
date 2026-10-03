@@ -57,10 +57,42 @@ contradicts it.
 
 ## What is NOT yet settled
 
+(**Settled 2026-10-02** -- see the update at the end of this section.)
+
 Hold-to-settlement measures the wrong trade. He would have sold the 57000 PE at
 3100, not ridden it to zero, and P(peak>=10x) of 3.8-10.3% says the spikes are
 genuinely there. Whether a FIXED-IN-ADVANCE exit rule captures them is the open
 question -- `monthly_exit.py`.
+
+**Update 2026-10-02: `monthly_exit.py` has been run; the question is answered,
+and no fixed exit rule pays.** Monthly contracts, OTM 2-15%, entered every 6h at
+7-21 days to expiry, 35,446 entries, BTC+ETH, COST=0.0826, weekly block bootstrap.
+`P(EV>0)` is the bootstrap share above zero (0.95 would be one-sided P=0.05).
+
+| rule | ALL EV | P(EV>0) | PUTS EV | CALLS EV | CALLS P(EV>0) |
+|---|---:|---:|---:|---:|---:|
+| target 2x | -0.144 | 0.000 | -0.204 | -0.083 | 0.209 |
+| target 3x | -0.158 | 0.011 | -0.227 | -0.088 | 0.245 |
+| target 5x | -0.178 | 0.056 | -0.144 | -0.211 | 0.118 |
+| target 10x | -0.134 | 0.189 | -0.217 | -0.048 | 0.415 |
+| trail 30% | -0.131 | 0.000 | -0.149 | -0.113 | 0.000 |
+| trail 50% | -0.111 | 0.021 | -0.246 | +0.027 | 0.570 |
+| timestop 7d | +0.050 | 0.611 | -0.235 | +0.341 | 0.886 |
+| timestop 3d | +0.076 | 0.616 | -0.409 | +0.571 | 0.932 |
+| hold | -0.029 | 0.439 | -0.272 | +0.219 | 0.709 |
+
+- **Every profit target and trailing stop loses** on the pooled book. Selling the
+  spike at a pre-set multiple does not capture it: the spikes are real but too
+  rare to pay for the many entries that never reach the target.
+- **Puts lose under all nine rules.** His BankNifty-style put payoff does not
+  appear in BTC/ETH monthlies as a fixed rule.
+- **The only positive cells are calls with a time stop, and they are drift.**
+  Calls timestop 3d by year: 2024 +0.29, **2025 −0.42**, 2026 **+1.89**. One bad
+  year out of three and the result lives in the up years -- the beta control the
+  script was written for. Not significant (P(EV>0)=0.932) and not an edge.
+
+**Verdict:** the expiry-week peak timing in (1) is real; no causal exit rule
+turns it into a trade. Monthly OTM buying stays dead, as in (2).
 
 Caveat carried throughout: these are MARK prices, not traded. 9,276 traded
 contract-days exist for re-checking anything that survives.

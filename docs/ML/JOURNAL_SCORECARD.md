@@ -5,7 +5,7 @@ the text; **commit times supply them**, which is what makes scoring possible at 
 `DECISION_DOCUMENT` has long flagged that whether Tejas's discretionary reads
 carry alpha is unanswerable because nothing was recorded. It is now answerable.
 
-**First scoring 2026-09-28. Re-scored 2026-09-30: nine entries, seven resolved.**
+**First scoring 2026-09-28. Re-scored 2026-09-30: nine entries, seven resolved. Re-scored 2026-10-03 01:15 IST: eleven entries** (prices: BTC/ETH perp hourly, `data/spot_candles`).
 
 | # | committed (IST) | the call | outcome |
 |---|---|---|---|
@@ -16,8 +16,19 @@ carry alpha is unanswerable because nothing was recorded. It is now answerable.
 | 5 | 09-28 09:28 | crypto tied to gold; 82,800 crucial for BTC, break → 80k | **SPLIT.** Level broke (low 82,500) but 80k never came; recovered to 83,788 |
 | 6 | 09-28 11:27 | hammer + inverted hammer → range, 1:100 unlikely | **CORRECT.** BTC -0.77%/+1.67%, ETH -0.56%/+3.70% |
 | 7 | 09-28 11:38 | no Aug-17-19-style upside blast in the near future | **CORRECT so far.** Aug ref was BTC +26.8% / ETH +36.4% in a week (biggest days +7.3% / +17.5%). Since: BTC max +1.80%, ETH +2.26%, biggest daily move 0.69% |
-| 8 | 09-30 09:36 | wedge; explosive break on/before the 2 Oct weekly expiry; side unknown, slight bearish bias | **PENDING**, deadline Friday |
+| 8 | 09-30 09:36 | wedge; explosive break on/before the 2 Oct weekly expiry; side unknown, slight bearish bias | **STRUCTURE CORRECT, BIAS WRONG.** BTC broke UP out of the 1h triangle before expiry: 83,173 → high 87,224 (+4.9%) at 17:30 IST 2 Oct. The low (82,908) came 3h after the call and never broke down. Fastest hour +1.34% (09:30 IST 2 Oct). C-BTC-87000-021026 went ~10 → ~300 on mark (his own screenshot). It was a grind of steadily higher 4h closes more than an "explosion", but it was enough to multiply options. ETH +4.1% to 2,778. The slight bearish bias was wrong |
 | 9 | 09-30 16:51 | long-term wedge resolving at **100k** (he confirms 199k was a typo), upside continuation bias | pending; still unfalsifiable as written ("further upside move, or some reversal" covers both outcomes) |
+| 10 | 10-02 08:49 | market inching up with parabola-like support on 4h+; failed push-downs since the 21 Sep breakout; "bias for a breakout in coming days" | **pending / split so far.** The rally came at once: 84,830 → 87,224 (+2.8%) within 9h. But it stopped 0.2% short of the 22–23 Sep high (87,376) and reversed. No breakout yet; horizon "coming days" |
+| 11 | 10-02 18:53 | 6h BTC: the "hairy" last candle makes a breakout hard; "if the candle closes like this", triple top and the breakout is no longer imminent | **CORRECT within 6h (provisional).** The 6h candle (17:30–23:30 IST) printed 87,224 and closed near **84,012**, much weaker than "like this". That is a third failure at ~87.2–87.4k (22 Sep, 23 Sep, 2 Oct). BTC low 83,842 (−3.3% from the call), ETH 2,649 (−4.3%). It is a call about ABSENCE again, written while his own morning bias (entry 10) pointed the other way |
+
+**Score note 2026-10-02.** The "3/3 on no move coming, 0/3 on direction" summary
+(commit 9eb6dca) counts entry 7 as a hit, but entry 7 has no horizon ("near
+future") and the table itself says "correct so far". It cannot be resolved yet.
+Honest count on absence calls (1, 6, 7): **2/2 resolved + 1 pending**. Direction
+calls (3, 4, 5): **0 hits** — 3 wrong, 5 split (level broke, target missed), 4
+"wrong so far" with no horizon, so pending. The asymmetry
+is the same; the counts are smaller. Entries 2, 8 and 9 remain pending (8's
+deadline is today, 2 Oct). Ask for a horizon on every entry so this does not recur.
 
 ## The gold claim, measured
 
@@ -32,6 +43,21 @@ ETH (beta 1.15–1.35), roughly 1:1 for BTC. But "have tied themselves" implies 
 recent development and the current 30d correlation is at the **34th percentile** —
 slightly BELOW its own median. The link is long-standing, not tightening. (XAUT
 data begins 2026-04-18, so earlier comparison is impossible.)
+
+**Score note 2026-10-03.** Adding 8, 10, 11 by statement type:
+
+- **Absence / "no move" calls (1, 6, 7, 11): 3/3 resolved + 1 pending.** Entry 11 resolved within hours, so it is provisional but the conditional was met and the consequence followed.
+- **Timing/structure without a side (8): 1/1.** The break came before the stated deadline, and it was big enough for a 30x option on the right side.
+- **Direction / bias (3, 4, 5, 8-bias, 10): 0 clean hits.** 3 wrong, 5 split, 8's bias wrong, 4 and 10 pending.
+
+The asymmetry from the models holds again: he reads WHETHER and WHEN well, and WHICH WAY poorly. Entries 10→11 are the
+best example yet. The morning bias said breakout, and the evening read of the actual candle said
+no. The candle read was right within hours. When the two disagree, the structure read has the record.
+
+**What entry 8's type maps to:** "explosion before expiry, side unknown" is a long STRANGLE. On 2 Oct the
+call side paid ~30x while the put side expired worthless, so a strangle profits if the hit is big enough.
+"No move coming" maps to SELLING premium (OPTION_SELLING.md §2b). Both use the part of his read
+that scores and leave out the part that doesn't.
 
 ## The pattern worth tracking
 

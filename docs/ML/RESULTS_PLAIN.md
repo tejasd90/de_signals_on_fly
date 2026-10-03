@@ -547,7 +547,7 @@ Not in any old strike. It is in the **far out-of-the-money ones, aiming at 100x*
 |---|---:|---:|---|
 | any contract, aiming 25x | 3.51% | 4.33% | loses |
 | >10% out of the money, aiming 25x | 4.66% | 4.33% | marginal |
-| **>10% OTM, aiming 100x** | **2.22%** | **1.08%** | **+EV, P=0.022** |
+| **>10% OTM, aiming 100x** | **2.22%** | **1.08%** | **+EV, P=0.022** (superseded 2026-10-02, see "What to actually do") |
 | >10% OTM, aiming 100x, NO break that day | 0.38% | 1.08% | **loses badly** |
 
 That last row is the important one. **The same strikes are profitable on a break
@@ -587,6 +587,23 @@ breaks **6 days** after its third rejection. So this is not a months-long vigil 
 but only 4.1% of "live" days are break days, so waiting is mostly cost.
 
 ## What to actually do
+
+> **Superseded 2026-10-02 — do not follow this list.** Three later results
+> remove its basis:
+> 1. **Ordinary breaks add nothing over 0–3 days** (P=0.43). Once the window
+>    allowed for break → retest → run, the wedge subset carried the whole effect
+>    (TOP10.md §B; CONTEXT_PLAN "With that window, the WEDGE carries everything").
+> 2. **The break usually arrives after the move.** Break-day effects are mostly
+>    same-day co-occurrence; on a one-day shift 60–75% vanishes and the next-day
+>    residual is not significant. Rule 2 below waits for a daily CLOSE, so it
+>    enters after the day's move by construction (AUDIT_2026-09-30.md §2–3).
+> 3. **The P=0.022 figure predates the `moneyness_pct` sign fix** (filters caught
+>    deep-ITM puts). The corrected break-day number is 1.74%, P=0.005, still
+>    measured same-day and never re-tested as tradeable (TOP10 row 5).
+>
+> What still stands from this part: "two in three breaks are traps and it does
+> not matter to an option buyer". For what currently survives see README.md
+> "State as of 2026-10-02".
 
 1. Watch `dash_live.txt` for confirmed, unbroken levels.
 2. Do nothing until a daily **close** goes past one. Wicks do not count.

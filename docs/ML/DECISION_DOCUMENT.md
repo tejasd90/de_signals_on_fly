@@ -2,6 +2,15 @@
 **As of 2026-09-12.** What has been tested, what survived, what to do next.
 Supersedes the scattered conclusions in HANDOFF.md and ML_SPEC.md.
 
+> **Superseded in part 2026-10-02.** This document is the 2026-09-12 state and is
+> kept as written. Three things changed after it: (1) funding carry, recommended in
+> §6.3, was tested and **falsified** (FINDINGS §31–33); (2) the BTC+ETH AUC 0.7024
+> was not like-for-like — BTC+ETH-only training gives **0.6942**, all-129-symbol
+> training gives **0.7319** on the same BTC+ETH test rows (FINDINGS §34); (3) "nothing
+> else remains" is no longer true — see README.md "State as of 2026-10-02",
+> TOP10.md and PLAN.md for what survives now (cross-sectional low-vol book, the
+> when-not-to-trade gate, R4, two option-selling rules, wait-and-hold).
+
 ---
 
 ## 1. One-paragraph summary
@@ -28,7 +37,7 @@ prove a small edge.
 | 4 | The edge is just "buy the cheapest" (D-01) | **REJECTED** | cheapness alone LOSES (-0.042) and hits 25x less often than random |
 | 5 | Option timing is predictable (Brooks, arm 4) | **FALSIFIED** | 105 spot features, AUC 0.5286, p=0.150, bootstrap CI [0.487,0.567] contains 0.5 |
 | 6 | Leverage can create edge | **FALSIFIED (arithmetic)** | driftless-walk null gives EV exactly 0 at every leverage; measured +0.0000 |
-| 7 | Short-horizon futures direction is predictable | **REAL BUT UNPROVEN** | AUC 0.7024 BTC+ETH at 24h, calibration near-perfect; best EV +0.0209/trade, CI [-0.033,+0.065] |
+| 7 | Short-horizon futures direction is predictable | **REAL BUT UNPROVEN** | AUC 0.7024 BTC+ETH at 24h, calibration near-perfect; best EV +0.0209/trade, CI [-0.033,+0.065]. **Superseded 2026-10-02:** 0.7024 is not like-for-like; on identical BTC+ETH test rows it is 0.6942 trained on BTC+ETH alone, 0.7319 trained on all 129 symbols — see FINDINGS §34 |
 | 8 | Volatility compression predicts big moves | **FALSIFIED** | forward move flat at ~2.3 ATR at every compression level; coiled days move LESS in absolute terms |
 | 9 | Breakout + pyramiding + trailing SL | **FALSIFIED** | every config loses, CIs entirely negative; pyramiding doubles the loss; ATH is the worst filter; re-entry makes it worse |
 
@@ -109,6 +118,14 @@ season, and is not significant on weekly blocks.
 
 **Nothing else.**
 
+**Superseded 2026-10-02:** "Nothing else" no longer holds. Later work found the
+cross-sectional low-vol perp book (+59.4%/yr, Sharpe 2.48, P=0.0003 — PLAN.md
+Tier 1), the when-not-to-trade gate (WHEN_NOT_TO_TRADE.md), R4 (TOP10 row 3), two
+conditional option-selling rules (OPTION_SELLING.md) and wait-and-hold as a loss
+cutter (TF_REPEAT_HOLD.md). The short-altcoin-decay item above is the same effect
+that the low-vol book's short leg harvests (117% of its price return). The
+classifier's AUC is corrected in §2 row 7.
+
 ---
 
 ## 6. Recommended next actions, in order
@@ -126,6 +143,10 @@ season, and is not significant on weekly blocks.
    known to exist (cash-and-carry: long spot, short perp, collect funding). It
    earns from flow, not from forecasting. Requires funding-rate history, which
    the API serves and we have not pulled.
+   **Superseded 2026-10-02:** done and **falsified**. Delta India cannot hedge
+   most perps on-venue, and the cross-sectional carry spread is adverse selection
+   plus short-alt beta, not a carry edge (FINDINGS §31–33; `xsec.py` carry signal
+   −5.8%/yr). Do not pursue.
 4. **Stop searching for chart-pattern edges.** Nine hypotheses, eight dead. The
    marginal value of a tenth variant on this dataset is low.
 

@@ -1,6 +1,10 @@
 # Findings, ranked
 
 **Updated 2026-09-26.** Data current to 2026-09-25 (spot, 220 perps, OI).
+**Annotated 2026-10-02:** rows 1, 4, 5, 7 and 11 carry dated notes. Rows 4, 5, 7 are
+NOT standing as forecasts after AUDIT_2026-09-30.md; read them as descriptions of a
+move in progress. For the current list of what survives see README.md "State as
+of 2026-10-02".
 Supersedes the 2026-09-23 version, which pre-dated the wedge work, the reverse
 search and the `moneyness_pct` sign bug.
 
@@ -17,13 +21,13 @@ Reference: an option needs **4.33%** at a 25x target, **1.08%** at 100x, or
 
 | # | finding | effect | P | sample | survived |
 |---|---|---|---|---|---|
-| 1 | **Cross-sectional low-vol perp book** | +58.4%/yr, Sharpe 2.44, maxDD −18.2% | **0.0003** | 142 weeks, 207 names | survivorship fix, equal-risk, beta-hedge, $100M capacity |
+| 1 | **Cross-sectional low-vol perp book** | +58.4%/yr, Sharpe 2.44, maxDD −18.2% (**updated 2026-10-02:** +59.4%/yr, Sharpe 2.48, maxDD −18.2%, CI [+34, +84]; short leg 117%) | **0.0003** | 142 weeks, 207 names | survivorship fix, equal-risk, beta-hedge, $100M capacity (+45.9%, Sharpe 1.87), taker+30bps (+50.8%, Sharpe 2.13) |
 | 2 | **Breadth is the structural lever** | effective bets 4.3 → 58.2 (~3.7x IR) | — | 158 names | arithmetic, not a fitted result |
 | 3 | **R4 — agree with the 4h trend** | 5.96% vs 3.89% base (BE 4.33%) | **0.000** | all 142 weeks | works at 100x too (1.799%, P=0.002); only rule with traded-price backing |
-| 4 | **Line age ≥100d on a break day** | +15.8pp on P(100x within 0–3d) | **0.000** | 146 days | the only level feature surviving BOTH oracle and implementable tests |
-| 5 | **>10% OTM on a break day, 100x** | 1.74% vs 0.61% on no-break days | **0.005** | 59,852 events | improved after the sign-bug fix (was P=0.043) |
+| 4 | **Line age ≥100d on a break day** | +15.8pp on P(100x within 0–3d) | **0.000** | 146 days | the only level feature surviving BOTH oracle and implementable tests. **Qualified 2026-10-02:** not standing as a forecast — same-day +16.8pp, next-day +6.7pp (P=0.908); break before entry on only 38% of BTC days. See AUDIT_2026-09-30.md §2–3 |
+| 5 | **>10% OTM on a break day, 100x** | 1.74% vs 0.61% on no-break days | **0.005** | 59,852 events | improved after the sign-bug fix (was P=0.043). **Qualified 2026-10-02:** scored SAME-day, the class the audit found mostly co-occurrence; never re-run next-day. For "any break" the median lead is only +0.5h (BTC) / +0.7h (ETH), and a daily-close trigger enters after it. Untested as tradeable — see AUDIT_2026-09-30.md |
 | 6 | **Break geometry pays on PUTS only** | puts dEV +1.006, calls −0.179 | **0.011** | 142 weeks | direction control 5/5 buckets; leave-one-month-out |
-| 7 | **Wedge breaks** | BTC +18.1pp, ETH +22.3pp | **0.022–0.024** | n=31, n=27 | replicates independently on both symbols |
+| 7 | **Wedge breaks** | BTC +18.1pp, ETH +22.3pp | **0.022–0.024** | n=31, n=27 | replicates independently on both symbols. **Qualified 2026-10-02:** not standing as a forecast — same-day +20.0pp, next-day +4.8pp (P=0.804); break arrives 2.5–3.9h AFTER the option is running. See AUDIT_2026-09-30.md §2–3 |
 | 8 | **Containment rule (yours)** | 2.17x lift, 4.34% vs 2.00% | **0.014** | 28.7% of triggers | only pattern-SHAPE feature ever to survive here |
 | 9 | **Grid path-length law** | gross = path × size, spacing-independent | exact | all spacings 2–50 | arithmetic; kills every tight-grid variant |
 | 10 | **Fakeouts don't matter to option buyers** | 2.23% held vs 2.21% trapped | — | 1,848 breaks | explains why "push past line" predicts traps but not payoff |
@@ -32,11 +36,23 @@ Reference: an option needs **4.33%** at a 25x target, **1.08%** at 100x, or
 
 | # | finding | effect | P | note |
 |---|---|---|---|---|
-| 11 | Cube: the edge is the CALL leg | OTM calls 6.82%, EV +5.74 at 100x | 0.14 (200x) | 88 legs. Puts 0/85 — sample size, not a bug |
+| 11 | Cube: the edge is the CALL leg | OTM calls 6.82%, EV +5.74 at 100x | 0.14 (200x) | 88 legs. Puts 0/85 — sample size, not a bug. **Reconciled 2026-10-02:** see note below the table — the call/put split here is post hoc and UNPROVEN (6 hits); row 6 is the tested side result |
 | 12 | Grid and puts are one position | put rule fires on 24.2% of grid's worst days vs 8.4% best | — | positive-carry left-tail hedge |
 | 13 | Horizon reconciles two results | best option cell at days, worst sustain at 60d | 0.036 / 0.962 | crashes continue for days, revert over months |
 | 14 | 200x beats 100x as a target | EV +4.59 vs +3.17 | 0.12 | EV still rises to 500x but on 2 observations |
 | 15 | Weekly (3–9d) beats immediate expiry | 4.26% vs 1.54% at 100x | — | 0–2 DTE can't survive break→retest→run |
+
+**Note 2026-10-02 — rows 6 and 11 are different tests and do not contradict, but
+row 11's label overstates it.** Row 6 is channel/trend-line break geometry as a
+weekly put/call selection filter (CONTEXT_PLAN "Where the effect actually lives:
+PUTS ONLY"): puts dEV +1.006, P=0.011, direction control 5/5 buckets, held-out 2026
+P=0.043; calls −0.179 and below 1.0x in 4/5 buckets. Row 11 is the line-AGE cube
+(top 5% by age, weekly, 100x): 6 hits in 88 call legs vs 0 in 85 put legs, where
+0.5 put hits were expected. CONTEXT_PLAN's own sign-bug section says that split
+"was examined post hoc, so the call/put asymmetry is UNPROVEN". Read row 11 as
+"the cube's few hits happened to be calls", not "the edge is the call leg". It also
+rests on line age, which the audit qualifies (row 4). The side result that stands
+is row 6: **puts**.
 
 ---
 

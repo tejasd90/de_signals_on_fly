@@ -14,7 +14,7 @@ whether a strategy makes money.
 
 | # | doc | what it is | trust |
 |---|---|---|---|
-| 1 | **DECISION_DOCUMENT.md** | **Start here.** Scoreboard of 9 hypotheses (8 falsified), the 5 findings worth keeping, the 10 recurring traps, and every open question swept and answered. Supersedes scattered conclusions elsewhere. | current |
+| 1 | **DECISION_DOCUMENT.md** | **Start here.** Scoreboard of 9 hypotheses (8 falsified), the 5 findings worth keeping, the 10 recurring traps, and every open question swept and answered. Supersedes scattered conclusions elsewhere. | as of 2026-09-12; §5–6 partly superseded (see its dated notes, and TOP10.md / PLAN.md for later results) |
 | 2 | **HANDOFF.md** | The reasoning behind decisions that look arbitrary in code, and the traps that cost real time. §3 is the trap list; §4 the method rules. | current, §2 partly superseded by FINDINGS |
 | 3 | **FINDINGS.md** | The measured record in 5 parts: options edge → leveraged futures → regimes/unsupervised/clustering → funding carry → neural nets. Every number is out-of-sample. | current |
 | 4 | **ML_SPEC.md** | 43 numbered design decisions (D-01…D-41) plus open items O-01…O-07. The reference for *why* a label or split is shaped the way it is. | O-items now closed in DECISION_DOCUMENT §8 |
@@ -24,6 +24,9 @@ whether a strategy makes money.
 | 6b | **BROOKS_SPOT.md** | Brooks' setups tested on SPOT by his own trader's equation — 258,402 setups, 220 perps. No edge at any reward multiple. | current |
 | 7 | **CONTEXT_PLAN.md** | Grade a signal by the spot price action around it (Brooks structure, not parameters). The D-03 veto reframe. | proposed, not started |
 | 8 | **INDIA_PLAN.md** | What happens next: Indian stocks + F&O, with gates and kill criteria. | proposed, not started |
+| 9 | **OPTION_SELLING.md** | The seller's side of everything (2026-10-02). Unconditional selling nets ~0. Selling behind trendline breaks and high-IV straddles survive but halve out of sample. 5% margin vs −20% tail. | current; refreshes with the dashboard loop |
+| 10 | **TF_REPEAT_HOLD.md** | Cross-timeframe repeats (mute after a lower-tf multibagger) and wait-and-hold (30m–3h only). Plain-English summary at top. | current; signals frozen at 2026-09-16 |
+| 11 | **SMART_MONEY.md** | Smart-money fingerprint (max-pain pull, defended OI walls: null on Delta), equidistant pair (null for multibaggers), the daily 13:30–14:30 IST premium cliff (real, traded), his three modes measured. | current (2026-10-03) |
 
 Source material for CONTEXT_PLAN: `../../Brooks/0{0,1,2,3}-*.md` — distilled from
 the Brooks trilogy, which supersedes the 2009 book for concepts.
@@ -34,7 +37,39 @@ DECISION_DOCUMENT §8.3.
 
 ---
 
+## State as of 2026-10-02
+
+What currently survives, each with its own source doc:
+
+1. **Cross-sectional low-vol perp book** (PLAN.md Tier 1, `xsec2.py` rerun
+   2026-10-02): +59.4%/yr, Sharpe 2.48, maxDD −18.2%, P=0.0003, 207 names incl.
+   22 delisted. Taker + 30bps: +50.8%, Sharpe 2.13. 117% of the price return is
+   the short leg (short high-vol alts). The only result with a real equity curve.
+2. **When not to trade** (WHEN_NOT_TO_TRADE.md): sit out the 30% quietest days —
+   avoids 40.9% of dead days, misses 17.3% of good ones, +23.5pp, both assets. No
+   direction (AUC 0.524).
+3. **R4 — agree with the 4h trend** (TOP10 row 3): 5.96% vs 4.33% break-even.
+4. **Option selling, two conditional rules** (OPTION_SELLING.md): sell behind a
+   trendline break (+0.07% of spot out of sample) and sell high-IV straddles
+   (+0.17% out of sample). Both halve out of sample. Unconditional selling nets ~0.
+   Size by the −12 to −20% tail, never by Delta's margin.
+5. **Wait-and-hold on 30m–3h signals** (TF_REPEAT_HOLD.md): cuts the loss from
+   ~₹80 to ~₹97–101 per ₹100. It is a discipline filter, not a profit source. The
+   cross-timeframe repeat rule is NOT supported.
+6. **Break geometry on puts** (TOP10 row 6, P=0.011; 0.043 out of sample in 2026).
+
+Withdrawn or qualified since 2026-09-14: funding carry (FINDINGS §33, falsified),
+the price-action score (AUDIT_2026-09-30 §1, retracted), and the old-line /
+wedge / break-day level results (AUDIT §2–3: mostly same-day, the break usually
+arrives after the move).
+
 ## The one-paragraph state of play
+
+**Superseded 2026-10-02:** the paragraph below is the 2026-09-12 state. "Eight
+falsified" is no longer the whole count, and the "AUC 0.70 on BTC+ETH" figure is
+the uncorrected one: like-for-like, BTC+ETH-only training gives 0.6942, and
+training on all 129 symbols gives 0.7319 on the same BTC+ETH test rows (FINDINGS
+§34). See "State as of 2026-10-02" above.
 
 Nine strategy hypotheses were built and tested on 2.7 years of Delta Exchange
 data with matched nulls, purged walk-forward, weighted statistics and block

@@ -1522,6 +1522,8 @@ falsification, which is a useful internal consistency check.
 
 - **The short leg is 137% of the total.** Long (low-vol) −20.7%/yr, short
   (high-vol) +76.6%/yr. The entire profit is shorting high-vol alts.
+  (**Superseded 2026-10-02:** first, unhedged, live-only version. Latest is 117%,
+  long −8.8% / short +61.6% — see Step 2 below and PLAN.md Tier 1.)
 - **Survivorship and listing bias sit exactly on that leg.** `fetch_perps.py`
   pulls symbols LIVE on Delta today, so failed/delisted coins are absent, and
   Delta lists coins after they have already run. Both flatter a short-alts book.
@@ -1567,6 +1569,11 @@ BUGFIX: the first cap clipped portfolio WEIGHTS against a DOLLAR limit, so it
 never bound and the liquidity test was vacuous.
 
 Still **119% of profit from the short leg** (long -10.6%, short +65.7%).
+
+**Superseded 2026-10-02:** `xsec2.py` rerun on current data gives beta-hedged
+**+59.4%/yr, vol 23.9%, Sharpe 2.48, maxDD −18.2%, P=0.0003, CI [+34, +84]**; short
+leg **117%** (long −8.8%, short +61.6%); capacity at $100M +45.9% (Sharpe 1.87).
+Matches PLAN.md Tier 1. The 58.4% / 2.44 / 119% above are the 2026-09-19 run.
 
 ### Step 3 — relative value in options: FAILED
 
