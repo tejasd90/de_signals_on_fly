@@ -183,6 +183,15 @@ def main():
         if done % 2000 == 0: print(f"  {done:,}/{len(buckets):,} groups", flush=True)
 
     df = pd.DataFrame(out)
+    # SETTLED EXPIRIES ONLY. live_runner.js writes data/signals for live expiries too; their
+    # forward window is still open, so peaks and y_* labels would be truncated and look like
+    # failures. (Found 2026-10-03 when the first rebuild after the forward test went live
+    # carried 3-30 Oct expiries.)
+    settle = pd.to_datetime(df.expiry) + pd.Timedelta(hours=13)
+    live = settle > pd.Timestamp.utcnow().tz_localize(None)
+    if live.any():
+        print(f"dropping {int(live.sum()):,} rows on {df.loc[live, 'expiry'].nunique()} unsettled expiries", flush=True)
+        df = df[~live]
     bad = [c for c in df.columns if c.startswith("label") or c.startswith("_")]
     assert not bad, f"forbidden column names: {bad}"
     df.to_parquet(a.out, index=False)

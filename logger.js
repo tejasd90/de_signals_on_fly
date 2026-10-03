@@ -43,7 +43,9 @@ function makeSessionDir() {
     return dir;
 }
 
-const SESSION_DIR = cfg.LOG_ENABLED ? makeSessionDir() : null;
+// DE_NO_LOG_DIR=1: short helper runs (export_spot_tf.js every 15m from the dashboard
+// loop) would otherwise leave ~96 empty session dirs a day. Errors still reach stderr.
+const SESSION_DIR = (cfg.LOG_ENABLED && !process.env.DE_NO_LOG_DIR) ? makeSessionDir() : null;
 
 // ─── File handle cache ────────────────────────────────────────────────────────
 

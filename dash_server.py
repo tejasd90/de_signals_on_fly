@@ -81,11 +81,16 @@ def refresh(interval_min):
                       (["paper_log.py", "--resolve"], 1800)]
             for cmd, to in steps:
                 argv = [NODE] + cmd[1:] if cmd[0] == "@node" else [sys.executable] + cmd
-                r = subprocess.run(argv, cwd=HERE, capture_output=True, text=True, timeout=to)
+                env = dict(os.environ, DE_NO_LOG_DIR="1") if cmd[0] == "@node" else None
+                r = subprocess.run(argv, cwd=HERE, capture_output=True, text=True, timeout=to, env=env)
                 if r.returncode:
                     print(f"[loop] {cmd[0]} exit {r.returncode}: {r.stderr.strip()[-300:]}", flush=True)
                 elif cmd[0] == "paper_log.py" and "logged" in r.stdout:
                     print(f"[loop] {r.stdout.strip().splitlines()[-1]}", flush=True)
+            # once per UTC day (marker file inside): forward report, journal watch, research
+            # refresh. Detached, because the research refresh can take hours.
+            subprocess.Popen([sys.executable, "daily_jobs.py"], cwd=HERE,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
             with _lock: _cache.clear()
             print(f"[loop] refreshed {time.strftime('%H:%M:%S')}", flush=True)
         except Exception as ex:
