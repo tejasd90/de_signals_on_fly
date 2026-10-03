@@ -54,7 +54,7 @@ def build_expiry(asset, expiry, res, spot):
     if L is None: return None
     ts, ks, cg, pg = L
     S = np.array([spot.get(int(t), np.nan) for t in ts])
-    exp_ts = ts.max()
+    exp_ts = pd.Timestamp(expiry).timestamp() + 12*3600   # settlement, not the last stored bar
     tte = (exp_ts - ts) / (365.0*86400.0)
     ok = np.isfinite(S) & (tte > 0)
     if ok.sum() < 3: return None
