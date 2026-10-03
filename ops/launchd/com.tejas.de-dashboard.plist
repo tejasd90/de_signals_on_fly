@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.tejas.de-dashboard</string>
+  <key>ProgramArguments</key><array>
+    <string>/Users/tejasdeshpande/work/github.com/tejasd90/de_signals_on_fly/venv/bin/python</string><string>-u</string><string>/Users/tejasdeshpande/work/github.com/tejasd90/de_signals_on_fly/dash_server.py</string>
+    <string>--interval</string><string>15</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/tejasdeshpande/work/github.com/tejasd90/de_signals_on_fly</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/Users/tejasdeshpande/work/github.com/tejasd90/de_signals_on_fly/logs/dashboard.log</string>
+  <key>StandardErrorPath</key><string>/Users/tejasdeshpande/work/github.com/tejasd90/de_signals_on_fly/logs/dashboard.log</string>
+</dict></plist>

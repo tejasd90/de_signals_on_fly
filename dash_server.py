@@ -5,10 +5,10 @@ Scrolling left walks into history with the expiries that were live THEN, because
 slots are resolved per bar (see dash_api.assign_slots).
 
 The loop exists because of the live pane: every INTERVAL minutes it refreshes spot
-candles, rebuilds the most recent expiries' required-move grids, and re-reads the
+candles, tops up near-dated option candles (fetch_options --live), rebuilds the most recent expiries' required-move grids, and re-reads the
 live option chain. Default 15 minutes, settable with --interval.
 """
-import json, os, sys, threading, time, subprocess, urllib.request
+import json, os, sys, threading, time, subprocess, urllib.request, shutil
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 import numpy as np
@@ -19,6 +19,8 @@ from optreq import required_moves
 HERE = os.path.dirname(os.path.abspath(__file__))
 TICKERS = "https://api.india.delta.exchange/v2/tickers?contract_types=call_options,put_options"
 _cache, _lock = {}, threading.Lock()
+NODE = shutil.which("node") or "/opt/homebrew/opt/node@20/bin/node"
+MIN_FREE_GB = 3.0          # below this the loop stops writing new option candles
 
 def live_chain(asset):
     """Current required moves straight from the live chain (uses its own IV)."""
@@ -64,10 +66,26 @@ def live_chain(asset):
 def refresh(interval_min):
     while True:
         try:
-            subprocess.run([sys.executable, "update_spot.py", "15", "60", "240", "1440"],
-                           cwd=HERE, capture_output=True, timeout=600)
-            subprocess.run([sys.executable, "dash_build.py", "--limit", "6"],
-                           cwd=HERE, capture_output=True, timeout=1800)
+            free_gb = shutil.disk_usage(HERE).free / 1e9
+            low = free_gb < MIN_FREE_GB
+            if low:
+                print(f"[loop] DISK LOW: {free_gb:.1f} GB free < {MIN_FREE_GB} GB -- "
+                      f"skipping option fetch; spot, signals and paper log still run", flush=True)
+            steps = [(["update_spot.py", "15", "60", "240", "1440"], 600)]
+            if not low: steps.append((["fetch_options.py", "--live"], 1800))
+            steps += [(["dash_build.py", "--limit", "12"], 1800),
+                      # forward test: R4/R5 state needs fresh spot_grouped; log signals the
+                      # live runner wrote BEFORE their outcome is known, resolve settled ones
+                      (["@node", "export_spot_tf.js"], 300),
+                      (["paper_log.py", "--run", "--hours", "3"], 600),
+                      (["paper_log.py", "--resolve"], 1800)]
+            for cmd, to in steps:
+                argv = [NODE] + cmd[1:] if cmd[0] == "@node" else [sys.executable] + cmd
+                r = subprocess.run(argv, cwd=HERE, capture_output=True, text=True, timeout=to)
+                if r.returncode:
+                    print(f"[loop] {cmd[0]} exit {r.returncode}: {r.stderr.strip()[-300:]}", flush=True)
+                elif cmd[0] == "paper_log.py" and "logged" in r.stdout:
+                    print(f"[loop] {r.stdout.strip().splitlines()[-1]}", flush=True)
             with _lock: _cache.clear()
             print(f"[loop] refreshed {time.strftime('%H:%M:%S')}", flush=True)
         except Exception as ex:

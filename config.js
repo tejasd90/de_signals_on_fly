@@ -549,14 +549,18 @@ const LOG_ENABLED   = true;
 const DEBUG_ENABLED = false;   // more verbose: candle arrays, raw signal objects
 
 // Per-function log switches (only matters if LOG_ENABLED = true)
+// DE_QUIET_LOGS=1 (set by the always-on live service) keeps only scheduler and
+// errors: red_squeeze alone writes ~160MB per session, which an unattended
+// process would grow without bound on a nearly full disk. Errors always log.
+const QUIET = !!process.env.DE_QUIET_LOGS;
 const LOG_FLAGS = {
     scheduler:       true,
-    fetcher:         true,
+    fetcher:         !QUIET,
     grouper:         false,   // very verbose, turn on only when debugging grouping
-    red_squeeze:     true,
-    signal_writer:   true,
-    candle_store:    true,
-    quality:         true,
+    red_squeeze:     !QUIET,
+    signal_writer:   !QUIET,
+    candle_store:    !QUIET,
+    quality:         !QUIET,
 };
 
 module.exports = {

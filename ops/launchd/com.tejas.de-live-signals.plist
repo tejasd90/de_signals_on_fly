@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.tejas.de-live-signals</string>
+  <key>ProgramArguments</key><array>
+    <string>/opt/homebrew/opt/node@20/bin/node</string><string>/Users/tejasdeshpande/work/github.com/tejasd90/de_signals_on_fly/live_runner.js</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/tejasdeshpande/work/github.com/tejasd90/de_signals_on_fly</string>
+  <key>EnvironmentVariables</key><dict>
+    <key>DE_QUIET_LOGS</key><string>1</string>
+    <key>TZ</key><string>Asia/Kolkata</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>60</integer>
+  <key>StandardOutPath</key><string>/Users/tejasdeshpande/work/github.com/tejasd90/de_signals_on_fly/logs/live_runner.log</string>
+  <key>StandardErrorPath</key><string>/Users/tejasdeshpande/work/github.com/tejasd90/de_signals_on_fly/logs/live_runner.log</string>
+</dict></plist>

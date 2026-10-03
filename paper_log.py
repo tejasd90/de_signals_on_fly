@@ -98,7 +98,7 @@ def write_log(df): df.to_csv(LOG, index=False)
 
 def cmd_run(a):
     SIG = "data/signals"
-    cutoff=dt.datetime.now().timestamp()-a.days*86400
+    cutoff=dt.datetime.now().timestamp()-(a.hours*3600 if a.hours else a.days*86400)
     stale=None
     have=set(read_log().event_id)
     rows=[]
@@ -118,7 +118,7 @@ def cmd_run(a):
                         for r in (data.get(ty) or []):
                             try: ts=dt.datetime.strptime(r[1][:19],"%Y-%m-%dT%H:%M:%S").timestamp()-19800
                             except Exception: continue
-                            if ts<cutoff: continue
+                            if ts+dur*60<cutoff: continue     # judged on the trigger CLOSE
                             eid=f"{sig}|{spot}|{exp}|{dur}|{r[1]}|{ty}"
                             if eid in have: continue
                             ai,rg,stale=state_at(spot,ts)
@@ -149,28 +149,104 @@ def cmd_run(a):
     print(f"logged {n} new signals — {t} TAKE, {n-t} skip")
     if stale and stale>8: print(f"  WARNING: spot data is {stale:.0f}h stale — run backfill.js --spot-candles")
 
+API = "https://api.india.delta.exchange/v2/history/candles"
+def _candles(sym, a, b, step=300, chunk=1500):
+    """5m candles over [a, b], chunked (one-shot calls silently cap ~4000 rows)."""
+    import urllib.request, time
+    out = {}
+    t = a
+    while t < b:
+        e = min(b, t + step*chunk)
+        u = f"{API}?symbol={sym}&resolution=5m&start={int(t)}&end={int(e)}"
+        for k in range(4):
+            try:
+                with urllib.request.urlopen(u, timeout=45) as r:
+                    for c in json.load(r).get("result") or []: out[int(c["time"])] = c
+                break
+            except Exception: time.sleep(1 + 2*k)
+        t = e
+    return [out[k] for k in sorted(out)]
+
+def _resolve_one(row):
+    """Entry = MARK close of the trigger candle (the backtest's peak_vs_close convention).
+    Trigger = MARK high of that candle (stop-entry level). Peaks are taken strictly AFTER
+    the trigger candle closes, up to settlement, on both MARK and TRADED prints."""
+    dur = int(row["duration"])
+    t0 = int(dt.datetime.strptime(row["entry_iso"][:19], "%Y-%m-%dT%H:%M:%S").timestamp()) - 19800
+    t1 = t0 + dur*60
+    settle = int(dt.datetime.strptime(row["expiry"], "%Y-%m-%d").replace(tzinfo=dt.timezone.utc).timestamp()) + 12*3600
+    mk = _candles("MARK:" + row["symbol"], t0, settle)
+    tr = _candles(row["symbol"], t1, settle)
+    trig = [c for c in mk if t0 <= int(c["time"]) < t1]
+    if not trig: return None
+    entry = float(trig[-1]["close"]); hi_trig = max(float(c["high"]) for c in trig)
+    if entry <= 0: return None
+    after_m = [float(c["high"]) for c in mk if int(c["time"]) >= t1]
+    after_t = [float(c["high"]) for c in tr if int(c["time"]) >= t1 and (c.get("volume") or 0) > 0]
+    mp = max(after_m)/entry if after_m else 0.0
+    tp = max(after_t)/entry if after_t else 0.0
+    return {"entry_premium": round(entry, 6), "trigger": round(hi_trig, 6),
+            "mark_peak": round(mp, 3), "traded_peak": round(tp, 3),
+            "mark_25x": int(mp >= 25), "traded_25x": int(tp >= 25),
+            "filled": int(bool(after_t) and max(after_t) > hi_trig),
+            "resolved_at": dt.datetime.now().isoformat(timespec="seconds")}
+
+def cmd_resolve(a):
+    from concurrent.futures import ThreadPoolExecutor
+    d = read_log()
+    if not len(d): print("log is empty"); return
+    now = dt.datetime.now(dt.timezone.utc).timestamp()
+    settled = d.expiry.map(lambda e: dt.datetime.strptime(e, "%Y-%m-%d").replace(tzinfo=dt.timezone.utc).timestamp() + 13*3600 < now)
+    todo = d[(d.resolved_at == "") & settled]
+    if a.take_only: todo = todo[todo.decision == "TAKE"]
+    if not len(todo): print("nothing to resolve"); return
+    print(f"resolving {len(todo)} rows", flush=True)
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        res = list(ex.map(_resolve_one, [r for _, r in todo.iterrows()]))
+    n = 0
+    for i, r in zip(todo.index, res):
+        if r is None: d.at[i, "resolved_at"] = "unresolvable"; continue
+        for k, v in r.items(): d.at[i, k] = str(v)
+        n += 1
+    write_log(d); print(f"resolved {n}, unresolvable {sum(r is None for r in res)}")
+
+def _forward(d, max_lag_h=3):
+    """Forward = logged within max_lag_h of the trigger candle's close, so the outcome
+    cannot have been visible. decided_at is local (IST) naive; entry_iso carries +0530.
+    The 2,541 rows written on 2026-09-17 for 08-16 Sep expiries fail this."""
+    dec = pd.to_datetime(d.decided_at).dt.tz_localize("Asia/Kolkata")
+    close = pd.to_datetime(d.entry_iso.str[:19]).dt.tz_localize("Asia/Kolkata") + pd.to_timedelta(pd.to_numeric(d.duration), unit="m")
+    return (dec - close) <= pd.Timedelta(hours=max_lag_h)
+
 def cmd_report(a):
     d=read_log()
     if not len(d): print("log is empty"); return
     d["r"]=pd.to_numeric(d.traded_25x, errors="coerce")
     print(f"logged signals: {len(d):,}   TAKE {int((d.decision=='TAKE').sum()):,}   "
           f"skip {int((d.decision=='skip').sum()):,}")
-    res=d[d.resolved_at!=""]
+    d["forward"]=_forward(d)
+    print(f"forward (logged <=3h after the signal closed): {int(d.forward.sum()):,}   backfilled: {int((~d.forward).sum()):,}")
+    res=d[(d.resolved_at!="")&(d.resolved_at!="unresolvable")]
     print(f"resolved: {len(res):,}")
     if not len(res): print("\nnothing resolved yet — outcomes fill in after expiry"); return
-    for grp in ("TAKE","skip"):
-        s=res[res.decision==grp]
+    for fw, grp in [(f, g) for f in (True, False) for g in ("TAKE","skip")]:
+        s=res[(res.decision==grp)&(res.forward==fw)]
         if not len(s): continue
-        h=pd.to_numeric(s.traded_25x,errors="coerce").mean()
-        print(f"  {grp:<5} n={len(s):>5}  25x {100*h:5.2f}%  "
-              f"EV {h*24-(1-h)-COST:+.3f}  (backtest expects "
-              f"{100*(EXPECTED if grp=='TAKE' else 0.0351):.2f}%)")
+        h=pd.to_numeric(s.traded_25x,errors="coerce").mean(); m=pd.to_numeric(s.mark_25x,errors="coerce").mean()
+        ev=pd.to_numeric(s.event_id.str.rsplit("|",n=1).str[0],errors="coerce") if False else None
+        n_exp=s.expiry.nunique()
+        print(f"  {'FORWARD' if fw else 'backfill':<8} {grp:<5} n={len(s):>5} ({n_exp} expiries)  "
+              f"25x traded {100*h:5.2f}%  mark {100*m:5.2f}%  EV(traded) {h*24-(1-h)-COST:+.3f}  "
+              f"(backtest: {100*(EXPECTED if grp=='TAKE' else 0.0351):.2f}%)")
 
 if __name__=="__main__":
     ap=argparse.ArgumentParser()
     ap.add_argument("--run",action="store_true"); ap.add_argument("--resolve",action="store_true")
     ap.add_argument("--report",action="store_true"); ap.add_argument("--days",type=int,default=7)
+    ap.add_argument("--hours",type=float,default=None,help="--run: only signals whose trigger closed within this many hours (forward logging)")
+    ap.add_argument("--take-only",action="store_true",help="--resolve: only TAKE rows")
     a=ap.parse_args()
     if a.run: cmd_run(a)
+    elif a.resolve: cmd_resolve(a)
     elif a.report: cmd_report(a)
     else: ap.print_help()
