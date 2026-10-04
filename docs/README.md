@@ -17,6 +17,7 @@ asking "does this strategy make money" you want `ML/`.
 
 | doc | what it covers |
 |---|---|
+| [`DASHBOARD.md`](DASHBOARD.md) | **The main dashboard, http://127.0.0.1:8777** — price action + 1:100 grid + live panels + the setup review (merged from :4000 on 2026-10-04). Requirements traceability, tests, known limits. |
 | [`RUNBOOK.md`](RUNBOOK.md) | **The end-to-end sequence.** Steps 0-7 node, steps 8-10 python. Step 0 (loosen thresholds before extracting) is a correctness requirement, not an optimisation. |
 | [`01-running.md`](01-running.md) | Concepts, the two-marker design, diagnosing states A-K, every command, the viewers and their past/future split, troubleshooting. The longest and most useful doc here. |
 | [`02-architecture.md`](02-architecture.md) | Code and data layout, the two-marker design, the merged range format, duration sourcing, rate limits. |

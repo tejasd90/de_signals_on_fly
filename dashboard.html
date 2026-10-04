@@ -1,148 +1,354 @@
 <!doctype html><html><head><meta charset="utf-8"><title>PA + 1:100 dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
- body{background:#0d1117;color:#c9d1d9;font:13px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;margin:0}
- header{display:flex;gap:14px;align-items:center;padding:8px 14px;background:#161b22;border-bottom:1px solid #30363d;flex-wrap:wrap}
- select,button{background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:5px;padding:4px 8px;font-size:13px}
- #wrap{display:flex;height:calc(100vh - 44px)}
- #chart{flex:1;min-width:0}
- #side{width:330px;border-left:1px solid #30363d;overflow-y:auto;padding:10px 12px;background:#0d1117}
- h4{margin:12px 0 6px;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:#8b949e}
- .px{display:flex;justify-content:space-between;gap:8px;padding:4px 6px;border-radius:4px;margin-bottom:3px;border-left:3px solid #30363d}
+ :root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--text:#c9d1d9;--muted:#8b949e;--accent:#d4823f}
+ *{box-sizing:border-box}
+ body{background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;margin:0}
+ header{display:flex;gap:12px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+ select,button{background:#21262d;color:var(--text);border:1px solid var(--line);border-radius:5px;padding:4px 8px;font-size:13px}
+ button{cursor:pointer}
+ #wrap{display:flex;height:calc(100vh - 46px)}
+ #main{flex:1;min-width:0;display:flex;flex-direction:column}
+ #chart{flex:1;min-height:0;overflow:hidden}
+ #drawer{border-top:1px solid var(--line);background:var(--bg);height:42vh;flex:none;overflow:auto;display:none}
+ #drawer.open{display:block}   /* fixed height: the chart's size must not depend on how many rows load */
+ #side{width:330px;border-left:1px solid var(--line);overflow-y:auto;padding:10px 12px;background:var(--bg)}
+ h4{margin:12px 0 6px;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+ .px{display:flex;justify-content:space-between;gap:8px;padding:4px 6px;border-radius:4px;margin-bottom:3px;border-left:3px solid var(--line)}
  .APPROACHING{opacity:.55;font-weight:400;border-left-color:#d29922}
  .TESTING{opacity:.85;font-weight:600;border-left-color:#58a6ff}
  .CONFIRMED{opacity:1;font-weight:700;border-left-color:#3fb950}
- .lv{color:#8b949e;font-variant-numeric:tabular-nums}
+ .lv{color:var(--muted);font-variant-numeric:tabular-nums}
  .legend{display:flex;gap:5px;flex-wrap:wrap;margin:4px 0 8px}
  .sw{padding:2px 6px;border-radius:3px;color:#07090c;font-weight:700;font-size:11px}
- .note{color:#8b949e;font-size:11px;line-height:1.4;margin-top:4px}
+ .note{color:var(--muted);font-size:11px;line-height:1.4;margin-top:4px}
  .req{font-variant-numeric:tabular-nums}
  .big{font-size:17px;font-weight:700;color:#e6edf3}
- #stamp{color:#8b949e;font-size:12px;margin-left:auto}
+ #stamp{color:var(--muted);font-size:12px;margin-left:auto}
+ .dctl{display:flex;gap:12px;align-items:center;padding:8px 14px;flex-wrap:wrap;position:sticky;top:0;background:var(--panel);border-bottom:1px solid var(--line)}
+ table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+ th{text-align:left;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:#6e7681;padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+ td{padding:5px 8px;border-bottom:1px solid #1b212c;vertical-align:top}
+ tr.s{cursor:pointer} tr.s:hover{background:#1a202b}
+ .long{color:#3fb950;font-weight:700} .short{color:#f85149;font-weight:700}
+ .win{color:#3fb950} .lose{color:#f85149} .unres{color:var(--muted)}
+ .hot{color:var(--accent);font-weight:700}
+ .sig{font-size:11.5px;color:var(--muted);padding-left:22px}
+ .sig a{color:var(--accent);text-decoration:none;border-bottom:1px dotted currentColor}
+ .k{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
+ @media(max-width:900px){#wrap{flex-direction:column;height:auto}#main{height:auto}#side{width:auto;border-left:0}#chart{height:70vh;flex:none}}
 </style></head><body>
 <header>
   <b>Price action → 1:100</b>
-  <select id="asset"><option>BTC</option><option>ETH</option></select>
-  <select id="res"><option value="15">15m</option><option value="60" selected>1h</option>
+  <select id="asset" aria-label="asset"><option>BTC</option><option>ETH</option></select>
+  <select id="res" aria-label="resolution"><option value="15">15m</option><option value="60" selected>1h</option>
     <option value="240">4h</option><option value="1440">1d</option></select>
-  <select id="lim"><option>300</option><option selected>800</option><option>2000</option><option>6000</option></select>
-  <label><input type="checkbox" id="auto" checked> auto-refresh</label>
+  <label class="lv">history <select id="lim" aria-label="candles loaded"><option>300</option><option selected>800</option><option>2000</option><option>6000</option></select></label>
+  <button id="latest" title="jump back to the latest candles">⇥ latest</button>
+  <button id="toggleDrawer">setup review ▾</button>
+  <label class="lv"><input type="checkbox" id="auto" checked> auto-refresh 15m</label>
   <span id="stamp">—</span>
 </header>
-<div id="wrap"><div id="chart"></div><div id="side">
+<div id="wrap">
+ <div id="main">
+  <div id="chart"></div>
+  <div id="drawer">
+   <div class="dctl">
+    <b>Price-action setup review</b>
+    <label class="lv">expiry <select id="exp" aria-label="expiry"></select></label>
+    <label class="lv">show <select id="filt" aria-label="filter">
+      <option value="all">all setups</option><option value="sig">only with signals</option>
+      <option value="win">only those that hit target</option><option value="big">only with a 10x+ signal</option></select></label>
+    <span class="note" id="dnote"></span>
+   </div>
+   <div id="dtab"></div>
+  </div>
+ </div>
+ <div id="side">
   <h4>Live · price approaching</h4><div id="prox"></div>
   <h4>Live · move needed for 1:100</h4><div id="live"></div>
   <h4>Colour scale (required move)</h4><div class="legend" id="leg"></div>
+  <h4>Price-action pane</h4>
+  <div class="note">
+   <span class="k" style="background:#8b949e"></span>level rejection
+   <span class="k" style="background:#58a6ff"></span>line break
+   <span class="k" style="background:#d2a8ff"></span>wedge break<br>
+   ▲/▼ Brooks setup (4h/1d), long/short — <span class="win">green</span> hit target, <span class="lose">red</span> stopped, grey unresolved; orange ring = a 10x+ option signal fired within 3 bars.
+  </div>
   <div class="note" id="note"></div>
-</div></div>
+ </div>
+</div>
 <script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fixUrl=u=>String(u||'').replace('__CHART_HOST__',location.hostname||'127.0.0.1');
 const BINS=[[0.5,'#2ea043','<0.5%'],[1.5,'#7ee787','0.5–1.5%'],[3,'#d29922','1.5–3%'],
             [6,'#db6d28','3–6%'],[1e9,'#da3633','>6%']];
 const NA='#21262d';
 const col=v=>{if(v==null||!isFinite(v))return NA;const a=Math.abs(v);for(const[t,c]of BINS)if(a<t)return c;return NA;};
-document.getElementById('leg').innerHTML=BINS.map(b=>`<span class="sw" style="background:${b[1]}">${b[2]}</span>`).join('')
+$('leg').innerHTML=BINS.map(b=>`<span class="sw" style="background:${b[1]}">${b[2]}</span>`).join('')
   +`<span class="sw" style="background:${NA};color:#8b949e">n/a</span>`;
-document.getElementById('note').textContent=
- 'Required move = smallest spot move, across all strikes, that turns the option into a 1:100. '
- +'“now” reprices with time value left (implied vol from the chain); “exp” is intrinsic only, so it is always the harder number. '
- +'Dots are DESCRIPTIVE: the audit found breaks arrive after the move 62–74% of the time — which is why the panel on the right flags APPROACHING before CONFIRMED.';
+$('note').textContent=
+ 'Grid: per candle, CALL now | CALL exp | PUT now | PUT exp, for the immediate / next / weekly expiry live AT THAT CANDLE. '
+ +'Required move = smallest spot move, across all strikes, that turns the option into a 1:100. “now” reprices with time value left; “exp” is intrinsic only. '
+ +'Numbers print when cells are wide enough to read — zoom in, or hover any cell. '
+ +'Price-action points are DESCRIPTIVE: breaks arrive after the move 62–74% of the time, which is why the live panel flags APPROACHING before CONFIRMED.';
 
-const SLOTS=['immediate','next','weekly'];
-let P=null;
+const SLOTS=['immediate','next','weekly'], COLS=5;   // 4 cells + a gap column per candle
+let P=null, SETUPS=[], STEP=3600, VIEWKEY='', HM_IDX=-1;
+const MINCELL=20;                                  // px a cell needs before its number (e.g. "12.4") is printed without overlap
+// first view: as many candles as fit with READABLE numbers (his spec: numbers visible),
+// computed from the chart width, between 6 and 45 candles
+function visibleCandles(){const w=($('chart').clientWidth||1200)-160;return Math.max(6,Math.min(45,Math.floor(w/(COLS*(MINCELL+1.5)))));}   // 160 = plot margins (92 + 64) + slack
 
-function draw(d){
+function setupHover(s){
+  let h=`<b>${esc(s.name)}</b> · ${s.tf}m · ${esc(s.dir)}<br>${esc(s.tsIso)} IST<br>`
+    +`expected: ${esc(s.expect)}<br>measured win rate: ${s.measured!=null?s.measured+'%':'n/a'}`
+    +`<br>spot: ${esc(s.result)} · max favourable ${(+s.mfe_R).toFixed(2)}R`;
+  if(s.n_signals){h+=`<br>${s.n_signals} option signal(s) within 3 bars, best ${(+s.best_ratio).toFixed(1)}x`;
+    s.signals.slice(0,4).forEach(g=>{h+=`<br>  ${esc(g.signal)} ${g.dur}m ${g.ty} exp ${esc(g.expiry)} → ${g.ratio}x`;});}
+  return h;
+}
+
+function cellX(ts,k){ // centre of cell k (0..4) inside the candle at ts, on the shared time axis
+  return new Date((ts+(k-2)*STEP/COLS)*1000);
+}
+
+function draw(d,keepView){
   P=d;
-  const C=d.candles, n=C.ts.length, x=C.ts.map(t=>new Date(t*1000));
+  const C=d.candles, n=C.ts.length;
+  STEP=n>2?Math.round((C.ts[n-1]-C.ts[0])/(n-1)):3600;
+  // median step, robust to gaps
+  if(n>3){const ds=[];for(let i=1;i<n;i++)ds.push(C.ts[i]-C.ts[i-1]);ds.sort((a,b)=>a-b);STEP=ds[Math.floor(ds.length/2)];}
+  const x=C.ts.map(t=>new Date(t*1000));
   const tr=[{type:'candlestick',x,open:C.o,high:C.h,low:C.l,close:C.c,name:'price',
-    increasing:{line:{color:'#3fb950'}},decreasing:{line:{color:'#f85149'}},xaxis:'x',yaxis:'y'}];
+    increasing:{line:{color:'#3fb950'}},decreasing:{line:{color:'#f85149'}},xaxis:'x',yaxis:'y',
+    hoverinfo:'x+y'}];
 
-  // pane 2 — price action dots
+  // pane 2: price-action points (levels/breaks/wedges) + Brooks setups
   const ev=d.events||[];
-  if(ev.length) tr.push({type:'scatter',mode:'markers',xaxis:'x',yaxis:'y2',name:'PA',
+  tr.push({type:'scatter',mode:'markers',xaxis:'x',yaxis:'y2',name:'PA',
     x:ev.map(e=>new Date(e.ts*1000)),y:ev.map(e=>e.imp),
     marker:{size:ev.map(e=>6+2.2*e.imp),opacity:.85,
       color:ev.map(e=>e.kind==='wedge'?'#d2a8ff':e.kind==='break'?'#58a6ff':'#8b949e'),
       line:{width:1,color:'#0d1117'}},
-    text:ev.map(e=>{let s=e.desc||'';
+    text:ev.map(e=>{let s=esc(e.desc||'');
       if(e.c_now!=null)s+=`<br>1:100 then — CALL ${(+e.c_now).toFixed(2)}% now / ${(+e.c_exp).toFixed(2)}% exp`;
       if(e.p_now!=null)s+=`<br>1:100 then — PUT ${(+e.p_now).toFixed(2)}% now / ${(+e.p_exp).toFixed(2)}% exp`;
       return s;}),
     hovertemplate:'%{text}<extra></extra>'});
+  const su=SETUPS;
+  tr.push({type:'scatter',mode:'markers',xaxis:'x',yaxis:'y2',name:'setups',
+    x:su.map(s=>new Date(s.ts*1000)),y:su.map(s=>s.dir==='long'?9.6:0.4),
+    marker:{symbol:su.map(s=>s.dir==='long'?'triangle-up':'triangle-down'),size:12,
+      color:su.map(s=>s.result==='target'?'#3fb950':s.result==='stopped'?'#f85149':'#6e7681'),
+      line:{width:su.map(s=>s.best_ratio>=10?2.5:0.5),color:su.map(s=>s.best_ratio>=10?'#d4823f':'#0d1117')}},
+    text:su.map(setupHover),hovertemplate:'%{text}<extra></extra>',customdata:su.map(s=>s.ts)});
 
-  // pane 3 — 3 expiry rows; per candle 4 cells: CALLnow CALLexp PUTnow PUTexp (+gap)
+  // pane 3: 1:100 grid on the SAME time axis as the candles
   const byTs={}; (d.req||[]).forEach(r=>{(byTs[r.ts]=byTs[r.ts]||{})[r.slot]=r;});
-  const COLS=5, z=[[],[],[]], tx=[[],[],[]], hv=[[],[],[]], xs=[];
-  for(let i=0;i<n;i++) for(let k=0;k<COLS;k++) xs.push(i*COLS+k);
+  const z=[[],[],[]], tx=[[],[],[]], hv=[[],[],[]], xs=[];
+  const names=['CALL now','CALL exp','PUT now','PUT exp'];
+  for(let i=0;i<n;i++) for(let k=0;k<COLS;k++) xs.push(cellX(C.ts[i],k));
   SLOTS.forEach((slot,row)=>{
     for(let i=0;i<n;i++){
       const r=(byTs[C.ts[i]]||{})[slot];
       const cells=r?[r.c_now,r.c_exp,r.p_now,r.p_exp]:[null,null,null,null];
-      const names=['CALL now','CALL exp','PUT now','PUT exp'];
       const strikes=r?[r.c_k_now,r.c_k_exp,r.p_k_now,r.p_k_exp]:[null,null,null,null];
       for(let k=0;k<4;k++){
-        const v=cells[k];
-        z[row].push(v==null||!isFinite(v)?null:Math.abs(v));
-        tx[row].push(v==null||!isFinite(v)?'':Math.abs(v).toFixed(1));
+        const v=cells[k], ok=v!=null&&isFinite(v);
+        z[row].push(ok?Math.abs(v):null);
+        tx[row].push(ok?Math.abs(v).toFixed(1):'');
         hv[row].push(r?`${slot} · exp ${r.expiry} · T+${(+r.tte_d).toFixed(2)}d<br>`
-          +`${names[k]}: ${v==null?'n/a':(+v).toFixed(2)+'%'}`
+          +`${names[k]}: ${ok?(+v).toFixed(2)+'%':'n/a'}`
           +(strikes[k]?`<br>strike ${(+strikes[k]).toLocaleString()}`:'')
-          +`<br>spot ${(+r.spot).toLocaleString()}`:'no chain');
+          +`<br>spot ${(+r.spot).toLocaleString()}`:'no chain for this slot');
       }
-      z[row].push(null); tx[row].push(''); hv[row].push('');   // gap column
+      z[row].push(null); tx[row].push(''); hv[row].push('');
     }
   });
   const cs=[];const edges=[0,0.5,1.5,3,6,12];
-  BINS.forEach((b,i)=>{const a=edges[i]/12,bb=Math.min(edges[i+1],12)/12;cs.push([a,b[1]]);cs.push([bb,b[1]]);});
-  tr.push({type:'heatmap',xaxis:'x2',yaxis:'y3',x:xs,y:SLOTS,z,text:tx,hovertext:hv,
+  BINS.forEach((b,i)=>{cs.push([edges[i]/12,b[1]]);cs.push([Math.min(edges[i+1],12)/12,b[1]]);});
+  HM_IDX=tr.length;
+  tr.push({type:'heatmap',xaxis:'x',yaxis:'y3',x:xs,y:SLOTS,z,text:tx,hovertext:hv,
     texttemplate:'%{text}',textfont:{size:9,color:'#07090c'},
     colorscale:cs,zmin:0,zmax:12,showscale:false,xgap:0.5,ygap:2,
     hovertemplate:'%{hovertext}<extra></extra>'});
 
-  const last=byTs[C.ts[n-1]]||{};
-  const ylab=SLOTS.map(s=>last[s]?`${s}<br>${last[s].expiry}`:s);
-  Plotly.react('chart',tr,{
-    paper_bgcolor:'#0d1117',plot_bgcolor:'#0d1117',font:{color:'#c9d1d9',size:11},
-    margin:{l:78,r:10,t:8,b:26},showlegend:false,hovermode:'closest',dragmode:'pan',
-    xaxis:{domain:[0,1],anchor:'y3',rangeslider:{visible:false},gridcolor:'#21262d',
-           matches:null,showticklabels:true,domainu:null},
-    xaxis2:{domain:[0,1],anchor:'y3',visible:false,range:[-0.5,n*COLS-0.5]},
-    yaxis:{domain:[0.46,1],gridcolor:'#21262d',side:'right'},
-    yaxis2:{domain:[0.30,0.44],gridcolor:'#21262d',side:'right',title:{text:'PA',font:{size:10}}},
-    yaxis3:{domain:[0,0.28],tickmode:'array',tickvals:SLOTS,ticktext:ylab,
-            tickfont:{size:9},autorange:'reversed'}
-  },{responsive:true,scrollZoom:true,displayModeBar:false});
-  document.getElementById('stamp').textContent='updated '+new Date().toLocaleTimeString();
+  // expiry labels on the left, from the right-most visible candle (updated on pan)
+  const viewKey=asset.value+'|'+res.value;
+  const fresh=viewKey!==VIEWKEY; VIEWKEY=viewKey;
+  const lay={paper_bgcolor:'#0d1117',plot_bgcolor:'#0d1117',font:{color:'#c9d1d9',size:11},
+    margin:{l:92,r:64,t:8,b:46},showlegend:false,hovermode:'closest',dragmode:'pan',
+    uirevision:viewKey,                       // auto-refresh keeps the user's zoom/pan
+    xaxis:{domain:[0,1],anchor:'y3',rangeslider:{visible:false},gridcolor:'#21262d',type:'date'},
+    yaxis:{domain:[0.47,1],gridcolor:'#21262d',side:'right',fixedrange:false},
+    yaxis2:{domain:[0.31,0.45],gridcolor:'#21262d',side:'right',range:[-0.4,10.4],fixedrange:true,
+            title:{text:'PA',font:{size:10}},showticklabels:false},
+    yaxis3:{domain:[0,0.29],tickmode:'array',tickvals:SLOTS,ticktext:slotLabels(n-1),
+            tickfont:{size:9},autorange:'reversed',fixedrange:true}};
+  const cur=$('chart').layout&&$('chart').layout.xaxis&&$('chart').layout.xaxis.range;
+  if(keepView&&!fresh&&cur){lay.xaxis.range=cur.slice();
+    autoY(lay,new Date(cur[0]).getTime()/1000,new Date(cur[1]).getTime()/1000);}
+  if(fresh||!keepView){
+    const lo=C.ts[Math.max(0,n-visibleCandles())]-STEP/2, hi=C.ts[n-1]+STEP*1.5;
+    lay.xaxis.range=[new Date(lo*1000),new Date(hi*1000)];
+    autoY(lay,lo,hi);
+  }
+  Plotly.react('chart',tr,lay,{responsive:true,scrollZoom:true,displayModeBar:false});
+  hook(); afterView();
+  $('stamp').textContent='updated '+new Date().toLocaleTimeString()+' · last candle '+x[n-1].toLocaleString();
+}
+
+function slotLabels(i){
+  if(!P)return SLOTS;
+  const byTs={}; (P.req||[]).forEach(r=>{if(r.ts===P.candles.ts[i])byTs[r.slot]=r;});
+  return SLOTS.map(s=>byTs[s]?`${s}<br>${byTs[s].expiry}`:s);
+}
+function visibleIdx(){
+  const gd=$('chart'), C=P.candles, n=C.ts.length;
+  const rg=gd.layout&&gd.layout.xaxis&&gd.layout.xaxis.range;
+  if(!rg)return [0,n-1];
+  const lo=new Date(rg[0]).getTime()/1000, hi=new Date(rg[1]).getTime()/1000;
+  let a=0,b=n-1; while(a<n&&C.ts[a]<lo)a++; while(b>0&&C.ts[b]>hi)b--;
+  return [Math.min(a,n-1),Math.max(b,0)];
+}
+function autoY(lay,lo,hi){
+  const C=P.candles; let mn=Infinity,mx=-Infinity;
+  for(let i=0;i<C.ts.length;i++) if(C.ts[i]>=lo&&C.ts[i]<=hi){mn=Math.min(mn,C.l[i]);mx=Math.max(mx,C.h[i]);}
+  if(isFinite(mn)){const p=(mx-mn)*0.06||mx*0.002; lay.yaxis.range=[mn-p,mx+p]; lay.yaxis.autorange=false;}
+}
+let busy=false, again=false;
+function afterView(){
+  if(busy){again=true;return;}
+  // 1) numbers only when a cell is wide enough to read them, font scaled to the cell
+  // 2) expiry labels follow the right-most visible candle
+  // 3) price axis fits the visible candles
+  if(!P)return; busy=true; again=false;
+  const gd=$('chart'); const [a,b]=visibleIdx(); const vis=Math.max(1,b-a+1);
+  const w=(gd._fullLayout&&gd._fullLayout._size)?gd._fullLayout._size.w:1000;
+  const cellPx=w/(vis*COLS);
+  const show=cellPx>=MINCELL, fs=Math.max(8,Math.min(11,Math.floor(cellPx/3)));
+  const upd={'yaxis3.ticktext':slotLabels(b)};
+  const rg=gd.layout.xaxis.range; const lay={yaxis:{}};
+  if(rg){autoY(lay,new Date(rg[0]).getTime()/1000,new Date(rg[1]).getTime()/1000);
+    if(lay.yaxis.range)upd['yaxis.range']=lay.yaxis.range;}
+  Promise.all([Plotly.relayout(gd,upd),
+    Plotly.restyle(gd,{texttemplate:show?'%{text}':'', 'textfont.size':fs},[HM_IDX])])
+    .finally(()=>{busy=false; if(again)afterView();});
 }
 
 function renderProx(rows){
   const o=['APPROACHING','TESTING','CONFIRMED'];
-  document.getElementById('prox').innerHTML = !rows||!rows.length ? '<span class="note">nothing near</span>' :
+  $('prox').innerHTML=!rows||!rows.length?'<span class="note">nothing near</span>':
     rows.slice(0,12).sort((a,b)=>o.indexOf(a.state)-o.indexOf(b.state)||Math.abs(a.dist_atr)-Math.abs(b.dist_atr))
-    .map(r=>`<div class="px ${r.state}"><span>${r.above?'▲':'▼'} ${r.label}</span>
+    .map(r=>`<div class="px ${r.state}" title="${r.state} · ${(+r.dist_atr).toFixed(2)} ATR"><span>${r.above?'▲':'▼'} ${esc(r.label)}</span>
       <span class="lv">${r.level.toLocaleString(undefined,{maximumFractionDigits:0})}
       · ${r.dist_pct>=0?'+':''}${r.dist_pct.toFixed(2)}%</span></div>`).join('');
 }
 function renderLive(rows){
-  document.getElementById('live').innerHTML = !rows||!rows.length ? '<span class="note">—</span>' :
+  $('live').innerHTML=!rows||!rows.length?'<span class="note">—</span>':
     rows.map(r=>`<div style="margin-bottom:9px">
-      <div><b>${r.slot}</b> <span class="lv">${r.expiry} · T+${(+r.tte_d).toFixed(2)}d</span></div>
+      <div><b>${r.slot}</b> <span class="lv">${esc(r.expiry)} · T+${(+r.tte_d).toFixed(2)}d</span></div>
       <div class="req">CALL <span class="big" style="color:${col(r.c_now)}">${r.c_now==null?'–':(+r.c_now).toFixed(2)}%</span>
         <span class="lv">now / ${r.c_exp==null?'–':(+r.c_exp).toFixed(2)}% exp · K ${r.c_k_now?(+r.c_k_now).toLocaleString():'–'}</span></div>
       <div class="req">PUT <span class="big" style="color:${col(r.p_now)}">${r.p_now==null?'–':(+r.p_now).toFixed(2)}%</span>
         <span class="lv">now / ${r.p_exp==null?'–':(+r.p_exp).toFixed(2)}% exp · K ${r.p_k_now?(+r.p_k_now).toLocaleString():'–'}</span></div></div>`).join('');
 }
 
-async function load(){
+// ---- setup review drawer (was :4000) ----
+let SHEET={setups:[]};
+function sheetRow(s){
+  const res=s.result==='target'?'<span class="win">target</span>':s.result==='stopped'?'<span class="lose">stopped</span>':'<span class="unres">unresolved</span>';
+  const br=s.best_ratio>=10?`<span class="hot">${s.best_ratio}x</span>`:(s.best_ratio>0?s.best_ratio+'x':'—');
+  let h=`<tr class="s" data-ts="${s.ts}" title="click: show on chart"><td>${esc(s.tsIso).slice(5)}</td><td>${s.tf}m</td><td>${esc(s.name)}</td>`
+    +`<td class="${s.dir}">${s.dir}</td><td>${s.measured!=null?s.measured+'%':'—'}</td><td>${res}</td>`
+    +`<td>${(+s.mfe_R).toFixed(2)}R</td><td>${s.n_signals||0}</td><td>${br}</td></tr>`;
+  if(s.signals&&s.signals.length){
+    h+=`<tr><td colspan="9" class="sig">${esc(s.expect)}<br>`+s.signals.map(g=>
+      `${esc(g.signal)} ${g.dur}m ${g.ty} · ${g.lag>0?'+':''}${g.lag} bars · paid ${g.ratio}x · `
+      +(g.syms||[]).map(x=>`<a href="${esc(fixUrl(g.url&&g.url[x]))}" target="_blank" rel="noopener">${esc(x)} ↗</a>`).join(' ')
+    ).join('<br>')+'</td></tr>';
+  }
+  return h;
+}
+function renderSheet(){
+  const f=$('filt').value; let rows=SHEET.setups||[];
+  if(f==='sig')rows=rows.filter(s=>s.n_signals>0);
+  if(f==='win')rows=rows.filter(s=>s.result==='target');
+  if(f==='big')rows=rows.filter(s=>s.best_ratio>=10);
+  if(!rows.length){$('dtab').innerHTML='<div class="note" style="padding:14px">No setups match.</div>';$('dnote').textContent='';return;}
+  const n=rows.length,w=rows.filter(s=>s.result==='target').length,ws=rows.filter(s=>s.n_signals>0).length;
+  $('dnote').textContent=`${n} setups · ${w} reached target (${(100*w/n).toFixed(0)}%) · ${ws} had a signal within 3 bars · measured = win rate across 258,402 setups on 220 perps; none reached Brooks' 60%`;
+  $('dtab').innerHTML='<table><thead><tr><th>when (IST)</th><th>tf</th><th>setup</th><th>dir</th><th>measured</th><th>spot</th><th>max fav</th><th>signals</th><th>best</th></tr></thead><tbody>'
+    +rows.map(sheetRow).join('')+'</tbody></table>';
+}
+async function loadSheet(){
+  const e=$('exp').value; if(!e)return;
+  SHEET=await (await fetch(`/api/sheet?asset=${asset.value}&expiry=${e}`)).json(); renderSheet();
+}
+async function loadExpiries(pick){
+  const ex=await (await fetch(`/api/setup_expiries?asset=${asset.value}`)).json();
+  $('exp').innerHTML=ex.map(x=>`<option>${x}</option>`).join('');
+  if(pick&&ex.includes(pick))$('exp').value=pick;
+  await loadSheet();
+}
+$('dtab').addEventListener('click',ev=>{
+  const tr=ev.target.closest('tr.s'); if(!tr||!P||ev.target.closest('a'))return;
+  const ts=+tr.dataset.ts, half=visibleCandles()/2*STEP;
+  const C=P.candles;
+  if(ts<C.ts[0]){$('dnote').textContent='That setup is older than the loaded history — raise "history" or switch to 4h/1d.';return;}
+  Plotly.relayout('chart',{'xaxis.range':[new Date((ts-half)*1000),new Date((ts+half)*1000)]});
+});
+$('filt').onchange=renderSheet; $('exp').onchange=loadSheet;
+$('toggleDrawer').onclick=()=>{$('drawer').classList.toggle('open');
+  $('toggleDrawer').textContent='setup review '+($('drawer').classList.contains('open')?'▴':'▾');
+  setTimeout(()=>Plotly.Plots.resize('chart'),50);};
+
+function jumpLatest(){
+  if(!P)return; const C=P.candles,n=C.ts.length;
+  const lo=C.ts[Math.max(0,n-visibleCandles())]-STEP/2, hi=C.ts[n-1]+STEP*1.5;
+  Plotly.relayout('chart',{'xaxis.range':[new Date(lo*1000),new Date(hi*1000)]});
+}
+function atLiveEdge(){       // is the user looking at the newest candle?
+  if(!P)return false; const gd=$('chart'); const rg=gd.layout&&gd.layout.xaxis&&gd.layout.xaxis.range;
+  if(!rg)return true; const C=P.candles;
+  return new Date(rg[1]).getTime()/1000 >= C.ts[C.ts.length-1];
+}
+async function load(keepView){
   const a=asset.value,r=res.value,l=lim.value;
+  const follow=keepView&&atLiveEdge(), prevLast=P?P.candles.ts[P.candles.ts.length-1]:null;
   try{
     const d=await (await fetch(`/api/payload?asset=${a}&res=${r}&limit=${l}`)).json();
-    if(!d.error){draw(d);renderProx(d.proximity);}
-  }catch(e){}
-  try{
-    const lv=await (await fetch(`/api/live?asset=${a}`)).json();
-    if(lv.rows)renderLive(lv.rows);
-  }catch(e){}
+    if(d.error){$('stamp').textContent='error: '+d.error;return;}
+    const t0=d.candles.ts[0], t1=d.candles.ts[d.candles.ts.length-1];
+    try{SETUPS=await (await fetch(`/api/setups?asset=${a}&t0=${t0}&t1=${t1}`)).json();}catch(e){SETUPS=[];}
+    draw(d,keepView); renderProx(d.proximity);
+    const newLast=d.candles.ts[d.candles.ts.length-1];
+    if(follow&&prevLast!=null&&newLast>prevLast){   // slide the view forward by the new candles
+      const rg=$('chart').layout.xaxis.range, sh=(newLast-prevLast)*1000;
+      Plotly.relayout('chart',{'xaxis.range':[new Date(new Date(rg[0]).getTime()+sh),new Date(new Date(rg[1]).getTime()+sh)]});
+    }
+    if(!keepView){   // the drawer follows the immediate expiry at the latest candle
+      const last=(d.req||[]).filter(x=>x.ts===t1&&x.slot==='immediate')[0];
+      await loadExpiries(last&&last.expiry);
+    }
+  }catch(e){$('stamp').textContent='load failed: '+e;}
+  try{const lv=await (await fetch(`/api/live?asset=${a}`)).json(); if(lv.rows)renderLive(lv.rows);}catch(e){}
 }
-['asset','res','lim'].forEach(id=>document.getElementById(id).onchange=load);
-load(); setInterval(()=>{if(document.getElementById('auto').checked)load();},15*60*1000);
+// URL parameters pick the view (bookmarkable): ?asset=ETH&res=240
+{const u=new URLSearchParams(location.search);
+ if(['BTC','ETH'].includes(u.get('asset')))$('asset').value=u.get('asset');
+ if(['15','60','240','1440'].includes(u.get('res')))$('res').value=u.get('res');
+ if(u.get('drawer')==='1'){$('drawer').classList.add('open');$('toggleDrawer').textContent='setup review ▴';}}
+['asset','res','lim'].forEach(id=>$(id).onchange=()=>load(false));
+$('latest').onclick=jumpLatest;
+let hooked=false;
+function hook(){ const gd=$('chart'); if(hooked||!gd.on)return; hooked=true;
+  gd.on('plotly_relayout',ev=>{
+    if(ev&&(ev['xaxis.range[0]']!==undefined||ev['xaxis.range']!==undefined||ev['xaxis.autorange']))afterView();});}
+load(false).then(hook);
+setInterval(()=>{if($('auto').checked)load(true);},15*60*1000);
+if(new URLSearchParams(location.search).has('selftest')){const t=document.createElement('script');t.src='/selftest.js';document.body.appendChild(t);}
 </script></body></html>

@@ -55,7 +55,11 @@ def build_expiry(asset, expiry, res, spot):
     ts, ks, cg, pg = L
     S = np.array([spot.get(int(t), np.nan) for t in ts])
     exp_ts = pd.Timestamp(expiry).timestamp() + 12*3600   # settlement, not the last stored bar
-    tte = (exp_ts - ts) / (365.0*86400.0)
+    # Prices are the bar's CLOSE, so time-to-expiry is measured from the close too. It was
+    # from the open, which gave every row one extra bar of time value (4h on 4h bars) and
+    # biased the implied vol behind the "now" column low. The bar that closes AT settlement
+    # has no time left, so it drops out and the next expiry becomes "immediate" there.
+    tte = (exp_ts - (ts + int(res)*60)) / (365.0*86400.0)
     ok = np.isfinite(S) & (tte > 0)
     if ok.sum() < 3: return None
     ts, S, tte, cg, pg = ts[ok], S[ok], tte[ok], cg[ok], pg[ok]
@@ -71,7 +75,7 @@ def newest_source(asset, expiry, res):
     try: return max(os.path.getmtime(os.path.join(d, f)) for f in os.listdir(d)) 
     except ValueError: return 0
 
-def run(assets=ASSETS, resolutions=RESOLUTIONS, limit=None):
+def run(assets=ASSETS, resolutions=RESOLUTIONS, limit=None, force_since=None):
     os.makedirs(OUT, exist_ok=True)
     for asset in assets:
         base = f"data/candles/{asset}"
@@ -82,7 +86,10 @@ def run(assets=ASSETS, resolutions=RESOLUTIONS, limit=None):
             t0 = time.time(); built = skipped = 0
             for e in exps:
                 cp = f"{OUT}/{asset}_{res}_{e}.parquet"
-                if os.path.exists(cp) and os.path.getmtime(cp) >= newest_source(asset, e, res):
+                # the cache key is the OPTION files' mtime; spot changes are invisible to it,
+                # so a spot repair needs --force-since
+                forced = force_since is not None and e >= force_since
+                if not forced and os.path.exists(cp) and os.path.getmtime(cp) >= newest_source(asset, e, res):
                     skipped += 1; continue
                 if not built: spot = spot_map(asset, res)     # load lazily, once
                 df = build_expiry(asset, e, res, spot)
@@ -100,7 +107,8 @@ if __name__ == "__main__":
     ap.add_argument("--res", default=None, help="comma list, default all")
     ap.add_argument("--assets", default=None)
     ap.add_argument("--limit", type=int, default=None, help="only the N most recent expiries")
+    ap.add_argument("--force-since", default=None, help="rebuild expiries on/after YYYY-MM-DD even if cached")
     a = ap.parse_args()
     run(assets=tuple(a.assets.split(",")) if a.assets else ASSETS,
         resolutions=tuple(a.res.split(",")) if a.res else RESOLUTIONS,
-        limit=a.limit)
+        limit=a.limit, force_since=a.force_since)

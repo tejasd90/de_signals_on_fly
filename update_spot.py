@@ -21,7 +21,11 @@ RES_SECS = {"5":300, "15":900, "30":1800, "60":3600, "120":7200,
 # Passing "1440" returns HTTP 400, which the first version swallowed as "no new data".
 API_RES = {"5":"5m", "15":"15m", "30":"30m", "60":"1h", "120":"2h",
            "240":"4h", "360":"6h", "1440":"1d"}
-ASSETS = {"BTC":"BTCUSD", "ETH":"ETHUSD", "XAUT":"XAUTUSD"}
+# MARK: prefix. data/spot_candles is the perp MARK series (see de-signals-spot-is-mark) and
+# node's spot_store.js writes it that way. The plain symbol returns TRADED candles; from
+# 2026-09-26 this script wrote those into the MARK store (found 2026-10-04, repaired with
+# --repair-since 2026-09-25).
+ASSETS = {"BTC":"MARK:BTCUSD", "ETH":"MARK:ETHUSD", "XAUT":"MARK:XAUTUSD"}
 CHUNK_BARS = 1500          # well under the silent ~4000 cap
 
 def get(sym, res, a, b, tries=4):
@@ -37,6 +41,12 @@ def get(sym, res, a, b, tries=4):
         except Exception:
             time.sleep(1 + k)
     return []
+
+IST = timezone(timedelta(hours=5, minutes=30))
+def ist_day(t):
+    """Day files are IST dates, as node's spot_store.js writes them. This script used UTC
+    dates, so bars between 18:30 and 24:00 UTC landed in two files."""
+    return datetime.fromtimestamp(t, tz=IST).strftime("%Y-%m-%d")
 
 def latest_day(d):
     if not os.path.isdir(d): return None
@@ -72,7 +82,7 @@ def update(asset, res):
         t = int(c["time"]) if isinstance(c, dict) else int(c[0])
         row = ([t, float(c["open"]), float(c["high"]), float(c["low"]), float(c["close"]),
                 c.get("volume")] if isinstance(c, dict) else list(c))
-        by.setdefault(datetime.fromtimestamp(t, tz=timezone.utc).strftime("%Y-%m-%d"), []).append(row)
+        by.setdefault(ist_day(t), []).append(row)
     n = 0
     for day, rs in sorted(by.items()):
         p = os.path.join(d, day)
@@ -88,7 +98,46 @@ def update(asset, res):
     print(f"  {asset}/{res}: {last} -> {sorted(by)[-1]}  ({len(rows)} bars, {n} days)")
     return len(rows)
 
+def repair(asset, res, since):
+    """Rewrite every day file from `since` (IST date) onward from MARK candles alone,
+    filed by IST day. Bars the fetch does not return are kept from the old files only if
+    they are MARK (volume null); traded strays and cross-day duplicates are dropped."""
+    sym = ASSETS[asset]; d = f"data/spot_candles/{asset}/{res}"
+    a = int(datetime.strptime(since, "%Y-%m-%d").replace(tzinfo=IST).timestamp())
+    stop = int(datetime.now(timezone.utc).timestamp()); step = RES_SECS[res] * CHUNK_BARS
+    fetched = {}
+    while a < stop:
+        b = min(a + step, stop)
+        for c in get(sym, API_RES[res], a, b):
+            t = int(c["time"]); fetched[t] = [t, float(c["open"]), float(c["high"]), float(c["low"]), float(c["close"]), c.get("volume")]
+        a = b + 1; time.sleep(0.15)
+    if not fetched:
+        print(f"  {asset}/{res}: repair fetched nothing -- left untouched", file=sys.stderr); return
+    keep = {}
+    for f in sorted(os.listdir(d)):
+        if f.startswith(".") or f < since: continue
+        try:
+            for r in json.load(open(os.path.join(d, f))):
+                if r[5] is None: keep.setdefault(int(r[0]), r)         # old MARK bars only
+        except Exception: pass
+    keep.update(fetched)                                                  # fresh MARK wins
+    by = {}
+    for t, r in keep.items():
+        if ist_day(t) >= since: by.setdefault(ist_day(t), []).append(r)
+    for f in sorted(os.listdir(d)):
+        if not f.startswith(".") and f >= since and f not in by: os.remove(os.path.join(d, f))
+    for day, rs in by.items():
+        tmp = os.path.join(d, day + ".tmp")
+        json.dump(sorted(rs, key=lambda r: r[0]), open(tmp, "w")); os.replace(tmp, os.path.join(d, day))
+    print(f"  {asset}/{res}: repaired {len(by)} days from {since}, {len(fetched)} MARK bars fetched")
+
 if __name__ == "__main__":
+    if "--repair-since" in sys.argv:
+        since = sys.argv[sys.argv.index("--repair-since") + 1]
+        for asset in ("BTC", "ETH"):
+            for res in sorted(os.listdir(f"data/spot_candles/{asset}"), key=int):
+                if res in API_RES: repair(asset, res, since)
+        sys.exit(0)
     which = sys.argv[1:] or ["1440","360","240","60","15"]
     tot = 0
     for asset in ASSETS:

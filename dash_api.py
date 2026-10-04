@@ -175,15 +175,21 @@ def payload(asset, res, limit=1500):
     slots = assign_slots(r)
     # Align the (finer-resolution) requirement rows onto the candle timestamps,
     # so the heatmap joins exactly even when the two grids differ.
+    # Matched on CLOSE times: a candle shows the requirement as of its own close (for a
+    # daily candle built from 4h rows, the 20:00-24:00 row), or the latest available
+    # inside a still-forming candle. Matching on open times showed a daily candle the
+    # requirement from 4 hours into its day.
     if len(slots):
         step = int(np.median(np.diff(c.ts.to_numpy()))) if len(c) > 2 else 86400
+        src_step = int(SOURCE_RES.get(str(res), str(res))) * 60
+        cc = c[["ts"]].astype("int64").assign(close=lambda d: d.ts + step).sort_values("close")
         aligned = []
         for name, g in slots.groupby("slot"):
-            m = pd.merge_asof(c[["ts"]].sort_values("ts").astype("int64"),
-                              g.sort_values("ts").astype({"ts": "int64"}),
-                              on="ts", direction="backward", tolerance=step)
+            g = g.astype({"ts": "int64"}).rename(columns={"ts": "src_ts"})
+            g["close"] = g.src_ts + src_step
+            m = pd.merge_asof(cc, g.sort_values("close"), on="close", direction="backward", tolerance=step)
             m["slot"] = name
-            aligned.append(m.dropna(subset=["expiry"]))
+            aligned.append(m.dropna(subset=["expiry"]).drop(columns=["close", "src_ts"]))
         slots = pd.concat(aligned, ignore_index=True) if aligned else slots
 
     tail = max(limit * 3, 1500)

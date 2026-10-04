@@ -2,6 +2,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Price-action SETUP review, one sheet per expiry.  Run: node serve_setups.js (4000)
 //
+// MERGED 2026-10-04 into the main dashboard (:8777, dash_server.py): the same sheet is the
+// 'setup review' drawer there, and the setups are also drawn on the chart. Kept runnable,
+// but docs/DASHBOARD.md is the place to look.
+//
 // Inverts the grid viewers. 3800/3900 start from a signal and show its context;
 // this starts from a Brooks SETUP on spot and shows what happened next, plus any
 // option signals that fired within a few bars of it. A few dozen rows per expiry

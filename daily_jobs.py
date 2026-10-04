@@ -6,7 +6,7 @@ a marker per UTC date means repeated calls within a day do nothing.
 2. Journal watch: pulls github.com/tejasd90/market_observatios into data/market_observatios
    and appends any commits since the last check to logs/journal_new.log, so new entries get
    scored once their horizon passes. Scoring itself stays manual (docs/ML/JOURNAL_SCORECARD.md).
-3. Research refresh: settled expiries of the last 3 days -> node backfill.js (MARK candles at
+3. Research refresh (then the dashboard's setup review): settled expiries of the last 3 days -> node backfill.js (MARK candles at
    every duration + signals) -> build_events.py (events.parquet). Skipped below MIN_FREE_GB,
    because each expiry adds ~10-60 MB on a nearly full disk.
 """
@@ -46,6 +46,9 @@ def main():
     if new:
         with open(os.path.join(HERE, "logs", "journal_new.log"), "a") as f:
             f.write(f"\n===== {today}: new journal commits to score\n{new}\n")
+    # the dashboard's setup review (Brooks setups + nearby signals per expiry): ~150 MB RAM,
+    # seconds, no new disk to speak of -- so it runs even when the refresh below is skipped
+    run([py, "build_setup_review.py"], "research_refresh.log", 1800)
     # research refresh
     free = shutil.disk_usage(HERE).free / 1e9
     if free < MIN_FREE_GB:
@@ -56,6 +59,7 @@ def main():
     env = {"DE_QUIET_LOGS": "1", "DE_NO_LOG_DIR": "1", "TZ": "Asia/Kolkata"}
     if run([NODE, "backfill.js", "--from", frm, "--to", to], "research_refresh.log", 3*3600, env) == 0:
         run([py, "build_events.py"], "research_refresh.log", 3*3600)
+        run([py, "build_setup_review.py"], "research_refresh.log", 1800)   # again, with the new signals
 
 if __name__ == "__main__":
     main()
