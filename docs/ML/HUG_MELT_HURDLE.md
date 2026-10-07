@@ -37,6 +37,45 @@ exact-picture check. Inputs: 1h BTC+ETH candles since 2024, confirmed lines from
 | **C. The move is sized to the 1:50/1:100 target** | The 24h move after a break, divided by the 1:100 requirement on the immediate expiry: median 0.26; 11% reach it. Equal-width bins fall smoothly (10.4 → 7.6 → 5.2 → 3.5%), with no bump at 1. **No sign that moves stop at the option target.** |
 | **D. Rich premiums get thwarted** (fewer breaks when IV is high at the hug start) | P(break) is 0.567 / 0.574 / 0.580 across low / mid / high IV. **No effect.** |
 
+## ⚠ CORRECTION 2026-10-07 (same day): the hurdle "carry" result below was a measurement artefact
+
+**What was wrong.** `hurdle_test.py` measured carry from the LEVEL, in ATR taken when the level FORMED.
+A trader enters at the BREAK CLOSE, so that is where carry has to be measured from. Two things inflated
+the gap:
+- **Overshoot at the break.** Hurdle breaks already overshoot the level more at the break close (0.75 vs
+  0.58 ATR), so part of the "carry" was already in the entry price.
+- **Shrinking ATR on ordinary peaks.** Their ATR had shrunk to 0.72× by the time they broke, vs 0.97–1.02×
+  for hurdles. That made their moves look smaller in formation-ATR units.
+
+**Re-measured from the break close**, with ATR at the break and a day-block bootstrap:
+
+| data | P(max move ≥ 3 ATR within 2h): hurdle vs ordinary peak | CI of difference | median max move |
+|---|---|---|---|
+| BTC 1m | 66.9% vs 65.5% | [−3.1, +5.8] | 0.42% vs 0.36% |
+| ETH 1m | 66.0% vs 66.2% | [−4.2, +4.0] | 0.64% vs 0.61% |
+| BTC 5m | 42.5% vs 41.3% | [−7.2, +9.0] | 0.48% vs 0.50% |
+| ETH 5m | 43.7% vs 39.0% | [−2.4, +11.3] | 0.73% vs 0.65% |
+
+**No difference.** The options test, which IS measured from the actual entry, agrees once it is
+resampled by day:
+- **Hold 2h:** hurdle +0.040, CI [−0.016, +0.103]. Vs ordinary peaks the difference CI is [−0.020, +0.183].
+- **Trap exit + re-entry:** hurdle +0.076, CI [+0.017, +0.146], but this rule was chosen as the best of
+  six exit variants on the same data. The same rule on ordinary-peak breaks gives +0.024, and the
+  difference CI is [−0.054, +0.152]. It is flat in 2026.
+
+**Verdict.**
+- **That hurdles add to a break is NOT established.**
+- What survives, weakly: his trade management on level breaks (exit when price closes back through the
+  broken level, re-enter on a fresh close beyond). It is selected after the fact, so it is a candidate
+  for the forward log, not a rule.
+
+Found by the cross-study review of 2026-10-07 (`docs/ML/REVIEW_2026-10-07.md`) and re-verified
+independently.
+
+---
+
+### Original (superseded) section follows
+
 ## Hurdles (point 2): TESTED, the re-entry rule holds (`hurdle_test.py`)
 
 **His follow-up:** sharp moves and hurdles live on 1–5 minute charts. Trade off higher timeframes for
