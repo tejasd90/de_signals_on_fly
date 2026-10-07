@@ -273,9 +273,9 @@ def cmd_report(a):
         pf=res[(res.forward)&(res.picture=="1")]
         if len(pf):
             print("  forward, traded prices, by target (docs/ML/SETUPS.md):")
-            targets(pf, "PICTURE-CALL", "25x 12.06% / 50x 8.95% / 100x 5.47%")
+            targets(pf, "PICTURE-CALL", "25x 9.27% / 50x 6.81% / 100x 4.13% (implementable, verified)")
             pr=pf[pf.regime!="up"]
-            if len(pr): targets(pr, "PICTURE-CALL & not R5", "25x 13.56% / 50x 10.45% / 100x 6.57%")
+            if len(pr): targets(pr, "PICTURE-CALL & not R5", "25x 10.58% / 50x 8.10% / 100x 5.08% (implementable, verified)")
     for fw, grp in [(f, g) for f in (True, False) for g in ("TAKE","skip")]:
         s=res[(res.decision==grp)&(res.forward==fw)]
         if not len(s): continue
