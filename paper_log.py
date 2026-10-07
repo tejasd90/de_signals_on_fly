@@ -176,7 +176,7 @@ def cmd_run(a):
                                   "w_room":"" if wr is None else round(wr,2),
                                   "at_line":at,
                                   "decision":"TAKE" if r5 else "skip",
-                                  "picture":int(bool(picture_on(spot, ts+dur*60)) and ty=="C")})
+                                  "picture":int(spot in ("BTC","ETH") and ty=="C" and bool(picture_on(spot, ts+dur*60)))})   # tested on BTC/ETH only
                             have.add(eid)
     if not rows: print("no new signals in the window"); return
     df=pd.concat([read_log(), pd.DataFrame(rows)], ignore_index=True)
@@ -265,17 +265,20 @@ def cmd_report(a):
     res=d[(d.resolved_at!="")&(d.resolved_at!="unresolvable")]
     print(f"resolved: {len(res):,}")
     if not len(res): print("\nnothing resolved yet — outcomes fill in after expiry"); return
+    def targets(x, lab, bt):
+        """traded hit rate and EV at 25x / 50x / 100x (resting sell at the target, total loss otherwise)"""
+        pk=pd.to_numeric(x.traded_peak,errors="coerce")
+        cells=[]
+        for T in (25,50,100):
+            p=(pk>=T).mean(); cells.append(f"{T}x {100*p:5.2f}% EV {T*p-1-COST:+.2f}")
+        print(f"  {lab:<30} n={len(x):>4} ({x.expiry.nunique()} expiries)  " + "  |  ".join(cells) + f"   backtest: {bt}")
     if "picture" in d.columns:
-        pc=res[(res.forward)&(res.picture=="1")]
-        if len(pc):
-            h=pd.to_numeric(pc.traded_25x,errors="coerce").mean()
-            print(f"  FORWARD PICTURE-CALL n={len(pc):>4} ({pc.expiry.nunique()} expiries)  25x traded {100*h:5.2f}%  "
-                  f"EV(traded) {h*24-(1-h)-COST:+.3f}  (backtest: 12.06% traded, other days 4.29%)")
-            pr=pc[pc.regime!="up"]          # R5 keeps its veto: skip clean 20-day uptrends (docs/ML/PICTURE_CALLS.md)
-            if len(pr):
-                h=pd.to_numeric(pr.traded_25x,errors="coerce").mean()
-                print(f"  FORWARD PICTURE-CALL & not R5 n={len(pr):>4} ({pr.expiry.nunique()} expiries)  25x traded {100*h:5.2f}%  "
-                      f"EV(traded) {h*24-(1-h)-COST:+.3f}  (backtest: 13.56% traded)")
+        pf=res[(res.forward)&(res.picture=="1")]
+        if len(pf):
+            print("  forward, traded prices, by target (docs/ML/SETUPS.md):")
+            targets(pf, "PICTURE-CALL", "25x 12.06% / 50x 8.95% / 100x 5.47%")
+            pr=pf[pf.regime!="up"]
+            if len(pr): targets(pr, "PICTURE-CALL & not R5", "25x 13.56% / 50x 10.45% / 100x 6.57%")
     for fw, grp in [(f, g) for f in (True, False) for g in ("TAKE","skip")]:
         s=res[(res.decision==grp)&(res.forward==fw)]
         if not len(s): continue

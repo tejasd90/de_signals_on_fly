@@ -66,3 +66,32 @@ accumulates evidence before any sizing.
 - **Simplest defensible rule: PICTURE-CALL with R5 keeping its veto.** The forward report shows it as
   "PICTURE-CALL & not R5", next to plain PICTURE-CALL. Whether R4 adds anything is left to the forward
   log.
+
+## Target matrix (`target_matrix.py`, 2026-10-07)
+
+EV per unit = P(peak ≥ T) × T − 1 − 0.0826.
+
+**MARK**
+
+| rule | 2x | 5x | 10x | 25x | 50x | 100x | 200x | 500x |
+|---|---|---|---|---|---|---|---|---|
+| all calls (n 47,290) | 41.8% / −0.25 | 15.6% / −0.30 | 8.6% / −0.22 | 4.2% / −0.03 | 2.4% / +0.14 | 1.4% / +0.33 | 0.8% / +0.49 | 0.4% / +0.99 |
+| A+ (n 7,840) | 50.6 / −0.07 | 22.2 / +0.03 | 14.1 / +0.32 | 8.3 / +0.99 | 5.7 / +1.79 | 3.5 / **+2.38** | 1.1 / +1.17 | 0.3 / +0.47 |
+| picture (n 3,616) | 47.3 / −0.14 | 22.9 / +0.06 | 15.3 / +0.45 | 10.7 / +1.59 | 8.4 / +3.13 | 5.7 / **+4.66** | 2.4 / +3.66 | 1.4 / +5.73 |
+| picture & not R5 (n 2,790) | 49.5 / −0.09 | 24.0 / +0.12 | 17.0 / +0.62 | 12.5 / +2.03 | 9.9 / +3.86 | 6.9 / **+5.78** | 2.7 / +4.30 | 1.6 / +6.82 |
+
+**TRADED** (picture rows complete; the "all calls" and A+ rows use a sample tilted toward picture days,
+so compare rules on MARK)
+
+| rule | 25x | 50x | 100x | 200x |
+|---|---|---|---|---|
+| picture | 12.1% / +1.93 | 9.0% / +3.39 | 5.5% / **+4.38** | 2.2% / +3.25 |
+| picture & not R5 | 13.6% / +2.31 | 10.5% / +4.14 | 6.6% / **+5.48** | 2.6% / +4.19 |
+
+**Reading:**
+- EV rises with the target up to **100x**, then drops at 200x for every rule.
+- 500x looks highest but rests on ~45 hits from a handful of episodes, so ignore it.
+- Small targets (2x) lose for every rule.
+- The previous finding "200x ≥ 100x" (TOP10 #14, +4.59 vs +3.17, P = 0.12) does not hold for these rules.
+
+The playbook with forward status is in `SETUPS.md`.
