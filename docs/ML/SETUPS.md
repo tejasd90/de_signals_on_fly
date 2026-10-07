@@ -17,65 +17,75 @@ Conventions:
 
 ## Setup 1: PICTURE-CALL with R5 (best simple rule): BUY
 
-**Rule** (BTC and ETH only). In practice it is about **one trade a week**, arriving in clusters of a few days:
-1. Take one of his four signals on a **CALL** (activated, premium 2–20)...
+*Verified 2026-10-07 by an independent recomputation from raw inputs. See "Verification" below.*
+
+**Rule** (BTC and ETH only):
+1. Take one of his four signals on a **CALL** (premium 2–20)...
 2. ...on a **picture day**: quiet weekend (≤ 30th pct) AND low-vol week (rv7 ≤ 30th pct) AND price held
    near its 7-day high (dd7 ≥ 60th pct). Causal percentiles vs the previous 365 days, known at the
    PREVIOUS day's close.
 3. ...and **R5 not vetoing**: the daily chart is NOT in a clean 20-day uptrend (efficiency > 0.35 with a
    positive 20d return).
 
-**How often it fires** (2024-03 → 2026-09, 2.5 years, BTC + ETH):
-- 2,790 signal EVENTS. That is an average of 21/week, but they bunch: a median of 19 events on a qualifying day, up to 65.
-- **126 qualifying asset-days, ≈ 50 per year, i.e. about one a week.**
-- **36 episodes** (runs of qualifying days; median 3 days, max 11), ≈ 14 per year, i.e. about one a month per
-  asset. 14 of the 36 had at least one 25x event. (The "43 episodes" quoted elsewhere counts ALL picture
-  days, including R5-vetoed ones.)
+**How often it fires** (2024-03 → 2026-09, 2.5 years):
+- 3,581 signal events, which bunch heavily: a median of 19 on a qualifying day, up to 65. Of these,
+  2,790 later "activate" on mark.
+- **126 qualifying asset-days ≈ 50 a year for BTC + ETH together, about one a week across both**
+  (about one every two weeks per asset).
+- **36 episodes** (runs of qualifying days; median 3 days, max 11) ≈ 14 a year for both assets, about one
+  every 7 weeks per asset. 14 of the 36 had at least one 25x event.
 
-**As implementable trades** (no cherry-picking within a day), 25x on MARK:
-- **first qualifying signal of each day: 126 trades, 16.3%**;
-- first signal of each episode: 36 trades, 11.1%.
-
-**Backtest per event** (all 2,790 events, averaged over strikes; TRADED):
+**Headline: TRADED, implementable.** Buy at the first traded 1h close after the signal, whether or not it
+later activates. Exit at the target on traded highs. 3,581 events:
 
 | target | 2x | 5x | 10x | 25x | 50x | **100x** | 200x | 500x |
 |---|---|---|---|---|---|---|---|---|
-| hit rate | 49.9% | 25.7% | 18.6% | 13.6% | 10.5% | **6.6%** | 2.6% | 1.8% |
-| EV / unit | −0.09 | +0.20 | +0.78 | +2.31 | +4.14 | **+5.48** | +4.19 | (+7.97, tail noise) |
+| hit rate | 42.8% | 21.2% | 15.0% | **10.6%** | 8.1% | **5.1%** | 2.1% | 1.4% |
+| EV / unit | −0.23 | −0.02 | +0.41 | **+1.56** | +2.97 | **+3.99** | +3.02 | (+5.97, tail noise) |
 
-- **25x on MARK:** 12.8%, week-block CI [4.2, 22.6]%.
+**Stop-entry convention (MARK)**, for comparison with older results. Enter only if the mark breaks the
+signal bar's high (an unfilled stop costs nothing), so the rows are the 2,790 activated events:
+
+| target | 2x | 5x | 10x | 25x | 50x | 100x | 200x | 500x |
+|---|---|---|---|---|---|---|---|---|
+| hit rate | 44.9% | 22.5% | 17.0% | 12.8% | 10.2% | 6.5% | 2.4% | 1.8% |
+| EV / unit | −0.18 | +0.04 | +0.62 | +2.12 | +4.00 | +5.42 | +3.78 | — |
+
+- **25x MARK week-block CI:** [4.0, 22.4]%.
 - **By year (MARK, 25x):** 2024 11.5% · 2025 5.3% · 2026 21.1%.
-- **Variant: PICTURE-CALL & not R5 & R4 up** (≈ 12/week): 25x traded 16.5% [2.8, 26.7]. More slicing of
-  the same episodes, so not adopted. The forward log decides whether R4 helps.
-- **Without R5** (plain PICTURE-CALL, 27/week): 25x traded 12.1%; 100x +4.38. On picture days that R5
-  WOULD veto, 25x is 5.2%, and by year 0% / 13.4% / 0%. That is why R5 stays.
+- **First signal of each day only:** 15.5%. 75 of 126 days have several signals closing at the same
+  moment; ties are averaged, and the range across tie-breaks is 14.3–17.1%.
+- **First signal of each episode only:** 11.1% (36 trades).
+
+**The R4 variant and R5 without the veto.**
+- **Variant PICTURE-CALL & not R5 & R4 up:** about half the events, MARK 25x 14.8%. More slicing of the
+  same episodes, so not adopted. The forward log decides.
+- **Without R5** (plain PICTURE-CALL, implementable traded 25x 9.3%, 100x +3.04): picture days that R5
+  WOULD veto score 5.3% at 25x, and by year 0% / ~12% / 0%. That is why R5 stays.
 
 **Why it is believed:**
-- **Not carried by one episode:** leave-one-episode-out keeps the picture 25x rate at 8.3–12.4%.
-- **Puts on the same days are null** (4.0% vs 3.9%), consistent with "quiet + held up resolves UP".
-- **Both halves of the picture matter:** neither 1.9% · held up only 4.7% · quiet only 7.4% · both 11.4%.
-- **Fills are real:** first traded fill ≈ 0.95× mark, and every picture-day row traded after the signal.
+- **Leave-one-episode-out** keeps the picture 25x rate at 8.6–12.0%.
+- **Puts on the same days are null** (≈3.8–4.0% vs 3.9%), consistent with "quiet + held up resolves UP".
+- **Both halves of the picture matter:** neither 1.9% · held only ≈4.4–4.7% · quiet only ≈7.0–7.4% ·
+  both ≈11.1–11.4%.
+- **Traded outcomes match the exchange** exactly on 15 refetched rows. 0.2% of rows never traded.
 
 **Why it is NOT proven:**
-- about 43 episodes in 2.7 years, with 25x hits in ~14 of them, so CIs are wide;
-- the depth behind traded prints at 50x–100x is unmeasured;
+- **36 episodes**, 14 with a 25x hit, so CIs are wide;
+- the depth behind traded prints at 50x–100x is unmeasured, and ~10% of fills are below half the mark
+  (excluding fills under 0.2× mark leaves 25x unchanged);
 - it swings by year.
 
 **Exits:**
-- **EV peaks at 100x and falls at 200x** for this and every rule (an older study on the full signal set
-  had 200x ≥ 100x, P = 0.12; not the case here).
-- **Streak risk:** at 100x (6.6% hits) P(20 trades without a hit) ≈ 25%. At 25x (13.6%) it is ≈ 5%.
-- **A split exit** (half at 25x, half at 100x) averages ≈ +3.9/unit with fewer long droughts.
+- **EV peaks at 100x**, and 200x is lower on both conventions.
+- **Streak risk (traded):** at 100x (5.1% hits) P(20 trades without a hit) ≈ 35%. At 25x (10.6%) it is ≈ 11%.
+- **A split exit** (half at 25x, half at 100x) averages ≈ +2.8/unit with fewer long droughts.
 
-**Forward status** (`python paper_log.py --report`, "forward, traded prices, by target"):
-
-| | rows | expiries | 25x hits | best traded multiple |
-|---|---|---|---|---|
-| PICTURE-CALL | 104 | 4 | 0 | ~17x (ETH 4 Oct), ~16x (BTC 4 Oct) |
-| PICTURE-CALL & not R5 | 62 | 4 | 0 | — |
-
-These rows are only about 2 independent episodes (BTC 3–5 Oct, ETH 3–6 Oct). With ~1 in 3 backtest
-episodes producing a 25x, 0 of 2 is unremarkable. **Too early to judge.**
+**Forward status** (`python paper_log.py --report`, "forward, traded prices, by target"; the forward log
+fills at the first traded close, like the headline table): PICTURE-CALL 104 rows / 4 expiries, 0 hits at
+25x, best ~17x traded; PICTURE-CALL & not R5 62 rows, 0 hits. That is about **2 independent episodes**
+(BTC 3–5 Oct, ETH 3–6 Oct). With ~14 of 36 backtest episodes producing a 25x, 0 of 2 is unremarkable.
+**Too early to judge.**
 
 ## Setup 2: A+ (R4 + R5): BUY, the previous standard
 
@@ -86,8 +96,8 @@ containment rule applies to the squeeze signals.
 
 | target | 25x | 50x | **100x** | 200x |
 |---|---|---|---|---|
-| hit rate | 8.3% | 5.7% | 3.5% | 1.1% |
-| EV / unit | +0.99 | +1.79 | **+2.38** | +1.17 |
+| hit rate | 8.3% | 5.7% | 3.3% | 0.8% |
+| EV / unit | +0.99 | +1.77 | **+2.18** | +0.61 |
 
 - **About 59/week.**
 - **Older traded-price figure** (all premiums, 142 weeks): 25x 6.01% vs 4.33% break-even, +0.42/trade.
@@ -136,3 +146,27 @@ containment rule applies to the squeeze signals.
   covers them: Setup 1 is call-only, and Setup 2 required a 4h downtrend.
 - **The rules were right not to take ETH calls** on its picture day, because ETH fell.
 - **Recorded as a miss, not a reason to change a rule.**
+
+
+## Verification (2026-10-07)
+
+An independent agent recomputed every number in this file from raw inputs (`events.parquet`, perp and
+spot candles, Delta traded candles), with its own code, before reading the author's scripts.
+
+**What reproduced.**
+- **Setup 1:** counts, mark rates, CI, by-year, first-of-episode and the stop-entry traded table, all
+  exact.
+- **Setup 2:** 25x/50x, weekly count, yearly decay.
+- **Setup 3:** reproduced by running `quiet_wf.py` only, so this is not an independent check. The
+  high-IV interaction is unchecked.
+
+**What was corrected.**
+- **Traded rates were selected on future mark activation.** That inflated 25x from 10.6% to 13.6%. The
+  headline is now the implementable all-rows table (`picture_traded_all.py`).
+- **The mark target matrix** now uses the same rows and the same stop-entry convention as the y_* labels
+  (`target_matrix.py`). Setup 2's 100x/200x went from 3.5/1.1% to 3.3/0.8%.
+- **The first-of-day rate depends on tie-breaking:** 15.5% (14.3–17.1), not 16.3%.
+- **Wording:** "one a month per asset" became one every ~7 weeks per asset, and episodes are 36 for
+  Setup 1 (43 counts all picture days).
+
+**No look-ahead** was found in the picture, R4 or R5 inputs.

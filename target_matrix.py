@@ -1,18 +1,22 @@
 """Target-multiple matrix for the current rules (2026-10-07). His call signals, activated, premium 2-20.
 EV per unit at target T = P(peak >= T) * T - 1 - 0.0826, i.e. a resting sell at T and a total loss
 otherwise -- the same convention as the break-evens (4.33% at 25x, 1.08% at 100x, 0.54% at 200x).
-MARK: peak_vs_close from events.parquet (max over all strikes rows, averaged per event).
+MARK: peak_vs_trigger from events.parquet (stop-entry convention, = the y_* labels), same rows as the population.
 TRADED: picture_traded.parquet (every picture-day row + a same-size random sample of other days):
 peak = traded high after the first traded fill, divided by that fill."""
 import numpy as np, pandas as pd, io, contextlib
 with contextlib.redirect_stdout(io.StringIO()):
     import r5_picture as RP            # gives ev with ai, rg, pic per event
 COST = 0.0826; TS = [2, 5, 10, 25, 50, 100, 200, 500]
-E = pd.read_parquet("events.parquet", columns=["event_id", "peak_vs_close"])
-pk = E[E.event_id.isin(RP.ev.event_id)]
+# Same rows as r5_picture's population (activated CALLS, premium 2-20) and the same convention as the
+# stored y_* labels: peak / TRIGGER (the signal candle's high, where a stop entry fills). v1 used
+# peak_vs_close over ALL strike rows of each event, which disagreed with y_25x by ~0.4pp (verification
+# 2026-10-07).
+E = pd.read_parquet("events.parquet", columns=["event_id", "opt_type", "activated", "entry_premium", "peak_vs_trigger"])
+pk = E[E.activated & (E.opt_type == "C") & E.entry_premium.between(2, 20) & E.event_id.isin(RP.ev.event_id)]
 ev = RP.ev.copy()
 for T in TS:
-    ev[f"m{T}"] = ev.event_id.map((pk.peak_vs_close >= T).groupby(pk.event_id).mean())
+    ev[f"m{T}"] = ev.event_id.map((pk.peak_vs_trigger >= T).groupby(pk.event_id).mean())
 Tr = pd.read_parquet("data/picture_traded.parquet")
 Tr["x"] = Tr.thigh / Tr.fill
 for T in TS:

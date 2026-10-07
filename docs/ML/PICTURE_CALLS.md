@@ -95,3 +95,29 @@ so compare rules on MARK)
 - The previous finding "200x ≥ 100x" (TOP10 #14, +4.59 vs +3.17, P = 0.12) does not hold for these rules.
 
 The playbook with forward status is in `SETUPS.md`.
+
+
+## Correction after verification (2026-10-07)
+
+**Two problems in the target matrix above.**
+1. **Selected on the future.** The TRADED rows kept only signals whose MARK later activated, which is
+   future information for a buy-at-first-trade fill.
+2. **Inconsistent MARK rows.** They mixed conventions. They now use the stop-entry convention on the same
+   rows as y_*.
+
+**Setup 1 (picture & not R5), implementable TRADED, all 3,581 events:**
+
+| target | 2x | 5x | 10x | 25x | 50x | 100x | 200x |
+|---|---|---|---|---|---|---|---|
+| hit rate | 42.8% | 21.2% | 15.0% | 10.6% | 8.1% | 5.1% | 2.1% |
+| EV / unit | −0.23 | −0.02 | +0.41 | +1.56 | +2.97 | **+3.99** | +3.02 |
+
+**Plain picture (any R5), 4,769 events:** 25x 9.3% (+1.24), 100x 4.1% (+3.04).
+
+**MARK (stop-entry, activated rows):**
+- picture & not R5: 25x 12.8%, 100x 6.5% (+5.42), 200x 2.4% (+3.78);
+- picture: 25x 11.1%, 100x 5.3% (+4.23);
+- A+: 25x 8.3%, 100x 3.3% (+2.18), 200x 0.8% (+0.61).
+
+**100x remains the best target on every convention.** The figures earlier in this file stand as
+superseded history. `SETUPS.md` holds the verified numbers.
