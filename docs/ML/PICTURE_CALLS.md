@@ -43,3 +43,26 @@ Scripts `picture_calls.py` (mark, robustness) and `picture_traded.py` (traded pr
 
 Add it to the forward log as its own rule ("PICTURE-CALL": picture day + his call signal), so it
 accumulates evidence before any sizing.
+
+## Should R5 step aside on picture days? NO (`r5_picture.py`, 2026-10-07)
+
+**Population:** 47,290 call events over 132 weeks. Rates are 25x on MARK, with week-block CIs.
+
+| cell | 25x | EV/unit | events/week |
+|---|---|---|---|
+| current A+ (R4 up, R5 not vetoing) | 8.31% [4.6, 12.8] | +1.00 | 59 |
+| R5-vetoed days that are PICTURE days | 5.24% [0, 15] | +0.23 | 5 |
+| R5-vetoed, not picture | 2.07% | −0.56 | 17 |
+| A+ with R5 lifted on picture days | 8.07% | +0.93 | 65 |
+| picture, any R4/R5 | 11.08% (traded 12.06%) | +1.69 | 27 |
+| **picture with R5 KEEPING its veto** | **12.81% (traded 13.56%)** [4.2, 22.6] | **+2.12** | 21 |
+| picture & not R5 & R4 up | 14.83% (traded 16.45%) [2.8, 26.7] | +2.63 | 12 |
+
+- **R5-vetoed picture days by year:** 0% / 13.4% / 0%. All of it is May 2025, so 2 Oct 2026 was the
+  exception. **Keep R5.**
+- **The picture is a better standalone filter than A+:** 11% vs 8%, with half the trades.
+- **Picture + R5 by year:** 11.5% (2024), 5.3% (2025), 21.1% (2026). CIs are wide because only about
+  43 episodes underlie every cell, and every extra slice is another look at the same episodes.
+- **Simplest defensible rule: PICTURE-CALL with R5 keeping its veto.** The forward report shows it as
+  "PICTURE-CALL & not R5", next to plain PICTURE-CALL. Whether R4 adds anything is left to the forward
+  log.

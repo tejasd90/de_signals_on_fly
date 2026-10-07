@@ -271,6 +271,11 @@ def cmd_report(a):
             h=pd.to_numeric(pc.traded_25x,errors="coerce").mean()
             print(f"  FORWARD PICTURE-CALL n={len(pc):>4} ({pc.expiry.nunique()} expiries)  25x traded {100*h:5.2f}%  "
                   f"EV(traded) {h*24-(1-h)-COST:+.3f}  (backtest: 12.06% traded, other days 4.29%)")
+            pr=pc[pc.regime!="up"]          # R5 keeps its veto: skip clean 20-day uptrends (docs/ML/PICTURE_CALLS.md)
+            if len(pr):
+                h=pd.to_numeric(pr.traded_25x,errors="coerce").mean()
+                print(f"  FORWARD PICTURE-CALL & not R5 n={len(pr):>4} ({pr.expiry.nunique()} expiries)  25x traded {100*h:5.2f}%  "
+                      f"EV(traded) {h*24-(1-h)-COST:+.3f}  (backtest: 13.56% traded)")
     for fw, grp in [(f, g) for f in (True, False) for g in ("TAKE","skip")]:
         s=res[(res.decision==grp)&(res.forward==fw)]
         if not len(s): continue
