@@ -32,6 +32,8 @@ def main():
         if old.startswith(".daily_jobs_") and old != os.path.basename(marker):
             os.remove(os.path.join(HERE, "data", old))
     py = sys.executable
+    # the picture flag (Setup 1) is computed from BTC/ETH hourly TRADED perp candles, as in the backtest
+    run([py, "fetch_perps.py", "--symbols", "data/perp_btceth.json", "--workers", "2"], "research_refresh.log", 900)
     run([py, "paper_log.py", "--report"], "forward_report.log", 300)
     # journal
     if os.path.isdir(os.path.join(JOURNAL, ".git")):

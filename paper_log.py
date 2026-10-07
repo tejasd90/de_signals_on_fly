@@ -92,38 +92,35 @@ def state_at(spot, ts):
 
 _PIC = {}
 def picture_on(spot, ts):
-    """His quiet-before-the-storm picture for the UTC day containing ts (docs/ML/PICTURE_CALLS.md):
-    quiet weekend & low-vol week & price held near its 7-day high, as causal percentiles of the previous
-    365 days, known at the PREVIOUS day's close. Built from data/spot_candles 1h (MARK); the backtest used
-    perp traded candles -- percentiles of volatility are insensitive to that."""
+    """His quiet-before-the-storm picture for the UTC day containing ts (docs/ML/SETUPS.md, Setup 1).
+
+    Computed EXACTLY as the backtest (bigmoves.py): hourly TRADED perp candles (data/perp_candles,
+    refreshed daily by daily_jobs.py), daily rv / range / close, causal percentiles vs the previous
+    365 days, shifted so day d uses values known at the close of d-1. (v1 used the MARK spot candles;
+    on BTC that flagged 16 borderline days the backtest never counted -- verification 2026-10-07.)"""
     if spot not in _PIC:
-        import glob
-        rows = []
-        for f in sorted(glob.glob(f"data/spot_candles/{spot}/60/*")):
-            if os.path.basename(f).startswith("."): continue
-            try: rows += json.load(open(f))
-            except Exception: pass
-        if not rows: _PIC[spot] = None; return None
-        h = pd.DataFrame([r[:5] for r in rows], columns=["t","o","h","l","c"]).drop_duplicates("t").sort_values("t")
-        h["dt"] = pd.to_datetime(h.t, unit="s"); h = h.set_index("dt"); h["lr"] = np.log(h.c).diff()
-        d = h.resample("1D").agg(hi=("h","max"), lo=("l","min"), c=("c","last"), rv=("lr", lambda x: np.sqrt((x**2).sum()))).dropna()
+        f = f"data/perp_candles/{spot}USD.parquet"
+        if not os.path.exists(f): _PIC[spot] = None; return None
+        h = pd.read_parquet(f); h["dt"] = pd.to_datetime(h.ts, unit="s"); h = h.set_index("dt").sort_index()
+        h["lr"] = np.log(h.c).diff()
+        d = h.resample("1D").agg(o=("o", "first"), hi=("h", "max"), lo=("l", "min"), c=("c", "last"),
+                                 rv=("lr", lambda x: np.sqrt((x**2).sum()))).dropna(subset=["c"])
         d["rng"] = (d.hi - d.lo) / d.c
-        f = pd.DataFrame(index=d.index)
-        f["rv7"] = d.rv.rolling(7).mean()
-        f["wkend"] = d.rng.where(d.index.weekday >= 5).rolling(7, min_periods=1).mean()
-        f["dd7"] = d.c / d.c.rolling(7).max() - 1
-        def cp(s, win=365):
-            v = s.to_numpy(); out = np.full(len(v), np.nan)
+        F = pd.DataFrame(index=d.index)
+        F["rv7"] = d.rv.rolling(7).mean()
+        F["wkend"] = d.rng.where(d.index.weekday >= 5).rolling(7, min_periods=1).mean()
+        F["dd7"] = d.c / d.c.rolling(7).max() - 1
+        def cp(sr, win=365):
+            v = sr.to_numpy(); out = np.full(len(v), np.nan)
             for i in range(60, len(v)):
                 w = v[max(0, i-win):i]; w = w[np.isfinite(w)]
                 if len(w) >= 60 and np.isfinite(v[i]): out[i] = (w < v[i]).mean()
-            return pd.Series(out, index=s.index)
-        P = f.apply(cp).shift(1)
-        _PIC[spot] = ((P.wkend <= 0.3) & (P.rv7 <= 0.3) & (P.dd7 >= 0.6))
+            return pd.Series(out, index=sr.index)
+        P = F.apply(cp).shift(1)
+        _PIC[spot] = (P.wkend <= 0.3) & (P.rv7 <= 0.3) & (P.dd7 >= 0.6)
     ser = _PIC[spot]
     if ser is None: return None
-    day = pd.Timestamp(int(ts), unit="s").normalize()
-    return bool(ser.get(day, False))
+    return bool(ser.get(pd.Timestamp(int(ts), unit="s").normalize(), False))
 
 def read_log():
     if not os.path.exists(LOG): return pd.DataFrame(columns=FIELDS)
