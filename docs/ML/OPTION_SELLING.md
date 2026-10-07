@@ -156,3 +156,9 @@ position), not by the margin.**
 - **Selection:** both rules were picked from ~25 conditions on the full sample.
 - **Stacking the filters:** the quiet-day filter and the high-IV filter are ANTI-additive. Quiet &
   high-IV gives −0.84%, quiet & not-high gives +0.29% (`REVIEW_2026-10-07.md`).
+
+**Verification 2026-10-07:**
+- **The quiet-day straddle sell reproduces independently:** +0.164 vs −0.278, P = 0.005. It also holds at
+  a 04:00 UTC entry, is weaker at 08:00, and the held-out data ends 7 Sep.
+- **The "quiet & high-IV loses" interaction is WITHDRAWN.** It depends on an after-the-fact absolute IV
+  cut, and per-month or trailing terciles show nothing. See `SETUPS.md` Setup 3.

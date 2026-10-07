@@ -108,15 +108,30 @@ containment rule applies to the squeeze signals.
 
 ## Setup 3: Quiet-day STRADDLE SELL: SELL
 
-- **Rule:** on days the walk-forward quiet-day model (`quiet_wf.py`) ranks in its quietest ~30%, sell the
-  ATM straddle with **1–3 days** to expiry. **NOT on high-IV days.**
-- **Backtest** (held-out Dec 2025 – Sep 2026, net of the bid haircut and fees, % of spot per straddle):
-  +0.164% vs −0.279% on other days, CI [+0.094, +0.786], P = 0.005. Worst −17.7% vs −21.5%.
-- **Do not stack with high IV:** quiet & high IV −0.84% vs quiet & not high +0.29%.
-- **Caveats:**
-  - only ~9 months held out;
-  - same-day (≤ 1d) straddles show nothing;
-  - entry at 00:00 UTC, which is the worst hour (re-test at 08:00 UTC is pending).
+*Verified 2026-10-07 by an independent rebuild of the straddles and of the walk-forward model.*
+
+**Rule:** on days the walk-forward quiet-day model (`quiet_wf.py`, monthly expanding refit, threshold =
+70th pct of in-sample P(quiet)) flags as quiet, sell the ATM straddle with **1–3 days** to expiry at
+**00:00 or 04:00 UTC**.
+
+**Backtest** (held-out **Dec 2025 → 7 Sep 2026**; the feature table ends 7 Sep; net of the bid haircut
+and fees, % of spot per straddle):
+
+| entry | quiet days | other days | difference CI | P |
+|---|---|---|---|---|
+| 00:00 UTC | **+0.164%** (median +0.63) | −0.279% | week [+0.10, +0.79]; day [+0.04, +0.83] | 0.005 |
+| 04:00 UTC | +0.225% | −0.182% | — | 0.004 |
+| 08:00 UTC | +0.127% | −0.161% | day [−0.10, +0.68] | 0.04, weaker |
+
+- **Robust:** 5% trimmed +0.26 vs −0.14. Both assets positive (BTC +0.15 vs −0.20, ETH +0.19 vs −0.40).
+  9 of 10 months positive (Sep 2026 −1.1).
+- **Worst trade:** −17.7% vs −21.5%. Same-day (≤ 1d) straddles: nothing.
+- **The pascore features are needed:** a model with only the three volatility features flips sign.
+- **Thin:** 143 quiet asset-days in 41 weeks.
+- **WITHDRAWN: "not on high-IV days".** It reproduces only with an unstated absolute cut (IV ≥ 0.685)
+  that looks chosen after the fact. With Rule A's own cut it is −0.31 vs +0.29, CI spanning 0. With
+  per-month or trailing terciles it is nothing. High-IV straddles lost on ALL days in this window, so
+  it was a level effect of those months, not an interaction. **Treat it as a hypothesis, not a rule.**
 - **Margin:** Delta's ~5% initial margin vs a −20% worst trade. **Size by the tail, not the margin.**
 - **Not yet in the forward log.**
 
@@ -157,8 +172,8 @@ spot candles, Delta traded candles), with its own code, before reading the autho
 - **Setup 1:** counts, mark rates, CI, by-year, first-of-episode and the stop-entry traded table, all
   exact.
 - **Setup 2:** 25x/50x, weekly count, yearly decay.
-- **Setup 3:** reproduced by running `quiet_wf.py` only, so this is not an independent check. The
-  high-IV interaction is unchecked.
+- **Setup 3:** independently verified by a second agent (own straddle rebuild matching 98.6% of rows,
+  own walk-forward model). The 'not on high-IV days' condition was withdrawn.
 
 **What was corrected.**
 - **Traded rates were selected on future mark activation.** That inflated 25x from 10.6% to 13.6%. The
