@@ -72,10 +72,49 @@ and on 5m MARK candles.
 - **The 1m numbers are larger than the 5m ones.** That matches his point that these structures live
   on the lowest timeframes, and traded prices keep the wicks that mark prices smooth away.
 
-**Not yet tested:**
-- what a close beyond a hurdle pays in OPTIONS (it needs 1–5m option candles around each event, which
-  only exist for recent days);
-- hurdles as trap-exit points for an existing position.
+### In options, with his exits and re-entry (`hurdle_options.py`, 2026-10-07)
+
+**Setup.** 4,751 hurdle breaks and 1,098 ordinary-peak breaks on 1m TRADED BTC/ETH, 2024 → Oct 2026.
+- **Entry:** 5 minutes after the break close, buy the ~0.75% OTM option in the break direction, on the
+  nearest expiry with ≥ 3h left (median 17h).
+- **Prices:** 5m MARK option candles; dust marks (< 0.03% of spot) excluded.
+- **Cost:** 8.26% round trip per entry. Returns are per unit staked.
+
+| exit rule | hurdle breaks | ordinary-peak breaks |
+|---|---|---|
+| hold 2h | +0.040 [−0.004, +0.085] | −0.047 |
+| hold 6h | +0.045 [−0.014, +0.112] | −0.107 |
+| hold to expiry | +0.059 [−0.031, +0.153] | −0.118 |
+| TARGET at the next older hurdle ≥ 3 ATR ahead | −0.032 | −0.116 |
+| target + TRAP exit (1m close back through by > 0.25 ATR) | −0.037 | −0.048 |
+| target + trap + RE-ENTRY (fresh close beyond; ≤ 2 re-entries) | +0.014 | −0.007 |
+| **trap exit + RE-ENTRY, no target** | **+0.076 [+0.037, +0.121]** | +0.024 (n.s.) |
+
+The best rule, broken down:
+
+| split | per unit staked |
+|---|---|
+| BTC | +0.061 [+0.012, +0.122] |
+| ETH | +0.093 [+0.033, +0.163] |
+| first half | +0.097 |
+| second half | +0.056 |
+| 2024 | +0.075 |
+| 2025 | +0.126 |
+| **2026** | **−0.001 (flat)** |
+
+- **Re-entries:** 1.3 per trade on average.
+- **Per-trade distribution:** median −0.19, 90th percentile +0.56, 99th +5.7, max +40.
+- **Without the best 1% of trades the mean is −0.03.**
+
+**Reading.**
+- His trap exit plus re-entry is the only version clearly positive after costs, and beats the
+  ordinary-peak control.
+- **Booking at a hurdle target HURTS.** It cuts the right tail that pays for everything, as in
+  `de-signals-no-highprob-setup`.
+- Thin, tail-driven, MARK-priced, and flat in 2026. **Paper-trade it forward before sizing.**
+
+**Still open:**
+- higher-resolution option prices (1m traded) for the same events 
 
 ## Bugs found while testing (fixed)
 
