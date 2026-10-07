@@ -5,7 +5,7 @@ the text; **commit times supply them**, which is what makes scoring possible at 
 `DECISION_DOCUMENT` has long flagged that whether Tejas's discretionary reads
 carry alpha is unanswerable because nothing was recorded. It is now answerable.
 
-**First scoring 2026-09-28. Re-scored 2026-09-30: nine entries, seven resolved. Re-scored 2026-10-03 01:15 IST: eleven entries** (prices: BTC/ETH perp hourly, `data/spot_candles`).
+**First scoring 2026-09-28. Re-scored 2026-09-30: nine entries, seven resolved. Re-scored 2026-10-03 01:15 IST: eleven entries. Re-scored 2026-10-07 09:45 IST: fourteen entries** (prices: BTC/ETH perp hourly, `data/spot_candles`).
 
 | # | committed (IST) | the call | outcome |
 |---|---|---|---|
@@ -18,8 +18,11 @@ carry alpha is unanswerable because nothing was recorded. It is now answerable.
 | 7 | 09-28 11:38 | no Aug-17-19-style upside blast in the near future | **CORRECT so far.** Aug ref was BTC +26.8% / ETH +36.4% in a week (biggest days +7.3% / +17.5%). Since: BTC max +1.80%, ETH +2.26%, biggest daily move 0.69% |
 | 8 | 09-30 09:36 | wedge; explosive break on/before the 2 Oct weekly expiry; side unknown, slight bearish bias | **STRUCTURE CORRECT, BIAS WRONG.** BTC broke UP out of the 1h triangle before expiry: 83,173 → high 87,224 (+4.9%) at 17:30 IST 2 Oct. The low (82,908) came 3h after the call and never broke down. Fastest hour +1.34% (09:30 IST 2 Oct). C-BTC-87000-021026 went ~10 → ~300 on mark (his own screenshot). It was a grind of steadily higher 4h closes more than an "explosion", but it was enough to multiply options. ETH +4.1% to 2,778. The slight bearish bias was wrong |
 | 9 | 09-30 16:51 | long-term wedge resolving at **100k** (he confirms 199k was a typo), upside continuation bias | pending; still unfalsifiable as written ("further upside move, or some reversal" covers both outcomes) |
-| 10 | 10-02 08:49 | market inching up with parabola-like support on 4h+; failed push-downs since the 21 Sep breakout; "bias for a breakout in coming days" | **pending / split so far.** The rally came at once: 84,830 → 87,224 (+2.8%) within 9h. But it stopped 0.2% short of the 22–23 Sep high (87,376) and reversed. No breakout yet; horizon "coming days" |
-| 11 | 10-02 18:53 | 6h BTC: the "hairy" last candle makes a breakout hard; "if the candle closes like this", triple top and the breakout is no longer imminent | **CORRECT within 6h (provisional).** The 6h candle (17:30–23:30 IST) printed 87,224 and closed near **84,012**, much weaker than "like this". That is a third failure at ~87.2–87.4k (22 Sep, 23 Sep, 2 Oct). BTC low 83,842 (−3.3% from the call), ETH 2,649 (−4.3%). It is a call about ABSENCE again, written while his own morning bias (entry 10) pointed the other way |
+| 10 | 10-02 08:49 | market inching up with parabola-like support on 4h+; "bias for a breakout in coming days" | **WRONG.** BTC peaked 86,965 on Sun-night/Mon 5 Oct (06:30 IST), below the 22–23 Sep high (87,376) and 2 Oct (87,224), and then broke DOWN on 7 Oct. He says so himself in entry 14 |
+| 11 | 10-02 18:53 | 6h BTC: the "hairy" last candle makes a breakout hard; "if the candle closes like this", triple top and the breakout is no longer imminent | **CORRECT (resolved 7 Oct).** The 6h candle (17:30–23:30 IST) printed 87,224 and closed near **84,012**, much weaker than "like this". That is a third failure at ~87.2–87.4k (22 Sep, 23 Sep, 2 Oct). BTC low 83,842 (−3.3% from the call), ETH 2,649 (−4.3%). It is a call about ABSENCE again, written while his own morning bias (entry 10) pointed the other way. Through 7 Oct no close above ~87.4k: a fourth failure at 86,965 (5 Oct), then the breakdown |
+| 12 | 10-04 19:03 (Sat) | clean higher-timeframe patterns for an upside breakout, esp. SOL; "this week (or max next week) 90k BTC broken"; flags the weekend-trap risk himself | **pending to 18 Oct, looking wrong.** BTC 84.1k on 7 Oct, needs +7%. The weekend-trap caveat was the right half: the Sun-night push to 86,965 was the high |
+| 13 | 10-05 09:46 | two wedges, the lower-timeframe one "also kind of a flag" | no side and no horizon, so **unscorable**. His 12h triangle's lower line was broken on 7 Oct |
+| 14 | 10-07 09:31 | 1h rising support (from 18 Sep) broken this morning; the 87–88k push was a weekend trap, seen when Monday 05:30 turned into a range; recovered losses on the break; "follow-through till maybe 80–78k, question is till when" | the break is **observed, not called**: it came at the 06:30 IST close, 85.5k → 83.5k low (−2.3%). The 80–78k forecast has **no horizon**, so it is pending. Add one ("by Friday") to make it scoreable |
 
 **Score note 2026-10-02.** The "3/3 on no move coming, 0/3 on direction" summary
 (commit 9eb6dca) counts entry 7 as a hit, but entry 7 has no horizon ("near
@@ -58,6 +61,16 @@ no. The candle read was right within hours. When the two disagree, the structure
 call side paid ~30x while the put side expired worthless, so a strangle profits if the hit is big enough.
 "No move coming" maps to SELLING premium (OPTION_SELLING.md §2b). Both use the part of his read
 that scores and leave out the part that doesn't.
+
+
+**Score note 2026-10-07.** Absence calls (1, 6, 7, 11): **3/3 resolved + 1 pending**, unchanged, and 11 is now
+firmly resolved. Timing without a side (8): 1/1. Direction/bias (3, 4, 5, 8-bias, 10, 12, 14): **0 hits**. Wrong:
+3, 8-bias, 10. Split: 5. Pending: 4, 12 (looking wrong), 14 (no horizon). The pattern holds again over a week where
+the bias said up twice (10, 12) and price broke down.
+
+His own post-mortem in 14 is the most useful line in the journal: *trap often happens during weekends; realised it
+when Monday 05:30 turned straight into a range*. That is a testable rule: do weekend breakouts that fail to extend
+in Monday's first IST session revert more often than weekday ones? Logged as a candidate test, not yet run.
 
 ## The pattern worth tracking
 
