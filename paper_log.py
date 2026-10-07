@@ -29,7 +29,7 @@ import numpy as np, pandas as pd
 LOG   = "paper_trades.csv"
 FIELDS = ["event_id","decided_at","entry_iso","signal","spot","expiry","duration",
           "opt_type","symbol","strike","entry_premium","trigger","ai_state","regime",
-          "r4","r5","d_room","w_room","at_line","decision","note","resolved_at",
+          "r4","r5","d_room","w_room","at_line","decision","picture","note","resolved_at",
           "mark_peak","traded_peak","mark_25x","traded_25x","filled"]
 COST, BREAKEVEN, EXPECTED = 0.0826, 0.0433, 0.0601   # from the backtest
 
@@ -90,6 +90,41 @@ def state_at(spot, ts):
         if j>=0: rg=int(r[j])
     return ai, rg, stale
 
+_PIC = {}
+def picture_on(spot, ts):
+    """His quiet-before-the-storm picture for the UTC day containing ts (docs/ML/PICTURE_CALLS.md):
+    quiet weekend & low-vol week & price held near its 7-day high, as causal percentiles of the previous
+    365 days, known at the PREVIOUS day's close. Built from data/spot_candles 1h (MARK); the backtest used
+    perp traded candles -- percentiles of volatility are insensitive to that."""
+    if spot not in _PIC:
+        import glob
+        rows = []
+        for f in sorted(glob.glob(f"data/spot_candles/{spot}/60/*")):
+            if os.path.basename(f).startswith("."): continue
+            try: rows += json.load(open(f))
+            except Exception: pass
+        if not rows: _PIC[spot] = None; return None
+        h = pd.DataFrame([r[:5] for r in rows], columns=["t","o","h","l","c"]).drop_duplicates("t").sort_values("t")
+        h["dt"] = pd.to_datetime(h.t, unit="s"); h = h.set_index("dt"); h["lr"] = np.log(h.c).diff()
+        d = h.resample("1D").agg(hi=("h","max"), lo=("l","min"), c=("c","last"), rv=("lr", lambda x: np.sqrt((x**2).sum()))).dropna()
+        d["rng"] = (d.hi - d.lo) / d.c
+        f = pd.DataFrame(index=d.index)
+        f["rv7"] = d.rv.rolling(7).mean()
+        f["wkend"] = d.rng.where(d.index.weekday >= 5).rolling(7, min_periods=1).mean()
+        f["dd7"] = d.c / d.c.rolling(7).max() - 1
+        def cp(s, win=365):
+            v = s.to_numpy(); out = np.full(len(v), np.nan)
+            for i in range(60, len(v)):
+                w = v[max(0, i-win):i]; w = w[np.isfinite(w)]
+                if len(w) >= 60 and np.isfinite(v[i]): out[i] = (w < v[i]).mean()
+            return pd.Series(out, index=s.index)
+        P = f.apply(cp).shift(1)
+        _PIC[spot] = ((P.wkend <= 0.3) & (P.rv7 <= 0.3) & (P.dd7 >= 0.6))
+    ser = _PIC[spot]
+    if ser is None: return None
+    day = pd.Timestamp(int(ts), unit="s").normalize()
+    return bool(ser.get(day, False))
+
 def read_log():
     if not os.path.exists(LOG): return pd.DataFrame(columns=FIELDS)
     return pd.read_csv(LOG, dtype=str).fillna("")
@@ -140,7 +175,8 @@ def cmd_run(a):
                                   "d_room":"" if dr is None else round(dr,2),
                                   "w_room":"" if wr is None else round(wr,2),
                                   "at_line":at,
-                                  "decision":"TAKE" if r5 else "skip"})
+                                  "decision":"TAKE" if r5 else "skip",
+                                  "picture":int(bool(picture_on(spot, ts+dur*60)) and ty=="C")})
                             have.add(eid)
     if not rows: print("no new signals in the window"); return
     df=pd.concat([read_log(), pd.DataFrame(rows)], ignore_index=True)
@@ -229,6 +265,12 @@ def cmd_report(a):
     res=d[(d.resolved_at!="")&(d.resolved_at!="unresolvable")]
     print(f"resolved: {len(res):,}")
     if not len(res): print("\nnothing resolved yet — outcomes fill in after expiry"); return
+    if "picture" in d.columns:
+        pc=res[(res.forward)&(res.picture=="1")]
+        if len(pc):
+            h=pd.to_numeric(pc.traded_25x,errors="coerce").mean()
+            print(f"  FORWARD PICTURE-CALL n={len(pc):>4} ({pc.expiry.nunique()} expiries)  25x traded {100*h:5.2f}%  "
+                  f"EV(traded) {h*24-(1-h)-COST:+.3f}  (backtest: 12.06% traded, other days 4.29%)")
     for fw, grp in [(f, g) for f in (True, False) for g in ("TAKE","skip")]:
         s=res[(res.decision==grp)&(res.forward==fw)]
         if not len(s): continue

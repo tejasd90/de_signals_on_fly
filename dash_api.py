@@ -289,7 +289,7 @@ def attach_req_to_events(ev, req):
     r = req[req.slot == "immediate"][["ts", "c_now", "p_now", "c_exp", "p_exp"]]
     if not len(r): return ev
     e = ev.sort_values("ts").copy()
-    m = pd.merge_asof(e, r.sort_values("ts"), on="ts", direction="nearest",
+    m = pd.merge_asof(e, r.sort_values("ts"), on="ts", direction="backward",   # never a LATER requirement (review D8)
                       tolerance=int(res_seconds_guess(e)))
     for col in ("c_now", "p_now", "c_exp", "p_exp"):
         if col in m: e[col] = m[col].to_numpy()

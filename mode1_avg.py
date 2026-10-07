@@ -43,7 +43,7 @@ for asset in ("BTC", "ETH"):
             end = settle if hold_to_expiry else d[4]
             # exit at 2x avg once all three buys are in (from day 3 onward), else at the end close
             for t in sorted(x for x in s if d[3] < x <= end):
-                if s[t][0] >= 2*avg: return 2*1 - 1 - COST          # whole position sold at 2x avg
+                if s[t][1] >= 2*avg: return 2*1 - 1 - COST          # a CLOSE at 2x avg (a mark HIGH is not a fill; review D6)
             last = [x for x in sorted(s) if x <= end][-1]
             return s[last][1]*sum(units)/3 - 1 - COST
         fin = {nm: (lambda s: [s[x] for x in sorted(s)][-1][1]/s[d0][1])(s) for nm, s in sides.items()}

@@ -76,6 +76,20 @@ independently.
 
 ### Original (superseded) section follows
 
+## UPDATE after review fixes D2 + D3 (2026-10-07, evening)
+
+**What changed.**
+- **D2:** hugs that ended at their own line's recorded break were filed "open", and are now breaks.
+- **D3:** level confirmation was dated at the touch bar, and is now dated when the rejection completes.
+- Result: 4,332 episodes (2,992 breaks). The rates above are superseded by these.
+
+| claim | after the fixes |
+|---|---|
+| A. hug as a countdown | after a move in: 0.478 (first hour) → **0.517** (3h+), CIs overlap. With **no move in: 0.517 → 0.611** [0.544, 0.683], non-overlapping. So the countdown is partly real, mainly for quiet drifts into the line |
+| his exact picture (sharp in + hug ≥ 6h) | **0.750** [0.611, 0.889], n = 36, vs 0.691 overall and 0.639 for sharp in + short hug. Leans right, unconfirmed |
+| B. melt | IV down > 8%: 0.513; **IV up: 0.607**. Still the opposite of the melt claim |
+| D. rich IV blocks breaks | IV high: 0.690 vs others ~0.69. No effect |
+
 ## Hurdles (point 2): TESTED, the re-entry rule holds (`hurdle_test.py`)
 
 **His follow-up:** sharp moves and hurdles live on 1–5 minute charts. Trade off higher timeframes for

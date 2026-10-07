@@ -107,7 +107,7 @@ def count_rejections(a, A, level):
     level is only 'confirmed' from that bar onward — never retroactively."""
     ts,o,h,l,c=a[:,0],a[:,1],a[:,2],a[:,3],a[:,4]
     P=level["price"]; kind=level["kind"]
-    rejects=[]; n=len(c); armed=False; touch_i=None
+    rejects=[]; done=[]; n=len(c); armed=False; touch_i=None
     i=level.get("anchor_i",0)          # nothing before the anchor is knowable
     while i<n:
         if not np.isfinite(A[i]): i+=1; continue
@@ -120,13 +120,18 @@ def count_rejections(a, A, level):
         near = (h[i] >= P - TOL_ATR*A[i]) if kind=="R" else (l[i] <= P + TOL_ATR*A[i])
         beyond = (c[i]>P) if kind=="R" else (c[i]<P)
         if beyond:                                   # a close through ends the level
+            count_rejections.done = done
             return rejects, i
         if near and not armed: armed=True; touch_i=i
         if armed:
             away = (P-c[i])/A[i] if kind=="R" else (c[i]-P)/A[i]
             if away>=AWAY_ATR:
-                rejects.append(touch_i); armed=False; touch_i=None
+                # the touch is where it happened; the rejection is only KNOWN here, once price has
+                # travelled AWAY_ATR away (2026-10-07 review: confirming at the touch bar was a small
+                # look-ahead inherited by every user of confirmed_i)
+                rejects.append(touch_i); done.append(i); armed=False; touch_i=None
         i+=1
+    count_rejections.done = done
     return rejects, None
 
 if __name__=="__main__":
@@ -140,7 +145,7 @@ if __name__=="__main__":
         for L in lv:
             rej,brk=count_rejections(arr,A,L)
             if len(rej)>=MIN_REJ:
-                ci=rej[MIN_REJ-1]                      # confirmed here, not before
+                ci=count_rejections.done[MIN_REJ-1]   # confirmed when the 3rd rejection completed
                 L2=dict(L); L2.update(n_rej=len(rej), confirmed_i=ci,
                         confirmed_ts=int(arr[ci,0]),
                         break_i=brk, break_ts=int(arr[brk,0]) if brk else None,
@@ -212,7 +217,7 @@ def all_levels(spot, tf):
         rej,brk=count_rejections(arr,A,L)
         if len(rej)>=MIN_REJ:
             L=dict(L); L.update(type="horizontal", n_rej=len(rej),
-                confirmed_i=rej[MIN_REJ-1], confirmed_ts=int(arr[rej[MIN_REJ-1],0]),
+                confirmed_i=count_rejections.done[MIN_REJ-1], confirmed_ts=int(arr[count_rejections.done[MIN_REJ-1],0]),
                 break_i=brk, break_ts=int(arr[brk,0]) if brk else None,
                 rejects=[int(arr[r,0]) for r in rej],
                 price_at_break=L["price"])

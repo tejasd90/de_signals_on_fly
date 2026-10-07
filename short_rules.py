@@ -17,6 +17,7 @@ mid = T.t.median(); cut = T[T.t < mid].iv.quantile(.8)
 
 def stats(lab, E):
     E = E.sort_values("t"); d = E.groupby(E.t // 86400).net.sum()
+    d = d.reindex(range(int(d.index.min()), int(d.index.max()) + 1), fill_value=0.0)   # flat days count (review D5)
     eq = d.cumsum(); dd = (eq - eq.cummax()).min()
     yrs = (E.t.max() - E.t.min())/(365*86400)
     sh = d.mean()/d.std()*np.sqrt(365) if d.std() > 0 else np.nan

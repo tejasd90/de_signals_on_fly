@@ -8,8 +8,7 @@ his signals, the price-action work and the ML from the seller's side.
 The rerun on 2 Oct matched to the 3rd decimal, because no expiry had settled since. Bid/ask
 haircut now from 2 live snapshots (1 and 2 Oct, 1,784 quotes). Option candles keep
 updating through the dashboard loop (`fetch_options.py --live`), so `python short_panel.py && python short_rules.py`
-picks up every new expiry. Candles written by that loop are TRADED prices; older
-ones are MARK (see Bounds).
+picks up every new expiry. Candles written by that loop were TRADED prices until 2026-10-02; they are now MARK and the traded ones were rewritten (`fetch_options.py --remark`).
 
 **In plain English:** selling options wins often but earns nothing on average,
 because the occasional big loss eats the frequent small wins. Two situations do pay
@@ -150,3 +149,10 @@ position), not by the margin.**
 - **Spot:** S_T is the perp mark, not Delta's settlement index.
 - **Size:** fill size and depth are unmeasured.
 - **Data:** candles from 2026-09-17 onward (the audit found 1.3% of panel rows) were written by `fetch_options.py`, which uses the plain symbol, so those are TRADED prices. Earlier ones are MARK. That's two weeks of data, which doesn't move these results.
+
+**Correction 2026-10-07 (review D5):** the Sharpe ratios in §4 were computed over trade days only.
+- **Corrected (all calendar days, flat days included):** out-of-sample A 0.64 (was 1.02) and B 1.07
+  (was 1.25).
+- **Selection:** both rules were picked from ~25 conditions on the full sample.
+- **Stacking the filters:** the quiet-day filter and the high-IV filter are ANTI-additive. Quiet &
+  high-IV gives −0.84%, quiet & not-high gives +0.29% (`REVIEW_2026-10-07.md`).

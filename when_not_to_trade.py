@@ -28,7 +28,7 @@ cols = cols_for(*SPEC)
 g = M.groupby("spot")
 M["v_absret"] = g["absret"].transform(lambda s: s.shift(1).rolling(5).mean())
 M["v_range"]  = g["rangeatr"].transform(lambda s: s.shift(1).rolling(5).mean())
-M["v_atrpct"] = M.atr_prev / M.c
+M["v_atrpct"] = M.atr_prev / g["c"].shift(1)        # previous close: day D's close is not known at D's open (review D4)
 BASE = ["v_absret","v_range","v_atrpct"]
 M = M.dropna(subset=cols+BASE+[TGT])
 cut = M.day.quantile(0.6)

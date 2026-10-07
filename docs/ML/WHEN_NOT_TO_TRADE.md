@@ -93,3 +93,8 @@ The filter answers "is today worth showing up for". His journal scoring
 (JOURNAL_SCORECARD.md) suggests his STRUCTURAL reads carry direction better than
 his biased ones. Those are complementary: the model picks the days, he picks the
 side.
+
+**Update 2026-10-07 (review D4):**
+- **The fix:** `v_atrpct` used day D's close, which is not known at D's open. It now uses the previous close.
+- **Re-run:** skip-30% edge **+24.4pp** (BTC +16.9, ETH +24.5). Conclusions unchanged.
+- **The +23.5 vs +21.5 figures earlier in this doc:** +23.5 was the point estimate; +21.5 was the bootstrap mean.

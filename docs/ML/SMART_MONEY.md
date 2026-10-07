@@ -259,3 +259,11 @@ clear (−0.27 vs +0.04). Exiting before the last 3 days beats holding to expiry
   came before SMALLER downside (2.6% vs 3.8%), not a bigger upside.
 - **The verdict:** informed positioning, if it exists, does not leave a usable footprint in Delta's
   option OI. Delta's book is small next to Deribit's, which is where the positioning would be visible.
+
+**Correction 2026-10-07 (review D6):**
+- **The exit fill:** `mode1_avg.py` let the 2x exit fill on the MARK high; it now needs a candle CLOSE at 2x.
+- **Corrected averaging results:** stronger side −0.023 [−0.171, +0.129] (was +0.035); weaker side
+  −0.366; coin flip −0.173. **"Never average the melting side" stands.** Averaging the strong side is
+  about break-even, not positive.
+- **Two mode-1 definitions:** mode 1 is 42% under `mode1_avg.py`'s own definition (one side ≤ 0.2x at
+  expiry, the other above), vs 59.6% in §4 (melt + sideways). The two measure different things.

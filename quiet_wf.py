@@ -1,5 +1,6 @@
 """Walk-forward version of the quiet-day predictor (when_not_to_trade.py), so the straddle-
-seller test in quiet_sell.py gets 2+ years of held-out days instead of ~6 months.
+seller test in quiet_sell.py gets more held-out days: in practice Dec 2025 - Sep 2026 (the
+features need ~19 months of history first), vs ~6 months before.
 Same features and target; the model is refit at the start of every month on all earlier days
 (expanding window, minimum 180 days) and scores only that month. Then the 00:00 UTC short
 straddle on predicted-quiet days (top 30% of P(quiet) within the training window) vs the rest."""

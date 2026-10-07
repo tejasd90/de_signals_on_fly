@@ -41,7 +41,7 @@ def episodes(asset, tf=60):
     for li, L in enumerate(conf):
         s = 1 if L["kind"] == "S" else -1
         i0 = L["confirmed_i"] + 1; i1 = L["break_i"] if L.get("break_i") else n - 1
-        for i in range(i0, min(i1 + 1, n)):
+        for i in range(i0, min(i1, n)):                  # up to, not including, the break bar
             if not np.isfinite(A[i]) or A[i] <= 0: continue
             v = line_at(L, arr, i)
             if np.isfinite(v) and v > 0: active.setdefault(i, {})[li] = (s, s * (c[i] - v) / A[i])
@@ -50,8 +50,13 @@ def episodes(asset, tf=60):
         lines = active.get(i, {})
         if ep is not None:
             cur = lines.get(ep["li"])
-            if cur is None:                      # the line ended without a recorded break here
-                ep["end"] = "open"; rows.append(ep); ep = None
+            if cur is None:                      # the line's life ended
+                L = conf[ep["li"]]
+                if L.get("break_i") is not None and L["break_i"] <= i:   # ...at its own recorded break (review D2)
+                    ep["end"], ep["end_i"] = "break", L["break_i"]
+                else:
+                    ep["end"] = "open"
+                rows.append(ep); ep = None
             else:
                 d = cur[1]
                 if d < -BREAK_ATR: ep["end"], ep["end_i"] = "break", i; rows.append(ep); ep = None; continue
