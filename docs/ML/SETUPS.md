@@ -17,7 +17,7 @@ Conventions:
 
 ## Setup 1: PICTURE-CALL with R5 (best simple rule): BUY
 
-**Rule** (BTC and ETH only):
+**Rule** (BTC and ETH only). In practice it is about **one trade a week**, arriving in clusters of a few days:
 1. Take one of his four signals on a **CALL** (activated, premium 2–20)...
 2. ...on a **picture day**: quiet weekend (≤ 30th pct) AND low-vol week (rv7 ≤ 30th pct) AND price held
    near its 7-day high (dd7 ≥ 60th pct). Causal percentiles vs the previous 365 days, known at the
@@ -25,7 +25,18 @@ Conventions:
 3. ...and **R5 not vetoing**: the daily chart is NOT in a clean 20-day uptrend (efficiency > 0.35 with a
    positive 20d return).
 
-**Backtest** (events.parquet, settled expiries 2024 → 3 Oct 2026; 2,790 events ≈ 21/week; TRADED):
+**How often it fires** (2024-03 → 2026-09, 2.5 years, BTC + ETH):
+- 2,790 signal EVENTS. That is an average of 21/week, but they bunch: a median of 19 events on a qualifying day, up to 65.
+- **126 qualifying asset-days, ≈ 50 per year, i.e. about one a week.**
+- **36 episodes** (runs of qualifying days; median 3 days, max 11), ≈ 14 per year, i.e. about one a month per
+  asset. 14 of the 36 had at least one 25x event. (The "43 episodes" quoted elsewhere counts ALL picture
+  days, including R5-vetoed ones.)
+
+**As implementable trades** (no cherry-picking within a day), 25x on MARK:
+- **first qualifying signal of each day: 126 trades, 16.3%**;
+- first signal of each episode: 36 trades, 11.1%.
+
+**Backtest per event** (all 2,790 events, averaged over strikes; TRADED):
 
 | target | 2x | 5x | 10x | 25x | 50x | **100x** | 200x | 500x |
 |---|---|---|---|---|---|---|---|---|
