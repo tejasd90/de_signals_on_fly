@@ -37,15 +37,45 @@ exact-picture check. Inputs: 1h BTC+ETH candles since 2024, confirmed lines from
 | **C. The move is sized to the 1:50/1:100 target** | The 24h move after a break, divided by the 1:100 requirement on the immediate expiry: median 0.26; 11% reach it. Equal-width bins fall smoothly (10.4 → 7.6 → 5.2 → 3.5%), with no bump at 1. **No sign that moves stop at the option target.** |
 | **D. Rich premiums get thwarted** (fewer breaks when IV is high at the hug start) | P(break) is 0.567 / 0.574 / 0.580 across low / mid / high IV. **No effect.** |
 
-## Hurdles (point 2): detector only so far
+## Hurdles (point 2): TESTED, the re-entry rule holds (`hurdle_test.py`)
 
-On 15m since 28 Sep the relaxed rule (drop ≥ 0.7× the rise, ≤ 3 touches, 24h exposure) finds 7 hurdles.
-It finds his 2 Oct ~19:00 (87,196), 5 Oct 06:30 (86,965) and 6 Oct 20:30 (86,661) examples. It misses the
-first 2 Oct spike (~10:00), which wasn't followed by a sharp enough drop.
+**His follow-up:** sharp moves and hurdles live on 1–5 minute charts. Trade off higher timeframes for
+reliability, but use the low timeframes for targets and trap exits. So hurdles are detected on 1m
+TRADED perp candles (`data/btc_1m.parquet` and `data/eth_1m.parquet`, `fetch_eth_1m.py <SYMBOL>`)
+and on 5m MARK candles.
 
-The test is still to come: do hurdles stop price on return more than ordinary swing highs at the same
-distance, does a close beyond one follow through more than an ordinary break, and do they work as
-targets and exits.
+**Definitions.**
+- **HURDLE:** an exposed extreme (beyond everything of the last 12h on 1m, 24h on 5m) with a sharp move
+  in (≥ 2 ATR within M bars), a reversal of ≥ 0.7× that move within M bars, and ≤ 3 bars near it.
+- **CONTROL:** the same kind of exposed extreme that rolled over SLOWLY (reversal < 0.5× the move in),
+  i.e. an ordinary swing high or low.
+- **Window:** levels are used only after they are known (bar i+M) and followed for 3 days. The robust
+  version keeps only levels that price had LEFT by ≥ 1.5 ATR when known, so every retest is a genuine
+  return.
+
+**Results** (hurdle vs control, robust version):
+
+| data | rejected when price returns | after a CLOSE beyond it: carries ≥ 3 ATR in 2h | median carry | holds in both halves? |
+|---|---|---|---|---|
+| BTC 1m traded (2024-01 → 2026-10) | 30.5% vs 26.5% (CI −0.1 to +8.0) | **75.2% vs 62.4%** (+7.7 to +17.9) | 6.4 vs 4.4 ATR | yes / yes |
+| ETH 1m traded (2024-02 → 2026-09) | 31.6% vs 26.5% (+1.1 to +8.7) | **76.3% vs 65.3%** (+6.7 to +15.8) | 6.5 vs 4.3 ATR | yes / yes |
+| BTC 5m mark | 34.8% vs 32.6% (n.s.) | **54.6% vs 34.6%** (+10.6 to +28.8) | 3.3 vs 2.4 ATR | yes / yes |
+| ETH 5m mark | 35.9% vs 31.7% (n.s.) | **55.9% vs 35.8%** (+11.5 to +28.8) | 3.4 vs 2.2 ATR | yes / yes |
+
+**Reading.**
+- **His re-entry rule is the robust finding.** A close beyond a hurdle carries further and more often
+  than a close beyond an ordinary peak: +8 to +20 points on every dataset, in both halves of time.
+- **As resistance, hurdles are only slightly stronger than ordinary peaks.** That is significant on
+  ETH 1m only, marginal on BTC 1m, and not significant on 5m.
+- **So a hurdle is better read as a TRIGGER than a wall.** If price can get back through the level
+  that was violently rejected, the move tends to run.
+- **The 1m numbers are larger than the 5m ones.** That matches his point that these structures live
+  on the lowest timeframes, and traded prices keep the wicks that mark prices smooth away.
+
+**Not yet tested:**
+- what a close beyond a hurdle pays in OPTIONS (it needs 1–5m option candles around each event, which
+  only exist for recent days);
+- hurdles as trap-exit points for an existing position.
 
 ## Bugs found while testing (fixed)
 

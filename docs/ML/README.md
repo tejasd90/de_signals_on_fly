@@ -27,7 +27,7 @@ whether a strategy makes money.
 | 9 | **OPTION_SELLING.md** | The seller's side of everything (2026-10-02). Unconditional selling nets ~0. Selling behind trendline breaks and high-IV straddles survive but halve out of sample. 5% margin vs −20% tail. | current; refreshes with the dashboard loop |
 | 10 | **TF_REPEAT_HOLD.md** | Cross-timeframe repeats (mute after a lower-tf multibagger) and wait-and-hold (30m–3h only). Plain-English summary at top. | current; signals frozen at 2026-09-16 |
 | 11 | **SMART_MONEY.md** | Smart-money fingerprint (max-pain pull, defended OI walls: null on Delta), equidistant pair (null for multibaggers), the daily 13:30–14:30 IST premium cliff (real, traded), his three modes measured. | current (2026-10-03) |
-| 12 | **HUG_MELT_HURDLE.md** | His points 1–3 (2026-10-07): the hug before a break (not a countdown; his exact picture 0.64 vs 0.57, n=39), the premium-melt mechanism (no footprint), hurdle detector (test pending). |
+| 12 | **HUG_MELT_HURDLE.md** | His points 1–3 (2026-10-07): the hug before a break (not a countdown; his exact picture 0.64 vs 0.57, n=39), the premium-melt mechanism (no footprint), hurdles TESTED: a close beyond a hurdle carries further than beyond an ordinary peak (+8 to +20 pts, 1m traded and 5m, both halves). |
 
 Source material for CONTEXT_PLAN: `../../Brooks/0{0,1,2,3}-*.md` — distilled from
 the Brooks trilogy, which supersedes the 2009 book for concepts.

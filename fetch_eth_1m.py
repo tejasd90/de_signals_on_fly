@@ -11,11 +11,13 @@ Resumable: re-running only fetches what is missing.
 import json, os, time, urllib.request, urllib.error
 import numpy as np, pandas as pd
 
-OUT="data/eth_1m.parquet"
+import sys
+SYM=sys.argv[1] if len(sys.argv)>1 else "ETHUSD"           # e.g. BTCUSD (TRADED perp candles)
+OUT=f"data/{SYM[:-3].lower()}_1m.parquet"
 BASE="https://api.india.delta.exchange/v2/history/candles"
 
 def win(a,b,tries=4):
-    u=f"{BASE}?symbol=ETHUSD&resolution=1m&start={int(a)}&end={int(b)}"
+    u=f"{BASE}?symbol={SYM}&resolution=1m&start={int(a)}&end={int(b)}"
     for k in range(tries):
         try:
             with urllib.request.urlopen(u,timeout=45) as r:
@@ -27,8 +29,8 @@ def win(a,b,tries=4):
     return []
 
 if __name__=="__main__":
-    h=pd.read_parquet("data/perp_candles/ETHUSD.parquet")
-    t0,t1=int(h.ts.min()), int(h.ts.max())+3600
+    h=pd.read_parquet(f"data/perp_candles/{SYM}.parquet")
+    t0,t1=int(h.ts.min()), int(time.time())                # through now, not the perp file's end
     have={}
     if os.path.exists(OUT):
         old=pd.read_parquet(OUT)
