@@ -27,6 +27,7 @@ whether a strategy makes money.
 | 9 | **OPTION_SELLING.md** | The seller's side of everything (2026-10-02). Unconditional selling nets ~0. Selling behind trendline breaks and high-IV straddles survive but halve out of sample. 5% margin vs −20% tail. | current; refreshes with the dashboard loop |
 | 10 | **TF_REPEAT_HOLD.md** | Cross-timeframe repeats (mute after a lower-tf multibagger) and wait-and-hold (30m–3h only). Plain-English summary at top. | current; signals frozen at 2026-09-16 |
 | 11 | **SMART_MONEY.md** | Smart-money fingerprint (max-pain pull, defended OI walls: null on Delta), equidistant pair (null for multibaggers), the daily 13:30–14:30 IST premium cliff (real, traded), his three modes measured. | current (2026-10-03) |
+| 14 | **PICTURE_CALLS.md** | **The lead:** quiet-before-the-storm picture × his call signals — 25x 12.1% vs 4.3% on TRADED prices, survives leave-one-episode-out, puts null. Forward-log next. |
 | 13 | **REVIEW_2026-10-07.md** | Cross-study review: insights, ranked combinations (quiet picture × his call signals is the lead), mis-tested intuitions, bug list with status. |
 | 12 | **HUG_MELT_HURDLE.md** | His points 1–3 (2026-10-07): the hug before a break (not a countdown; his exact picture 0.64 vs 0.57, n=39), the premium-melt mechanism (no footprint), hurdles: the carry result was a measurement artefact (CORRECTED same day). Hurdles add nothing measurable over ordinary peaks; his trap-exit + re-entry management is a weak, post-hoc candidate. |
 
