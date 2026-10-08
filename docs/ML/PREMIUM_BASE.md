@@ -1,5 +1,69 @@
 # Premium base: the parabola of higher lows (tested 2026-10-09)
 
+## v3: the idea only, with no extra assumptions (`premium_base3.py`, `premium_base3_eval.py`)
+
+He corrected v2 (below): it assumed a time to expiry (≥ 12h), one timeframe (1h, 48 bars) and an
+absolute cheapness (≤ 0.25% of spot, which keeps mostly far-OTM strikes, exactly where he says the shape
+goes flat). v3 drops all three, and also v2's 1.5× rise and 3× cap.
+
+**Parabola, in simple English:** look only at the dips (each candle low that is the lowest within 2 candles
+either side). The dips trace a bowl: they come down, flatten at a bottom, and every later dip stays above
+the bottom, curving up.
+- **bowl:** a U-shaped curve through the dips, ≥ 2 dips after the bottom, all higher than it;
+- **arm:** the rising side only, ≥ 3 higher lows in a row with each step bigger than the last.
+
+**Decay toward zero:** the bottom ≤ 15% of the contract's highest close before the window.
+
+**When it is checked:** two candles after a new dip prints (the first moment you could see it), with the
+close still above that dip.
+
+**Where it runs:** 5m, 15m, 1h and 4h, window 48 candles (4h / 12h / 2d / 8d), any time to expiry, any
+strike, all settled BTC + ETH expiries 2024-01 → 2026-10-08.
+
+**Control:** the same moment (a new dip just confirmed, decayed as far) without the shape. Both are
+sampled at most once per window per contract. Matched within timeframe × time to expiry × moneyness ×
+decay depth (A), and also on how far the premium has already recovered from its bottom (B).
+**Rows:** 491,705 pattern, 854,843 control.
+
+| target | parabola | no parabola (A) | no parabola (B) | break-even |
+|---|---|---|---|---|
+| 5x | 10.96% | 11.31% | 11.61% | 21.7% |
+| 10x | 5.20% | 5.33% | 5.38% | 10.8% |
+| 25x | 1.89% | 1.98% | 1.98% | 4.33% |
+| 100x | 0.34% | 0.41% | 0.39% | 1.08% |
+
+- **25x difference, week-block CI:** A [−0.2, +0.0]pp; B [−0.2, +0.0]pp. **The shape adds nothing**
+  (if anything, slightly less).
+- **Every timeframe is level:** 25x 5m 1.91 vs 2.06 · 15m 1.85 vs 1.82 · 1h 1.93 vs 1.98 · 4h 1.61 vs 2.00.
+- **Level everywhere else too:** calls, puts, each year, each asset, every time-to-expiry bucket and every
+  moneyness bucket. The last 6 hours to expiry are 0.90 vs 0.73, and still five times below break-even.
+- **Bowl vs rising arm:** bowl 1.91 vs 2.02; rising arm 2.17 vs 1.92 (the best cut, 18k rows, still half
+  of break-even).
+
+**His chain point, tested.** For every bar showing the shape, the next 3 strikes further OTM at the same
+bar:
+
+| further OTM | also shows the shape | premium vs shown strike | 25x shown | 25x neighbour |
+|---|---|---|---|---|
+| +1 | 72% | 0.80× | 1.44% | 1.60% |
+| +2 | 67% | 0.63× | 1.56% | 1.88% |
+| +3 | 62% | 0.51× | 1.41% | 1.84% |
+
+- **He is right that it fades along the chain:** the share of neighbours that still show it drops with
+  each step.
+- **The flatter, cheaper neighbours do slightly better** than the strike that shows it clearly. That is
+  the general cheapness effect.
+- **When the next strike is flat**, the clear strike does a little better (25x 1.82% vs 1.29% when the
+  neighbour shows it too). Still far below break-even.
+
+**Verdict (v3): falsified on every timeframe, every time to expiry and every strike.** Seeing the bowl
+does not change the odds compared with the same option at the same moment without it. It catches the
+eye because the winners had it, but so did most of the losers.
+
+---
+
+## v2 (superseded by v3 above: it had the tte/timeframe/cheapness assumptions)
+
 His idea (journal entry 16, with charts in `img/2026-10/journal_2026-10-09_img2..4`): on the OPTION's own
 chart, the premium decays toward zero, then **builds a parabola of higher lows** ("holding up", slowly
 rising), then explodes. Examples: P-BTC-80500/81000-091026 (8 Oct), C-BTC-87000-021026 (2 Oct).
