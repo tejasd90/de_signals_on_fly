@@ -91,6 +91,8 @@ zero, then a base / "parabola holding up" with slowly rising premium, then the e
 (87000C) and 8 Oct (80500P / 81000P). On 8 Oct his `otm_wall` signal fired on the 80000P and 81000P
 (9 Oct) at 17:30 on 7 Oct, and R4 logged "skip". This is the untested "rush to zero then expansion"
 (C1 p17/p393) plus his original meaning of "holding" (C1 p258). See `REVIEW_2026-10-07.md` §C.
+**Tested 2026-10-09 (`PREMIUM_BASE.md`): falsified.** The parabola of higher lows hits 25x 2.2% vs 4.6% for
+matched cheap options still making new lows; puts level, 2026 reversed.
 
 ## The pattern worth tracking
 
