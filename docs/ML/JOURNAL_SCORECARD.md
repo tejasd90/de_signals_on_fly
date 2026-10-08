@@ -10,17 +10,17 @@ carry alpha is unanswerable because nothing was recorded. It is now answerable.
 | # | committed (IST) | the call | outcome |
 |---|---|---|---|
 | 1 | 09-23 12:42 | hourly double top; "further upmove unlikely for a couple of days"; BTC/SOL cleaner than ETH | **CORRECT.** Max upmove over the next 2 days: **BTC +0.16%, ETH +0.27%, SOL +0.48%**. All three then fell 1.3–2.6% |
-| 2 | 09-23 12:45 | 70% conviction BTC stays >80K, ETH >2500 | **holding** (lows 82,650 / 2,626.6) |
+| 2 | 09-23 12:45 | 70% conviction BTC stays >80K, ETH >2500 | **holding** (lows 82,650 / 2,626.6) **Update 9 Oct:** ETH fell to **2,406** (8 Oct 22:30), below 2,500, so the ETH half is **WRONG**. BTC low 80,351, so the BTC half still holds. SPLIT |
 | 3 | 09-24 14:29 | "markets going down, could breach levels for tomorrow's monthly expiry" | **WRONG.** BTC +0.37%, ETH +0.90% into the 25th; no expiry breach |
-| 4 | 09-27 17:09 | ETH 12h symmetric wedge; "personally I am biased for an upside breakout" | **WRONG so far.** ETH −2.24%; high only +0.29% above the call |
+| 4 | 09-27 17:09 | ETH 12h symmetric wedge; "personally I am biased for an upside breakout" | **WRONG so far.** ETH −2.24%; high only +0.29% above the call **Update 9 Oct:** the wedge resolved **DOWN**: ETH high 2,776 (2 Oct), then 2,590 (7 Oct) and **2,406** (8 Oct). **WRONG** |
 | 5 | 09-28 09:28 | crypto tied to gold; 82,800 crucial for BTC, break → 80k | **SPLIT.** Level broke (low 82,500) but 80k never came; recovered to 83,788 |
 | 6 | 09-28 11:27 | hammer + inverted hammer → range, 1:100 unlikely | **CORRECT.** BTC -0.77%/+1.67%, ETH -0.56%/+3.70% |
-| 7 | 09-28 11:38 | no Aug-17-19-style upside blast in the near future | **CORRECT so far.** Aug ref was BTC +26.8% / ETH +36.4% in a week (biggest days +7.3% / +17.5%). Since: BTC max +1.80%, ETH +2.26%, biggest daily move 0.69% |
+| 7 | 09-28 11:38 | no Aug-17-19-style upside blast in the near future | **CORRECT so far.** Aug ref was BTC +26.8% / ETH +36.4% in a week (biggest days +7.3% / +17.5%). Since: BTC max +1.80%, ETH +2.26%, biggest daily move 0.69% **Update 9 Oct:** still no upside blast 11 days on. The biggest daily moves since are DOWN (BTC −2.4%, ETH −4.7%). **Correct so far** (no horizon) |
 | 8 | 09-30 09:36 | wedge; explosive break on/before the 2 Oct weekly expiry; side unknown, slight bearish bias | **STRUCTURE CORRECT, BIAS WRONG.** BTC broke UP out of the 1h triangle before expiry: 83,173 → high 87,224 (+4.9%) at 17:30 IST 2 Oct. The low (82,908) came 3h after the call and never broke down. Fastest hour +1.34% (09:30 IST 2 Oct). C-BTC-87000-021026 went ~10 → ~300 on mark (his own screenshot). It was a grind of steadily higher 4h closes more than an "explosion", but it was enough to multiply options. ETH +4.1% to 2,778. The slight bearish bias was wrong |
-| 9 | 09-30 16:51 | long-term wedge resolving at **100k** (he confirms 199k was a typo), upside continuation bias | pending; still unfalsifiable as written ("further upside move, or some reversal" covers both outcomes) |
+| 9 | 09-30 16:51 | long-term wedge resolving at **100k** (he confirms 199k was a typo), upside continuation bias | pending; still unfalsifiable as written ("further upside move, or some reversal" covers both outcomes) **Update 9 Oct:** BTC 81.7k, far from 100k. Pending, no horizon |
 | 10 | 10-02 08:49 | market inching up with parabola-like support on 4h+; "bias for a breakout in coming days" | **WRONG.** BTC peaked 86,965 on Sun-night/Mon 5 Oct (06:30 IST), below the 22–23 Sep high (87,376) and 2 Oct (87,224), and then broke DOWN on 7 Oct. He says so himself in entry 14 |
 | 11 | 10-02 18:53 | 6h BTC: the "hairy" last candle makes a breakout hard; "if the candle closes like this", triple top and the breakout is no longer imminent | **CORRECT (resolved 7 Oct).** The 6h candle (17:30–23:30 IST) printed 87,224 and closed near **84,012**, much weaker than "like this". That is a third failure at ~87.2–87.4k (22 Sep, 23 Sep, 2 Oct). BTC low 83,842 (−3.3% from the call), ETH 2,649 (−4.3%). It is a call about ABSENCE again, written while his own morning bias (entry 10) pointed the other way. Through 7 Oct no close above ~87.4k: a fourth failure at 86,965 (5 Oct), then the breakdown |
-| 12 | 10-04 19:03 (Sat) | clean higher-timeframe patterns for an upside breakout, esp. SOL; "this week (or max next week) 90k BTC broken"; flags the weekend-trap risk himself | **pending to 18 Oct, looking wrong.** BTC 84.1k on 7 Oct, needs +7%. The weekend-trap caveat was the right half: the Sun-night push to 86,965 was the high |
+| 12 | 10-04 19:03 (Sat) | clean higher-timeframe patterns for an upside breakout, esp. SOL; "this week (or max next week) 90k BTC broken"; flags the weekend-trap risk himself | **pending to 18 Oct, looking wrong.** BTC 84.1k on 7 Oct, needs +7%. The weekend-trap caveat was the right half: the Sun-night push to 86,965 was the high **Update 9 Oct:** BTC ~81.7k on 9 Oct needs **+10% in 9 days**. Looking clearly wrong; resolves 18 Oct |
 | 13 | 10-05 09:46 | two wedges, the lower-timeframe one "also kind of a flag" | no side and no horizon, so **unscorable**. His 12h triangle's lower line was broken on 7 Oct |
 | 14 | 10-07 09:31 | 1h rising support (from 18 Sep) broken this morning; the 87–88k push was a weekend trap, seen when Monday 05:30 turned into a range; recovered losses on the break; "follow-through till maybe 80–78k, question is till when" | the break is **observed, not called**: it came at the 06:30 IST close, 85.5k → 83.5k low (−2.3%). The 80–78k forecast has **no horizon**, so it is pending. Add one ("by Friday") to make it scoreable. **Update 9 Oct:** BTC reached 80,351 on 8 Oct 22:30, so the 80k half was reached; 78k not yet |
 | 15 | 10-08 18:48 | range polarity flipped: the current range low ≈ the previous range high (~81–82k), now support and "difficult to penetrate"; buyers appeared below at ~10:00 and ~18:00 | **WRONG within ~4h.** BTC 82.3k → **80,351 by 22:30 IST**, straight through 81–82k. The descriptive part (buyers at 10:00 / 18:00) was right up to that moment |
@@ -73,6 +73,24 @@ the bias said up twice (10, 12) and price broke down.
 His own post-mortem in 14 is the most useful line in the journal: *trap often happens during weekends; realised it
 when Monday 05:30 turned straight into a range*. That is a testable rule: do weekend breakouts that fail to extend
 in Monday's first IST session revert more often than weekday ones? Logged as a candidate test, not yet run.
+
+**Score note 2026-10-09 (16 entries):**
+- **Absence calls (1, 6, 7, 11):** 3/3 resolved, plus 7 still holding.
+- **Timing without a side (8):** 1/1.
+- **Direction/bias:**
+  - **0 clean hits.**
+  - **Wrong:** 3, 4 (now resolved down), 8's bias, 10, 15.
+  - **Split / partial:** 2 (ETH broke 2,500, BTC held 80k), 5, 14 (80k reached, 78k not).
+  - **Pending:** 9, 12 (looking wrong), 16 (Friday expiry, resolves 17:30 IST 9 Oct).
+
+The asymmetry holds again. The best directional read so far is 14, made AFTER a structural break (and it
+reached 80k), not before one. Entry 15 (support holds) failed within 4 hours.
+
+**Pattern in his own words worth testing (entry 16):** the PREMIUM chart, not spot. A long decay toward
+zero, then a base / "parabola holding up" with slowly rising premium, then the explosion. Seen on 2 Oct
+(87000C) and 8 Oct (80500P / 81000P). On 8 Oct his `otm_wall` signal fired on the 80000P and 81000P
+(9 Oct) at 17:30 on 7 Oct, and R4 logged "skip". This is the untested "rush to zero then expansion"
+(C1 p17/p393) plus his original meaning of "holding" (C1 p258). See `REVIEW_2026-10-07.md` §C.
 
 ## The pattern worth tracking
 
