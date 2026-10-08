@@ -17,6 +17,12 @@ still showed them.
 | `journal_2026-10-07_1h_trendline_break.png` | Journal entry 14 (7 Oct 09:28): BTCUSD 1h, the rising trendline from 18–19 Sep (~79k) through 29 Sep, 3 Oct and 6 Oct (~85.2k), broken the morning of 7 Oct | entry 14; `CASE_2026-10-02.md` follow-up |
 | `journal_2026-10-07_6h_trendline_break.png` | Journal entry 14: the same line on BTCUSD 6h, Aug → Oct | entry 14 |
 
+| `journal_2026-10-08_range_polarity.png` | Journal entry 15 (8 Oct 18:44): BTCUSD 6h MARK, Aug → Oct. Previous range ~76–82k (Aug 22 → Sep 18), recent range ~83–87k, price back at ~82.4k | entry 15 |
+| `journal_2026-10-09_img1_nifty_support.png` | Entry 16 image 1: NIFTY DEC 23000 PE weekly. A double bottom at ~150 (support taken again at the same level), now 825 | entry 16 |
+| `journal_2026-10-09_img2_live_signals.png` | Entry 16 image 2 (phone, 8 Oct 15:48): P-BTC-80500-091026 1h MARK. A base ~50–70 on 6–7 Oct, two spikes to ~200 on 7–8 Oct each pulling back, now ~98: the "parabola holding up" after a wall breakout | entry 16; premium-base idea |
+| `journal_2026-10-09_img3_premiums_holding.png` | Entry 16 image 3 (8 Oct 18:12): the same put on 6h. Decay from ~2,300 (19 Sep) to near zero by 6–7 Oct, then holding and slowly rising to ~182 | entry 16 |
+| `journal_2026-10-09_img4_explosion.png` | Entry 16 image 4 (8 Oct 23:27): P-BTC-81000-091026 1h MARK. Flat ~100 for days, small spikes on 7–8 Oct, then the explosion to H 938 (~23:00 IST), last 752 | entry 16 |
+
 ## Pasted inline only, described here (no file exists)
 
 1. **C-BTC-87000-021026, 1h MARK premium** (shared 2 Oct ~10:15 IST).
