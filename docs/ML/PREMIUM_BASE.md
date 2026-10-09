@@ -1,6 +1,44 @@
 # Premium base: the parabola of higher lows (tested 2026-10-09)
 
-## v3: the idea only, with no extra assumptions (`premium_base3.py`, `premium_base3_eval.py`)
+## v4: the RISING parabola only, no decay required (`premium_base4.py`, `premium_base4_eval.py`)
+
+His correction to v3: only the rising parabola matters, and setups where the falling (decay) side is not
+visible must not be dropped. **Rising parabola, in words:** the latest dips form a run of ≥ 3
+higher lows, and the run curves upward (a quadratic through it opens upward; "accelerating" also
+records the stricter "last step up bigger than the first").
+
+- **No decay filter.** Decay is only a matching cell and a reported slice.
+- **Same as v3:** every timeframe 5m/15m/1h/4h, any time to expiry, any strike, checked the moment a new
+  higher low is confirmed.
+- **Control:** the same moment without a rising parabola.
+- **Rows:** 913,231 pattern, 2.49M control (BTC + ETH, settled expiries 2024-01 → 2026-10-08).
+
+| target | rising parabola | none (A) | none (B, also matched on recovery) |
+|---|---|---|---|
+| 5x | 5.90% | 5.97% | 6.04% |
+| 10x | 2.27% | 2.34% | 2.33% |
+| 25x | 0.66% | 0.71% | 0.69% |
+| 100x | 0.11% | 0.12% | 0.11% |
+
+- **25x difference CI:** A [−0.1, −0.0]pp, B [−0.1, +0.0]pp.
+- **Every slice is level or slightly worse:** each timeframe, calls/puts, each year, each asset, every
+  time to expiry, moneyness, decay depth, accelerating or not, run length 3 / 4–5 / 6+.
+- **Decay depth matters on its own** (25x 2.1% when the bottom is ≤ 2% of the earlier high vs 0.07% when
+  it is > 60%), but the parabola adds nothing within any depth.
+- **His examples fire.** P-BTC-81000-091026 at 7 Oct 15:30 IST (106 → 8.9x) and P-80000 at 14:30
+  (55 → 8.1x). So do many that went nowhere; for example the 2 Oct expiry's 80500/81000/87000 strikes fire
+  3–4 times each in late September for 1.0–1.5x.
+- **Chain:** neighbours further OTM still show it 80 / 75 / 70% of the time (+1 / +2 / +3 strikes). The
+  cheaper neighbour again does a little better (25x 0.68% vs 0.42% at +3).
+
+**Verdict (v4): falsified.** A rising parabola of higher lows on the premium chart does not change the
+odds versus the same option at the same moment without one.
+
+---
+
+## v3 (bowl after a decay; superseded by v4 above)
+
+### v3: the idea only, with no extra assumptions (`premium_base3.py`, `premium_base3_eval.py`)
 
 He corrected v2 (below): it assumed a time to expiry (≥ 12h), one timeframe (1h, 48 bars) and an
 absolute cheapness (≤ 0.25% of spot, which keeps mostly far-OTM strikes, exactly where he says the shape
