@@ -1,6 +1,6 @@
 """Blind chart test server, v2 (port 8790). Server-authoritative: the browser only ever receives bars up to
 his cursor. Each chart is a strike ladder: 5 nearest-OTM strikes, up to 3 further ones on request, and the
-underlying. Timeframes 1h / 4h / 12h, and 15m only on expiry day (IST date of settlement). Every action
+underlying. Timeframes 30m / 1h / 2h / 4h / 6h / 12h / 1d, and 15m only on expiry day (IST date of settlement). Every action
 goes to data/responses.jsonl with a wall-clock time; data/session.json makes it resumable.
 Config (data/config.json): {"meta": true, "time": "coarse", "tf_labels": false}.
   meta       call/put, per-strike % OTM, premium as % of the underlying
@@ -18,7 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); D = os.path.join(HERE, "data"
 CFG = {"meta": True, "time": "coarse", "tf_labels": False, "port": 8790}
 if os.path.exists(os.path.join(D, "config.json")): CFG.update(json.load(open(os.path.join(D, "config.json"))))
 MAN = json.load(open(os.path.join(D, "manifest.json")))
-TFS = {"15m": 15, "1h": 60, "4h": 240, "12h": 720}
+TFS = {"15m": 15, "30m": 30, "1h": 60, "2h": 120, "4h": 240, "6h": 360, "12h": 720, "1d": 1440}
 IST = timezone(timedelta(hours=5, minutes=30)); BASE, EXTRA = 5, 3
 _cache = {}
 def chart(cid):
@@ -31,7 +31,7 @@ def chart(cid):
 
 SP = os.path.join(D, "session.json")
 def fresh(i, tf="1h"): return {"i": i, "cursor": None, "tf": tf, "ended": False, "steps": 0, "candles": 0, "extra": 0, "notes": []}
-ORDER = ["15m", "1h", "4h", "12h"]
+ORDER = ["15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d"]
 def bucket(tte_h, ed):
     return "expiry day" if ed else "under a day" if tte_h < 24 else "1-2 days" if tte_h < 48 else "more than 2 days"
 def load_state(): return json.load(open(SP)) if os.path.exists(SP) else fresh(0)

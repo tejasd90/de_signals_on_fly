@@ -9,7 +9,7 @@ moment he calls is the measurement.
 - the 5 nearest-OTM strikes at the start;
 - up to 3 further-OTM strikes on request (each request is logged).
 
-**Timeframes:** 1h / 4h / 12h at all times, and 15m only on expiry day (the IST date of settlement). No 5m.
+**Timeframes:** 30m / 1h / 2h / 4h / 6h / 12h / 1d at all times (it starts on 1h), and 15m only on expiry day (the IST date of settlement). No 5m.
 **The timeframe is hidden** (his choice): he moves finer / coarser and sees only a level indicator, because
 "multibaggers come in a rush when expiry is near relative to the timeframe selected". For the same
 reason, expiry is shown only as a bucket (more than 2 days / 1–2 days / under a day / expiry day), since an

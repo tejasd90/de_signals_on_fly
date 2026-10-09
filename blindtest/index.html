@@ -49,7 +49,7 @@ function draw(){
  $("meta").innerHTML=(S.type?`<span class="tag"><b>${S.type}</b></span> `:"")+(S.time?(S.time.bucket?`<span class="tag">expiry: <b>${S.time.bucket}</b></span>`:`<span class="tag">expiry in <b>${fmt(S.time.tte_h)}</b></span> <span class="tag"><b>${S.time.clock}</b></span>`):"");
  $("nlist").textContent=S.notes&&S.notes.length?`${S.notes.length} note(s): `+S.notes[S.notes.length-1]:"";
  if(S.level){$("tfs").innerHTML=`<button data-z="finer" ${S.level<=1?"disabled":""}>− finer</button> <span class="kbd">${"●".repeat(S.level)}${"○".repeat(S.levels-S.level)}</span> <button data-z="coarser" ${S.level>=S.levels?"disabled":""}>coarser +</button>`}
- else $("tfs").innerHTML=["15m","1h","4h","12h"].map(t=>`<button data-tf="${t}" class="${t===S.tf?"on":""}" ${S.tfs.includes(t)?"":"disabled title='15m: expiry day only'"}>${t}</button>`).join(" ");
+ else $("tfs").innerHTML=["15m","30m","1h","2h","4h","6h","12h","1d"].map(t=>`<button data-tf="${t}" class="${t===S.tf?"on":""}" ${S.tfs.includes(t)?"":"disabled title='15m: expiry day only'"}>${t}</button>`).join(" ");
  const end=S.ended||S.expired;document.querySelectorAll("[data-n],[data-tf],#call,#leave,#more").forEach(b=>b.disabled=end||(b.dataset.tf&&!S.tfs.includes(b.dataset.tf)));
  document.querySelectorAll("[data-z]").forEach(b=>{if(end)b.disabled=true});
  if(S.extra>=S.extra_max)$("more").disabled=true;
