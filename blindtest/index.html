@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Blind Chart Test</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+:root{--bg:#0f1115;--panel:#171a21;--ink:#e6e8ee;--mute:#8a90a0;--line:#2a2f3a;--up:#26a69a;--dn:#ef5350;--acc:#f0b429}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,Segoe UI,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+.tag{padding:3px 8px;border-radius:6px;background:#222734;color:var(--mute)}.tag b{color:var(--ink)}
+.practice{background:#3a2f12;color:var(--acc)}
+#chart{height:calc(100vh - 128px);min-height:420px}
+footer{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px;border-top:1px solid var(--line);background:var(--panel)}
+button{background:#232838;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:7px 12px;font:inherit;cursor:pointer}
+button:hover{border-color:#4a5163}button.on{background:#33405a;border-color:#5a6a8a}button:disabled{opacity:.4;cursor:default}
+.go{background:#1d4d3a;border-color:#2c7a5a}.no{background:#4a2224;border-color:#7a3a3d}.sp{flex:1}
+#modal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center}
+#modal .box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;width:min(460px,92vw)}
+textarea{width:100%;height:90px;background:#0f1115;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px;font:inherit}
+#msg{padding:40px;text-align:center;font-size:18px;display:none}.kbd{color:var(--mute);font-size:12px}
+</style></head><body>
+<header><span id="ctr" class="tag"></span><span id="meta"></span><span class="sp"></span>
+<span class="kbd">→ +1 · Shift+→ +3 · ↑ +10 · 1-4 timeframe · C conviction · L leave · N next</span></header>
+<div id="chart"></div><div id="msg"></div>
+<footer>
+ <span>TF</span><span id="tfs"></span><span style="width:12px"></span>
+ <span>Step</span><button data-n="1">+1</button><button data-n="3">+3</button><button data-n="10">+10</button>
+ <span style="width:12px"></span><span>View</span><button data-v="60">60</button><button data-v="150" class="on">150</button><button data-v="400">400</button><button data-v="0">all</button>
+ <span class="sp"></span><span id="cnt" class="kbd"></span>
+ <button id="leave" class="no">Leave (no trade)</button><button id="call" class="go">CONVICTION</button><button id="next" style="display:none">Next chart →</button>
+</footer>
+<div id="modal"><div class="box"><h3 style="margin-top:0">Multibagger conviction</h3>
+ <p class="kbd">Target you expect from here:</p><div id="tg"></div>
+ <p class="kbd">What do you see? (optional, helps define it)</p><textarea id="note"></textarea>
+ <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button id="cancel">Cancel</button><button id="confirm" class="go" disabled>Confirm</button></div></div></div>
+<script>
+const TFS=["5m","15m","1h","4h"],TGT=["5x","10x","25x","50x","100x+"];let S=null,VIEW=150,tgt=null,busy=false;
+const $=id=>document.getElementById(id);
+$("tfs").innerHTML=TFS.map(t=>`<button data-tf="${t}">${t}</button>`).join(" ");
+$("tg").innerHTML=TGT.map(t=>`<button data-t="${t}">${t}</button>`).join(" ");
+async function api(body){if(busy)return;busy=true;try{const r=await fetch(body?"/api/act":"/api/state",body?{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}:{});const j=await r.json();if(j.error){alert(j.error)}else{S=j;draw()}}finally{busy=false}}
+function trace(rows,y){return{type:"candlestick",x:rows.map(r=>r[0]),open:rows.map(r=>r[1]),high:rows.map(r=>r[2]),low:rows.map(r=>r[3]),close:rows.map(r=>r[4]),
+ xaxis:"x",yaxis:y,hoverinfo:"skip",increasing:{line:{color:"#26a69a",width:1},fillcolor:"#26a69a"},decreasing:{line:{color:"#ef5350",width:1},fillcolor:"#ef5350"},showlegend:false}}
+function draw(){
+ if(S.done){$("chart").style.display="none";$("msg").style.display="block";$("msg").textContent="All charts done. Thank you. Results will be scored separately.";document.querySelector("footer").style.display="none";$("ctr").textContent="";$("meta").innerHTML="";return}
+ const np=S.n_practice,k=S.i+1;$("ctr").innerHTML=S.practice?`<span class="tag practice">PRACTICE ${k} / ${np} (not scored)</span>`:`<b>Chart ${k-np}</b> / ${S.n-np}`;
+ $("meta").innerHTML=S.meta?`<span class="tag"><b>${S.meta.type}</b></span> <span class="tag">OTM <b>${S.meta.otm}%</b></span> <span class="tag">expiry in <b>${fmt(S.meta.tte_h)}</b></span> <span class="tag"><b>${S.meta.clock}</b></span>`:"";
+ document.querySelectorAll("[data-tf]").forEach(b=>b.classList.toggle("on",b.dataset.tf===S.tf));
+ const end=S.ended||S.expired;document.querySelectorAll("[data-n],[data-tf],#call,#leave").forEach(b=>b.disabled=end);
+ $("next").style.display=end?"":"none";$("cnt").textContent=`steps ${S.steps} · candles moved ${S.candles}`+(S.expired&&!S.ended?" · reached expiry":"")+(S.ended?" · recorded":"");
+ const P=S.prem,last=P.length?P[P.length-1][0]:0,first=P.length?P[0][0]:0,lo=VIEW?Math.max(first,last-VIEW):first;
+ const layout={paper_bgcolor:"#0f1115",plot_bgcolor:"#0f1115",margin:{l:10,r:10,t:10,b:10},dragmode:"pan",
+  xaxis:{range:[lo-0.5,last+Math.max(3,(last-lo)*0.04)],showticklabels:false,rangeslider:{visible:false},gridcolor:"#1c2029",anchor:"y2"},
+  yaxis:{domain:[0.36,1],showticklabels:false,gridcolor:"#1c2029",autorange:true,fixedrange:false},
+  yaxis2:{domain:[0,0.32],showticklabels:false,gridcolor:"#1c2029",autorange:true},
+  annotations:[{text:"option premium",x:0,xref:"paper",y:1,yref:"paper",showarrow:false,font:{color:"#555b6a"},xanchor:"left"},
+               {text:"underlying",x:0,xref:"paper",y:0.32,yref:"paper",showarrow:false,font:{color:"#555b6a"},xanchor:"left"}]};
+ const vis=r=>r.filter(x=>x[0]>=lo);Plotly.react("chart",[trace(vis(P),"y"),trace(vis(S.spot),"y2")],layout,{displayModeBar:false,scrollZoom:true,responsive:true});
+}
+function fmt(h){const d=Math.floor(h/24),hh=Math.floor(h%24),m=Math.round((h*60)%60);return(d?d+"d ":"")+hh+"h "+String(m).padStart(2,"0")+"m"}
+document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b||b.disabled)return;
+ if(b.dataset.n)api({action:"step",n:+b.dataset.n});else if(b.dataset.tf)api({action:"tf",tf:b.dataset.tf});
+ else if(b.dataset.v!==undefined){VIEW=+b.dataset.v;document.querySelectorAll("[data-v]").forEach(x=>x.classList.toggle("on",x===b));draw()}
+ else if(b.dataset.t){tgt=b.dataset.t;document.querySelectorAll("[data-t]").forEach(x=>x.classList.toggle("on",x===b));$("confirm").disabled=false}
+ else if(b.id==="call"){tgt=null;$("confirm").disabled=true;document.querySelectorAll("[data-t]").forEach(x=>x.classList.remove("on"));$("note").value="";$("modal").style.display="flex"}
+ else if(b.id==="cancel")$("modal").style.display="none";
+ else if(b.id==="confirm"){$("modal").style.display="none";api({action:"call",target:tgt,note:$("note").value})}
+ else if(b.id==="leave"){if(confirm("Leave this chart (no trade)?"))api({action:"leave"})}
+ else if(b.id==="next")api({action:"next"})});
+document.addEventListener("keydown",e=>{if($("modal").style.display==="flex"||!S||S.done)return;const end=S.ended||S.expired;
+ if(e.key==="ArrowRight"&&!end){e.preventDefault();api({action:"step",n:e.shiftKey?3:1})}else if(e.key==="ArrowUp"&&!end){e.preventDefault();api({action:"step",n:10})}
+ else if("1234".includes(e.key)&&e.key.length===1&&!end)api({action:"tf",tf:TFS[+e.key-1]});
+ else if((e.key==="c"||e.key==="C")&&!end)$("call").click();else if((e.key==="l"||e.key==="L")&&!end)$("leave").click();
+ else if((e.key==="n"||e.key==="N")&&end)api({action:"next"})});
+api();
+</script></body></html>

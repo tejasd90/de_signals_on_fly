@@ -74,3 +74,6 @@ data/day_option_ev.parquet
 data/day_option_ev*.parquet
 data/lightbox.parquet
 data/dashreq/
+
+# blind chart test: generated charts, answer key and his responses (never commit the key)
+blindtest/data/
