@@ -110,6 +110,7 @@ for n, p in enumerate(order):
     s0 = next((x[4] for x in spot if x[0] >= p["start"] - 300), spot[0][4])
     sc = 100 / max(x[2] for x in prem if x[0] < p["start"]) if any(x[0] < p["start"] for x in prem) else 100 / prem[0][2]
     rel = lambda rows, f: [[r[0] - p["hist0"]] + [round(v * f, 6) for v in r[1:]] for r in rows]   # times relative, values rescaled
+    # prem_pct (premium as % of underlying) is added afterwards by refetching the first bar; see README
     # weekday/time-of-day of every bar is derivable on the server from hist0; the date itself never leaves it
     json.dump(dict(id=cid, typ=p["typ"], K_rel=round(p["K"] / s0, 6), start=p["start"] - p["hist0"], settle=p["settle"] - p["hist0"],
                    prem=rel(prem, sc), spot=rel(spot, 100 / s0)), open(f"{OUT}/charts/{cid}.json", "w"))

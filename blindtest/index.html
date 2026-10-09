@@ -43,7 +43,7 @@ function trace(rows,y){return{type:"candlestick",x:rows.map(r=>r[0]),open:rows.m
 function draw(){
  if(S.done){$("chart").style.display="none";$("msg").style.display="block";$("msg").textContent="All charts done. Thank you. Results will be scored separately.";document.querySelector("footer").style.display="none";$("ctr").textContent="";$("meta").innerHTML="";return}
  const np=S.n_practice,k=S.i+1;$("ctr").innerHTML=S.practice?`<span class="tag practice">PRACTICE ${k} / ${np} (not scored)</span>`:`<b>Chart ${k-np}</b> / ${S.n-np}`;
- $("meta").innerHTML=S.meta?`<span class="tag"><b>${S.meta.type}</b></span> <span class="tag">OTM <b>${S.meta.otm}%</b></span> <span class="tag">expiry in <b>${fmt(S.meta.tte_h)}</b></span> <span class="tag"><b>${S.meta.clock}</b></span>`:"";
+ $("meta").innerHTML=S.meta?`<span class="tag"><b>${S.meta.type}</b></span> <span class="tag">OTM <b>${S.meta.otm}%</b></span> <span class="tag">premium <b>${S.meta.prem_pct==null?"–":S.meta.prem_pct+"%"}</b> of underlying</span> <span class="tag">expiry in <b>${fmt(S.meta.tte_h)}</b></span> <span class="tag"><b>${S.meta.clock}</b></span>`:"";
  document.querySelectorAll("[data-tf]").forEach(b=>b.classList.toggle("on",b.dataset.tf===S.tf));
  const end=S.ended||S.expired;document.querySelectorAll("[data-n],[data-tf],#call,#leave").forEach(b=>b.disabled=end);
  $("next").style.display=end?"":"none";$("cnt").textContent=`steps ${S.steps} · candles moved ${S.candles}`+(S.expired&&!S.ended?" · reached expiry":"")+(S.ended?" · recorded":"");

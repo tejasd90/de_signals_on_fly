@@ -50,6 +50,7 @@ def view(s):
         v["meta"] = {"type": "CALL" if c["typ"] == "C" else "PUT",
                      "otm": round((k / spot_now - 1) * 100 if c["typ"] == "C" else (1 - k / spot_now) * 100, 2),
                      "tte_h": round((c["settle"] - cur) / 3600, 2),
+                     "prem_pct": round(c["P"][c["P"][:, 0] < cur][-1, 4] * c.get("prem_pct", float("nan")) * 100 / spot_now, 4) if (c["P"][:, 0] < cur).any() else None,
                      "clock": datetime.fromtimestamp(hist0 + cur, IST).strftime("%a %H:%M IST")}
     return v
 
