@@ -9,14 +9,17 @@ Each chart is a strike ladder; his decision is read from data/responses.jsonl.
   >= 10x from a later entry.
 Discrimination = calls vs leaves on the same yardstick. Groups were enriched (A 40 / B 30 / C 30), so raw
 rates are not real-world hit rates.
-Also: steps / candles / timeframe at the decision, extra strikes requested, and his notes."""
+Also: steps / candles / the (hidden) timeframe at the decision and the path of timeframe changes,
+extra strikes requested, his call note and his running notes (each tagged with timeframe and candles)."""
 import json, os, numpy as np, pandas as pd
 D = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 K = json.load(open(f"{D}/key.json")); M = {m["id"]: m for m in json.load(open(f"{D}/manifest.json"))}
-dec = {}
+dec, notes, tfs = {}, {}, {}
 for l in open(f"{D}/responses.jsonl"):
     e = json.loads(l)
     if e["action"] in ("call", "leave", "expired_no_call"): dec[e["chart"]] = e
+    if e["action"] == "note": notes.setdefault(e["chart"], []).append(f"[{e['tf']}, {e['candles']} candles in] {e['text']}")
+    if e["action"] == "tf": tfs.setdefault(e["chart"], []).append(e["to"])
 TS = (5, 10, 25, 100); rows = []
 for cid, e in dec.items():
     if M[cid]["practice"]: continue
@@ -32,7 +35,8 @@ for cid, e in dec.items():
     k = K[cid]
     r = dict(chart=cid, grp=k["grp"], asset=k["asset"], expiry=k["expiry"], typ=k["typ"], action=e["action"], target=e.get("target"),
              picks=picks if e["action"] == "call" else None, extra=e.get("extra", 0), steps=e["steps"], candles=e["candles"], tf=e["tf"],
-             tte_h=(c["settle"] - e["cursor"]) / 3600, mult_each=[round(x, 2) for x in now], best_later=max(x[1] for x in m), note=e.get("note", ""))
+             tte_h=(c["settle"] - e["cursor"]) / 3600, mult_each=[round(x, 2) for x in now], best_later=max(x[1] for x in m), note=e.get("note", ""),
+             running_notes=" | ".join(notes.get(cid, [])), tf_path=">".join(tfs.get(cid, [])))
     for T in TS: r[f"h{T}"] = float(np.mean([x >= T for x in now]))
     if e.get("target"): r["own"] = float(np.mean([x >= float(e["target"].rstrip("x+")) for x in now]))
     rows.append(r)

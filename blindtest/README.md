@@ -9,11 +9,18 @@ moment he calls is the measurement.
 - the 5 nearest-OTM strikes at the start;
 - up to 3 further-OTM strikes on request (each request is logged).
 
-**Timeframes:** 1h / 4h / 12h at all times. 15m only on expiry day (the IST date of settlement). No 5m.
+**Timeframes:** 1h / 4h / 12h at all times, and 15m only on expiry day (the IST date of settlement). No 5m.
+**The timeframe is hidden** (his choice): he moves finer / coarser and sees only a level indicator, because
+"multibaggers come in a rush when expiry is near relative to the timeframe selected". For the same
+reason, expiry is shown only as a bucket (more than 2 days / 1–2 days / under a day / expiry day), since an
+exact clock would reveal the timeframe as he steps. The server logs the real timeframe.
+
+**Notes:** a notes box is always open; each note is logged with the moment it was written.
 
 **Shown:** bare candles, with no axis values, dates, strikes or asset. `data/config.json` switches:
 - `"meta"`: call/put, each strike's live % OTM, and premium as % of the underlying (on by default);
-- `"time"`: time to expiry and the weekday / IST clock (on by default).
+- `"time"`: `"coarse"` (default) / `"exact"` / `false`;
+- `"tf_labels"`: `false` (default; true shows 15m/1h/4h/12h buttons).
 
 The settings must stay fixed for the whole test.
 
