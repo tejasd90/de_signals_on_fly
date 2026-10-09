@@ -39,8 +39,9 @@ if len(calls):
           " | from the call: " + "  ".join(f"{T}x {(calls.mult_from_call >= T).mean():.0%}" for T in (5, 10, 25, 100)))
     print("  by target:", calls.groupby("target").apply(lambda g: f"{(g.mult_from_call >= g.tgt).mean():.0%} of {len(g)}").to_dict())
 print("LEAVES: >=10x still available after leaving (misses)", f"{(leaves.best_after >= 10).mean():.0%}" if len(leaves) else "-")
-print("\nDiscrimination: P(>=10x from the decision point)  calls", f"{(calls.mult_from_call >= 10).mean():.0%}" if len(calls) else "-",
-      " vs leaves (from leave point, best later entry)", f"{(leaves.best_after >= 10).mean():.0%}" if len(leaves) else "-")
+print("\nDiscrimination, same yardstick for both (buy at the decision point, best later high):")
+for T in (5, 10, 25, 100):
+    print(f"  >= {T}x   calls {(calls.mult_from_call >= T).mean():.0%}   leaves {(leaves.mult_from_call >= T).mean():.0%}" if len(calls) and len(leaves) else "  -")
 print("\nBy sampling group (A had a >=10x available from the start):")
 print(R.groupby("grp").apply(lambda g: pd.Series({"n": len(g), "called": (g.action == "call").mean(),
       "call>=10x": ((g.action == "call") & (g.mult_from_call >= 10)).sum(), "missed>=10x": ((g.action != "call") & (g.best_after >= 10)).sum()})).to_string())
