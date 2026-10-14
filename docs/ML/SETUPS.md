@@ -82,9 +82,11 @@ signal bar's high (an unfilled stop costs nothing), so the rows are the 2,790 ac
 - **A split exit** (half at 25x, half at 100x) averages ≈ +2.8/unit with fewer long droughts.
 
 **Forward status** (`python paper_log.py --report`, "forward, traded prices, by target"; the forward log
-fills at the first traded close, like the headline table): PICTURE-CALL 104 rows / 4 expiries, 0 hits at
-25x, best ~17x traded; PICTURE-CALL & not R5 62 rows, 0 hits. That is about **2 independent episodes**
-(BTC 3–5 Oct, ETH 3–6 Oct). With ~14 of 36 backtest episodes producing a 25x, 0 of 2 is unremarkable.
+fills at the first traded close, like the headline table). **As of 14 Oct 2026:** PICTURE-CALL 270 rows /
+8 expiries, 0 hits at 25x; PICTURE-CALL & not R5 98 rows / 7 expiries, 0 hits. Still only ~3 independent
+episodes. Every forward 25x so far (48 rows) was a PUT in the 7–8 Oct crash (ETH/BTC 7, 8, 9 Oct expiries,
+otm_red_squeeze / red_squeeze / otm_wall / green_stairs), and every one was logged **skip**: forward TAKE
+0/80, skip 4.7% traded 25x. One episode, but it is the same side the channel-line study favours (puts).
 **Too early to judge.**
 
 ## Setup 2: A+ (R4 + R5): BUY, the previous standard

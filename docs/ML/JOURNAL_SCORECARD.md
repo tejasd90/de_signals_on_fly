@@ -5,7 +5,7 @@ the text; **commit times supply them**, which is what makes scoring possible at 
 `DECISION_DOCUMENT` has long flagged that whether Tejas's discretionary reads
 carry alpha is unanswerable because nothing was recorded. It is now answerable.
 
-**First scoring 2026-09-28. Re-scored 2026-09-30: nine entries, seven resolved. Re-scored 2026-10-03 01:15 IST: eleven entries. Re-scored 2026-10-07 09:45 IST: fourteen entries. Re-scored 2026-10-09: sixteen entries** (prices: BTC/ETH perp hourly, `data/spot_candles`).
+**First scoring 2026-09-28. Re-scored 2026-09-30: nine entries, seven resolved. Re-scored 2026-10-03 01:15 IST: eleven entries. Re-scored 2026-10-07 09:45 IST: fourteen entries. Re-scored 2026-10-09: sixteen entries. Re-scored 2026-10-14 22:00 IST: twenty-six entries** (prices: BTC/ETH perp hourly, `data/spot_candles`).
 
 | # | committed (IST) | the call | outcome |
 |---|---|---|---|
@@ -24,7 +24,17 @@ carry alpha is unanswerable because nothing was recorded. It is now answerable.
 | 13 | 10-05 09:46 | two wedges, the lower-timeframe one "also kind of a flag" | no side and no horizon, so **unscorable**. His 12h triangle's lower line was broken on 7 Oct |
 | 14 | 10-07 09:31 | 1h rising support (from 18 Sep) broken this morning; the 87–88k push was a weekend trap, seen when Monday 05:30 turned into a range; recovered losses on the break; "follow-through till maybe 80–78k, question is till when" | the break is **observed, not called**: it came at the 06:30 IST close, 85.5k → 83.5k low (−2.3%). The 80–78k forecast has **no horizon**, so it is pending. Add one ("by Friday") to make it scoreable. **Update 9 Oct:** BTC reached 80,351 on 8 Oct 22:30, so the 80k half was reached; 78k not yet |
 | 15 | 10-08 18:48 | range polarity flipped: the current range low ≈ the previous range high (~81–82k), now support and "difficult to penetrate"; buyers appeared below at ~10:00 and ~18:00 | **WRONG within ~4h.** BTC 82.3k → **80,351 by 22:30 IST**, straight through 81–82k. The descriptive part (buyers at 10:00 / 18:00) was right up to that moment |
-| 16 | 10-09 01:19 | (retrospective) 2 Oct and 8 Oct put explosions read from the PREMIUM chart: long decay toward zero, then a parabola "holding up" / slowly rising, then the explosion; most of his signals were present (wall, green stairs, otm red squeeze). After Wednesday's slam-dunk breakdown and a slow drift down, "the market is preparing an explosive weekly expiry for Friday"; ETH similar | the explosion is observed (P-BTC-81000-091026 ~100 → 938 on 8 Oct ~23:00, ~9x). The forward claim ("explosive Friday expiry") resolves at 17:30 IST 9 Oct: **pending**. His signal `otm_wall` (6h/8h) DID fire on the 80000/81000 9 Oct puts at 17:30 on 7 Oct; R4 logged "skip" (4h unclear) |
+| 16 | 10-09 01:19 | (retrospective) 2 Oct and 8 Oct put explosions read from the PREMIUM chart: long decay toward zero, then a parabola "holding up" / slowly rising, then the explosion; most of his signals were present (wall, green stairs, otm red squeeze). After Wednesday's slam-dunk breakdown and a slow drift down, "the market is preparing an explosive weekly expiry for Friday"; ETH similar | the explosion is observed (P-BTC-81000-091026 ~100 → 938 on 8 Oct ~23:00, ~9x). The forward claim ("explosive Friday expiry") resolves at 17:30 IST 9 Oct: **pending**. His signal `otm_wall` (6h/8h) DID fire on the 80000/81000 9 Oct puts at 17:30 on 7 Oct; R4 logged "skip" (4h unclear) | **Update 14 Oct:** not explosive. BTC's 9 Oct range was 2.6% (below the 1-year median 3.1%). Bought at his commit time, the best 9 Oct strike made 1.6x (BTC) / 1.5x (ETH). The only big multiples were last-90-minute lottery tickets on mark (C-BTC-83000 1.06 → ~155 at 16:30), which appear on many expiry days. **WRONG**
+| 17 | 10-12 09:49 | otm_red_squeeze on BTC 12h/daily and ETH daily for the 16 Oct weekly; market wants good news for an upside breakout; "further downmove than the previous week seems unlikely" (lows BTC 80,351 / ETH 2,406) | **pending to 16 Oct 17:30.** Upside breakout: none (BTC high 84,318, +0.9%). Downside half holding by a hair: BTC low 80,993, ETH **2,407.9** (1.9 above last week's low), tested again at 2,415.8 on 14 Oct |
+| 18 | 10-12 10:28 | 12h: higher lows, smaller candles, "ready for breakout" (weekend caveat) | **WRONG.** BTC ~84.1k → high 84,318 (+0.3%), then 80,993 on 13 Oct (−3.7%). He withdrew it himself 6h later (19) |
+| 19 | 10-12 16:49 | the new 12h candle reverses the previous one; SUSTAINABILITY is a must; hairy candles a bad sign | **CORRECT (short term).** BTC 83.4k → 80,993 within ~20h; ETH 2,555 → 2,408. A call about the absence of follow-through again |
+| 20 | 10-12 19:33 | weekly view short, "headed to 80k" | **pending, no horizon.** Low since 80,993 (13 Oct); 81.6k now |
+| 21 | 10-12 21:09 | 81k and 2.5k held and reversed; if it sustains, view back to long | conditional; **condition failed** within ~4h (ETH lost 2.5k at 02:30 IST 13 Oct, BTC printed 80,993). Unscorable as a call |
+| 22 | 10-12 23:05 | two ETH 1h "wall" upthrusts (10 Oct 19:30, 11 Oct 20:30) not reversed; bias long until both are taken out | **WRONG within 3.5h.** Both lows (2,495 / 2,505) were taken out at 02:30 IST 13 Oct; ETH reached 2,408 |
+| 23 | 10-14 19:51 | 6 consecutive red 2h candles on BTC and ETH "should mean something" | **not reproduced on our bars**: BTC/ETH MARK 2h bars (aligned 05:30 IST) show only 2–3 red in a row at that time (his chart may be traded price or a different alignment). History since 2022, after the 6th red 2h bar: BTC n=49, next 48h up 37% vs 52% for all bars (mean −0.8%); ETH n=44, 52% vs 52%. No reliable meaning; BTC continuation is a weak lead at n=49 |
+| 24 | 10-14 19:51 | SL hunting and trapping; unless this reverses too, headed to break 2,400 and 80k, more downside once broken | **pending, no horizon.** ETH 2,428, BTC 81.6k at 21:30 |
+| 25 | 10-14 20:10 | P-ETH-2400-161026 premium chart (6h) "looks good for breakdown"; maybe the story of this weekly | **pending to 16 Oct 17:30.** Mark 26.44 at his screenshot (20:08), 21.4 at 21:45. Scored as x from 26.44 |
+| 26 | 10-14 21:15 / 21:53 | ETH 4h descending triangle "could become an option-buying hurdle" for this expiry; 6h: the rising line from ~21 Aug has bigger support, "vehemently defended"; a break could mean a bigger fall | **pending.** The line is the 2,406–2,416 floor touched on 8, 13 and 14 Oct. Two-sided as written (hurdle = no move, or a bigger fall); scoreable by the 16 Oct expiry: ETH below 2,400 or not |
 
 **Score note 2026-10-02.** The "3/3 on no move coming, 0/3 on direction" summary
 (commit 9eb6dca) counts entry 7 as a hit, but entry 7 has no horizon ("near
@@ -79,9 +89,15 @@ in Monday's first IST session revert more often than weekday ones? Logged as a c
 - **Timing without a side (8):** 1/1.
 - **Direction/bias:**
   - **0 clean hits.**
-  - **Wrong:** 3, 4 (now resolved down), 8's bias, 10, 15.
+  - **Wrong:** 3, 4 (now resolved down), 8's bias, 10, 15, 16 (no explosive Friday), 18, 22.
   - **Split / partial:** 2 (ETH broke 2,500, BTC held 80k), 5, 14 (80k reached, 78k not).
-  - **Pending:** 9, 12 (looking wrong), 16 (Friday expiry, resolves 17:30 IST 9 Oct).
+  - **Pending:** 9, 12 (BTC needs +10% by 18 Oct), 17, 20, 24, 25, 26.
+
+**Update 14 Oct.** Absence / no-follow-through calls keep landing (19 correct). Direction calls still 0 clean
+hits (18 and 22 wrong within hours). The "haywire" fortnight was not unusually wide: the last 7 daily ranges
+sat at the 3rd–82nd percentile since 2024 (ETH 8 Oct 7.5% the widest). What changed is the shape: the same
+floors were swept three times (ETH 2,406 / 2,408 / 2,416; BTC 80,351 / 80,993 / 81,549), each followed by a
+squeeze up, which is what stop-hunting looks like on a chart and what makes both-sided calls fail.
 
 The asymmetry holds again. The best directional read so far is 14, made AFTER a structural break (and it
 reached 80k), not before one. Entry 15 (support holds) failed within 4 hours.
