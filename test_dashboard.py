@@ -155,6 +155,20 @@ for asset in ("BTC", "ETH"):
         e = [r["expiry"] for r in rows]
         check(f"{asset} weekly = first Friday after the two above", pd.Timestamp(e[2]).weekday() == 4 and e[2] > e[1])
 
+print("\n== regime (new price / stale range)")
+import time as _t
+from levels import load_tf as _lt
+for asset in ("BTC", "ETH"):
+    st, rg = get(f"/api/regime?asset={asset}")
+    a = _lt(asset, 60); a = a[a[:, 0] + 3600 <= _t.time()]; c = a[:, 4]
+    # independent recompute: hours since the last close outside the previous 72 closes
+    k = len(c) - 1
+    while k > 72 and c[k - 72:k].min() <= c[k] <= c[k - 72:k].max(): k -= 1
+    exp_stale = len(c) - 1 - k
+    check(f"{asset} regime stale hours = recompute", st == 200 and rg.get("stale_h") == exp_stale, f"api {rg.get('stale_h')} vs {exp_stale}")
+    check(f"{asset} regime uses closed bars only", st == 200 and rg["close_ts"] <= _t.time())
+    check(f"{asset} regime range matches", abs(rg["hi"] - c[-73:-1].max()) < 1e-6 and abs(rg["lo"] - c[-73:-1].min()) < 1e-6)
+
 print("\n== inputs")
 for q, code in (("/api/payload?asset=XRP", 400), ("/api/payload?asset=BTC&res=7", 400),
                 ("/api/sheet?asset=BTC&expiry=../../x", 400), ("/api/setups?asset=BTC", 400),

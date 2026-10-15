@@ -19,6 +19,8 @@
  .APPROACHING{opacity:.55;font-weight:400;border-left-color:#d29922}
  .TESTING{opacity:.85;font-weight:600;border-left-color:#58a6ff}
  .CONFIRMED{opacity:1;font-weight:700;border-left-color:#3fb950}
+ .rg{padding:6px 8px;border-radius:4px;border-left:3px solid var(--line);margin-bottom:3px}
+ .rg.NEW{border-left-color:#3fb950} .rg.INSIDE{border-left-color:#d29922} .rg.OUT{border-left-color:#f85149;opacity:.8}
  .lv{color:var(--muted);font-variant-numeric:tabular-nums}
  .legend{display:flex;gap:5px;flex-wrap:wrap;margin:4px 0 8px}
  .sw{padding:2px 6px;border-radius:3px;color:#07090c;font-weight:700;font-size:11px}
@@ -66,6 +68,7 @@
   </div>
  </div>
  <div id="side">
+  <h4>Live · new price or range?</h4><div id="regime"></div>
   <h4>Live · price approaching</h4><div id="prox"></div>
   <h4>Live · move needed for 1:100</h4><div id="live"></div>
   <h4>Colour scale (required move)</h4><div class="legend" id="leg"></div>
@@ -247,6 +250,14 @@ function renderProx(rows){
       <span class="lv">${r.level.toLocaleString(undefined,{maximumFractionDigits:0})}
       · ${r.dist_pct>=0?'+':''}${r.dist_pct.toFixed(2)}%</span></div>`).join('');
 }
+function renderRegime(r){
+  if(!r||r.error){$('regime').innerHTML='<span class="note">'+esc(r&&r.error||'—')+'</span>';return;}
+  const cls=r.verdict==='NEW PRICE'?'NEW':r.verdict==='STAY OUT'?'OUT':'INSIDE', f=x=>(+x).toLocaleString(undefined,{maximumFractionDigits:r.close>1e4?0:1});
+  const when=new Date(r.close_ts*1000).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  $('regime').innerHTML=`<div class="rg ${cls}"><b>${r.verdict}</b> <span class="lv">· ${r.stale_h}h since a new ${r.N}h close${r.last_new?' ('+r.last_new+')':''}</span>
+    <div class="lv">range ${f(r.lo)} – ${f(r.hi)} (${(+r.range_pct).toFixed(1)}%, ${Math.round(100*r.range_pctile)}th pct) · close ${f(r.close)} · ${when} IST</div></div>
+    <div class="note">STAY OUT = narrow range (bottom third) and no new close for 24h+: a 3% move in the next 24h 35% vs 48% otherwise. NEW PRICE = a bigger move is more likely (54%), not its direction.</div>`;
+}
 function renderLive(rows){
   $('live').innerHTML=!rows||!rows.length?'<span class="note">—</span>':
     rows.map(r=>`<div style="margin-bottom:9px">
@@ -335,6 +346,7 @@ async function load(keepView){
       await loadExpiries(last&&last.expiry);
     }
   }catch(e){$('stamp').textContent='load failed: '+e;}
+  try{renderRegime(await (await fetch(`/api/regime?asset=${a}`)).json());}catch(e){}
   try{const lv=await (await fetch(`/api/live?asset=${a}`)).json(); if(lv.rows)renderLive(lv.rows);}catch(e){}
 }
 // URL parameters pick the view (bookmarkable): ?asset=ETH&res=240

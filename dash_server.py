@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 import numpy as np
 
-import dash_api, dash_setups, re
+import dash_api, dash_setups, re, new_price
 ASSETS = ("BTC", "ETH")
 RESOLUTIONS = ("15", "60", "240", "1440")
 from optreq import required_moves
@@ -165,6 +165,9 @@ class H(BaseHTTPRequestHandler):
                 hit = dash_api.payload(a, r, limit=n)
                 with _lock: _cache[key] = hit
             return self._send(jdump(hit))
+        if u.path == "/api/regime":          # new price / stale range (docs/ML/NEW_PRICE.md)
+            try: return self._send(jdump(new_price.state(a)))
+            except Exception as ex: return self._send(jdump({"error": str(ex)}))
         if u.path == "/api/live":
             try: return self._send(jdump({"asset": a, "rows": live_chain(a),
                                                "t": int(time.time())}))

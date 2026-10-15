@@ -58,6 +58,15 @@ price-action-points requests, and the :4000 setup review:
 | grid caches keyed only on option-file times | spot repairs and the catch-up left stale grids | `dash_build.py --force-since` |
 | numbers unreadable / overlapping; price and date labels clipped; drawer overlapping the chart; queued pans dropped; refresh could lose the view; no input validation | — | see `dashboard.html` comments; parameters whitelisted (asset, res, expiry, limit) |
 
+## Panels added later
+
+- **Live · new price or range?** (2026-10-15, `/api/regime`, `new_price.state`): hours since the last hourly close
+  outside the previous 72 closes, the 72h close range and its percentile, and a verdict: NEW PRICE / INSIDE RANGE /
+  STAY OUT (narrow bottom-third range and no new close for 24h+). Closed bars only. Evidence: `docs/ML/NEW_PRICE.md`.
+  Tested in `test_dashboard.py` by an independent recompute.
+
+**Rule: this is the one dashboard.** New live views are added here, not as new servers or pages.
+
 ## Limits
 
 - **Twelve numbers per candle** (3 expiries × 4) only fit when a candle is about 100 px wide, so the readable view is the most recent 6–45 candles depending on screen width. Further out the colours carry it, and hover gives exact values.
