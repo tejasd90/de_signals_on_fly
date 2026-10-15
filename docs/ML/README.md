@@ -1,5 +1,7 @@
 # docs/ML — the research tree
 
+> **ERRATUM 2026-10-15 (see REVIEW_2026-10-15.md).** The cross-sectional book's +58–59%/yr, Sharpe ~2.5 was an aggregation error (weighted LOG returns summed across names inflate the short leg). On simple returns it is +23%/yr, Sharpe 0.96, P=0.07 (hedged), +13%/yr unhedged: not significant. The funding tailwind was counted 8x (+1.5%/yr, not +12.8%) and the capacity test used contracts as coins and renormalised blocked capital. Setup 1's backtest rests on three August-2026 weeks (87% of its 100x hits). Numbers below are kept as written.
+
 Everything in this directory is about **finding an edge**: labels, features,
 models, controls, and the results. It is separate from `../` on purpose —
 the docs one level up describe *running the project* (fetching candles,
@@ -37,6 +39,7 @@ The current playbook: every surviving setup with its exact rule, backtest percen
 | 21 | **SPIKE_RETENTION.md** | Booking profits (journal 27): 60k first 3x-in-an-hour spikes; selling at the spike close (mean 3.96x) ≈ holding to settlement (3.58x, median 0.02x); booking costs nothing on average and removes the variance. |
 | 22 | **LINE_HOVER.md** | Trendline hover/break/expiry (15 Oct): code finds his lines; hovering does not predict the break (58% vs 66%); breaks don't follow through (47%, reclaimed 66%) and can't be ranked by age/touches/tf; next expiries ~break-even. |
 | 23 | **NEW_PRICE.md** | 13 Oct reversal sat on lines known beforehand (BTC 6h line confirmed 6h earlier; ETH 8 Oct low); stale/narrow-range indicator: narrow + no new 72h close for 24h → 35% vs 48% chance of a 3% move; new price = bigger move, no direction. |
+| 24 | **REVIEW_2026-10-15.md** | **Full review + fixes**: forward log 5.5h timestamp bug (corrected forward: 518 rows, 14 hits all one put episode); xsec book +23% Sharpe 0.96 not +59%; Setup 1 = one Aug-2026 episode; day filter = weekends; Setup 3 Mon–Thu; spike: book within 24h; spot/option data repaired. |
 | 17 | **ASSUMPTIONS_AUDIT.md** | Analyst-added restrictions in the kept setups, each removed and measured (2026-10-09): Setup 1 premium <2 pays as well on TRADED (100x 7.1%) but is lumpy/ETH-heavy; thresholds are a plateau; Setup 3 works at every 4h entry and threshold; 3–8d candidate. Decisions pending. |
 | 15 | **SETUPS.md** | **The playbook** (start here): Setup 1 PICTURE-CALL + R5 (implementable traded: 25x 10.6%, 100x 5.1% EV +3.99; independently verified), Setup 2 A+ (superseded), Setup 3 quiet-day straddle sell; supporting rules; strict check of 7 Oct. |
 | 14 | **PICTURE_CALLS.md** | **The lead:** quiet-before-the-storm picture × his call signals — 25x 12.1% vs 4.3% on TRADED prices, survives leave-one-episode-out, puts null. Forward-log next. |

@@ -25,6 +25,7 @@ for fp in glob.glob("data/funding/*.parquet"):
     sym = os.path.basename(fp)[:-8]
     if sym not in W.columns: continue
     d = pd.read_parquet(fp)
+    d = d[d.ts % 28800 == 0]                          # the rate is per 8h; hourly samples repeat it 8x (fund_study.py)
     d["day"] = (d.ts // 86400).astype(int)
     acc[sym] = d.groupby("day")["rate"].sum()      # summed over the day
 F = pd.DataFrame(acc).reindex(index=W.index, columns=W.columns)

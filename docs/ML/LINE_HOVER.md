@@ -1,5 +1,7 @@
 # Trendline hover, break importance and expiry choice (15 Oct 2026)
 
+> **Re-run 2026-10-15** with the trendline-confirmation fix and repaired spot data: unchanged (hover >12h → 57% break vs 65%; support breaks continue 48%, reclaimed 66%).
+
 His questions after the 15 Oct 07:45 IST break: can the lines be found by code; can the break's importance be
 ranked; does long hovering at the line signal the break; should one trade the next / next-to-next expiry?
 Scripts: `line_hover.py` (build), `line_hover_eval.py` (numbers). BTC/ETH MARK, 4h and 6h lines from

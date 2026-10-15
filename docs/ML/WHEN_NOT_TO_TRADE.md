@@ -1,5 +1,7 @@
 # When NOT to trade — a futures-side filter that survives
 
+> **Review 2026-10-15:** mostly a weekend effect. Skip-30% edge: model +24.4pp, Sat/Sun alone +39.9pp, vol baseline + weekend +41.8pp (weekend dead rate 0.58 vs 0.22). Any day filter must beat "skip weekends".
+
 His reframe (2026-09-30): *"I don't necessarily want a direct answer in terms of
 options... Even if we can identify when to trade or when not to trade (perhaps we
 can try futures trading also when it is good to trade), that also would mean

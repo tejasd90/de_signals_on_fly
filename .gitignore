@@ -77,3 +77,4 @@ data/dashreq/
 
 # blind chart test: generated charts, answer key and his responses (never commit the key)
 blindtest/data/
+paper_trades.csv.lock

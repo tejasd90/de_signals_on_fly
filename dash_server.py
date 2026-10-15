@@ -76,7 +76,7 @@ def refresh(interval_min):
             if low:
                 print(f"[loop] DISK LOW: {free_gb:.1f} GB free < {MIN_FREE_GB} GB -- "
                       f"skipping option fetch; spot, signals and paper log still run", flush=True)
-            steps = [(["update_spot.py", "15", "60", "240", "1440"], 600)]
+            steps = [(["update_spot.py", "15", "60", "120", "240", "360", "1440"], 600)]
             if not low: steps.append((["fetch_options.py", "--live"], 1800))
             steps += [(["dash_build.py", "--limit", "12"], 1800),
                       # forward test: R4/R5 state needs fresh spot_grouped; log signals the
@@ -87,7 +87,9 @@ def refresh(interval_min):
             for cmd, to in steps:
                 argv = [NODE] + cmd[1:] if cmd[0] == "@node" else [sys.executable] + cmd
                 env = dict(os.environ, DE_NO_LOG_DIR="1") if cmd[0] == "@node" else None
-                r = subprocess.run(argv, cwd=HERE, capture_output=True, text=True, timeout=to, env=env)
+                try: r = subprocess.run(argv, cwd=HERE, capture_output=True, text=True, timeout=to, env=env)
+                except subprocess.TimeoutExpired:      # one slow step must not skip the rest of the pass
+                    print(f"[loop] {cmd[0]} timed out after {to}s", flush=True); continue
                 if r.returncode:
                     print(f"[loop] {cmd[0]} exit {r.returncode}: {r.stderr.strip()[-300:]}", flush=True)
                 elif cmd[0] == "paper_log.py" and "logged" in r.stdout:
@@ -96,10 +98,11 @@ def refresh(interval_min):
             # refresh. Detached, because the research refresh can take hours.
             subprocess.Popen([sys.executable, "daily_jobs.py"], cwd=HERE,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-            with _lock: _cache.clear()
             print(f"[loop] refreshed {time.strftime('%H:%M:%S')}", flush=True)
         except Exception as ex:
             print(f"[loop] {type(ex).__name__}: {ex}", flush=True)
+        finally:
+            with _lock: _cache.clear()
         time.sleep(interval_min * 60)
 
 def _clean(o):

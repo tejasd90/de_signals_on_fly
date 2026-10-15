@@ -49,7 +49,7 @@ const SETTLEMENT_TIME_BY_SPOT = {
     // placeholder fallback only — the real time is taken from the API's
     // settlement_time field as soon as instruments are fetched.
     // Update this if you want the fallback itself to be accurate.
-    XAUT: '17:30:00+0530',
+    XAUT: '21:30:00+0530',   // 16:00 UTC: every XAUT product in /v2/products (review E, 2026-10-15)
 };
 
 // ─── Learned settlement times (populated from the API) ────────────────────────

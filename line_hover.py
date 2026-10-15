@@ -51,7 +51,8 @@ def follow(E, a):
             j = np.searchsorted(t, e.end_t + H * 3600 - 1)
             r[f"f{H}"] = sgn * np.log(c[min(j, len(c) - 1)] / e.close) * 100 if j < len(c) else np.nan
         j48 = np.searchsorted(t, e.end_t + 48 * 3600)
-        seg = c[i + 1:j48]; r["reclaimed48"] = bool(((seg > e.line) if e.kind == "S" else (seg < e.line)).any()) if len(seg) else np.nan
+        seg = c[i:j48]                                     # i is already the first bar after the break
+        r["reclaimed48"] = bool(((seg > e.line) if e.kind == "S" else (seg < e.line)).any()) if len(seg) else np.nan
         rows.append({**e.to_dict(), **r})
     return pd.DataFrame(rows)
 

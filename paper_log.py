@@ -30,8 +30,16 @@ LOG   = "paper_trades.csv"
 FIELDS = ["event_id","decided_at","entry_iso","signal","spot","expiry","duration",
           "opt_type","symbol","strike","entry_premium","trigger","ai_state","regime",
           "r4","r5","d_room","w_room","at_line","decision","picture","note","resolved_at",
-          "mark_peak","traded_peak","mark_25x","traded_25x","filled"]
+          "mark_peak","traded_peak","mark_25x","traded_25x","filled",
+          "fill_entry","fill_peak","fill_25x","early","persisted","decision_logged"]
 COST, BREAKEVEN, EXPECTED = 0.0826, 0.0433, 0.0601   # from the backtest
+
+def iso_ts(s):
+    """Unix seconds for a signal time like 2026-10-14T21:30:00+0530 (the offset is honoured).
+    Until 2026-10-15 this was strptime(naive).timestamp() - 19800: on this IST machine .timestamp()
+    already converts to UTC, so every forward timestamp was 5.5h early (review B, 2026-10-15)."""
+    try: return dt.datetime.strptime(s[:24], "%Y-%m-%dT%H:%M:%S%z").timestamp()
+    except ValueError: return dt.datetime.strptime(s[:19], "%Y-%m-%dT%H:%M:%S").timestamp()
 
 def ema(x,n): return pd.Series(x).ewm(span=n,adjust=False).mean().to_numpy()
 
@@ -128,9 +136,56 @@ def read_log():
 
 def write_log(df): df.to_csv(LOG, index=False)
 
+def flags(spot, ts, dur, ty):
+    """R4 / R5 / line / picture state as of the signal (ts = trigger candle OPEN, unix seconds)."""
+    ai,rg,stale=state_at(spot,ts)
+    if ai is None: return None, stale
+    ln=line_state(spot,ts,ty); dr,wr=ln.get("d"),ln.get("w")
+    r4 = (ai==1) if ty=="C" else (ai==-1); r5 = r4 and rg!=1
+    return {"ai_state":{1:"up",-1:"down",0:"unclear"}[ai], "regime":{1:"up",-1:"down",0:"sideways"}.get(rg,"?"),
+            "r4":int(r4),"r5":int(r5), "d_room":"" if dr is None else round(dr,2), "w_room":"" if wr is None else round(wr,2),
+            "at_line":1 if (wr is not None and abs(wr)<=0.25) else 0, "decision":"TAKE" if r5 else "skip",
+            "picture":int(spot in ("BTC","ETH") and ty=="C" and bool(picture_on(spot, ts+dur*60)))}, stale   # tested on BTC/ETH only
+
+def cmd_rescore(a, clear=True):
+    """One-off repair (2026-10-15) of rows logged with the 5.5h timestamp shift: recompute every flag at the
+    true signal time, keep the logged decision in decision_logged, mark rows decided before their candle
+    closed (early) and whether the signal still exists in the final signal files (persisted), and clear
+    the outcomes so --resolve recomputes them."""
+    d=read_log()
+    for c in FIELDS:
+        if c not in d.columns: d[c]=""
+    final=set()
+    for sig in os.listdir("data/signals"):
+        for spot in os.listdir(f"data/signals/{sig}") if os.path.isdir(f"data/signals/{sig}") else []:
+            for dur in os.listdir(f"data/signals/{sig}/{spot}") if os.path.isdir(f"data/signals/{sig}/{spot}") else []:
+                dd=f"data/signals/{sig}/{spot}/{dur}"
+                if not os.path.isdir(dd): continue
+                for fn in os.listdir(dd):
+                    if not fn.endswith(".json") or ".tmp." in fn: continue
+                    try: data=json.load(open(f"{dd}/{fn}"))
+                    except Exception: continue
+                    for ty in ("C","P"):
+                        for r in (data.get(ty) or []): final.add(f"{sig}|{spot}|{fn[:-5]}|{dur}|{r[1]}|{ty}")
+    for i,r in d.iterrows():
+        ts=iso_ts(r.entry_iso); dur=int(r.duration)
+        if not r.decision_logged: d.at[i,"decision_logged"]=r.decision
+        fl,_=flags(r.spot,ts,dur,r.opt_type)
+        if fl:
+            for k,v in fl.items(): d.at[i,k]=str(v)
+        dec=dt.datetime.strptime(r.decided_at[:19],"%Y-%m-%dT%H:%M:%S").timestamp()
+        d.at[i,"early"]=str(int(dec < ts+dur*60)); d.at[i,"persisted"]=str(int(r.event_id in final))
+        if clear:
+            for k in ("entry_premium","trigger","resolved_at","mark_peak","traded_peak","mark_25x","traded_25x","filled","fill_entry","fill_peak","fill_25x"):
+                d.at[i,k]=""
+    write_log(d)
+    print(f"rescored {len(d)} rows: early {int((d.early=='1').sum())}, persisted {int((d.persisted=='1').sum())}, "
+          f"decision changed {int((d.decision!=d.decision_logged).sum())}")
+
 def cmd_run(a):
     SIG = "data/signals"
-    cutoff=dt.datetime.now().timestamp()-(a.hours*3600 if a.hours else a.days*86400)
+    now=dt.datetime.now().timestamp()
+    cutoff=now-(a.hours*3600 if a.hours else a.days*86400)
     stale=None
     have=set(read_log().event_id)
     rows=[]
@@ -148,32 +203,21 @@ def cmd_run(a):
                     except Exception: continue
                     for ty in ("C","P"):
                         for r in (data.get(ty) or []):
-                            try: ts=dt.datetime.strptime(r[1][:19],"%Y-%m-%dT%H:%M:%S").timestamp()-19800
+                            try: ts=iso_ts(r[1])
                             except Exception: continue
                             if ts+dur*60<cutoff: continue     # judged on the trigger CLOSE
+                            if ts+dur*60>now: continue        # candle still forming: its signal can still vanish
                             eid=f"{sig}|{spot}|{exp}|{dur}|{r[1]}|{ty}"
                             if eid in have: continue
-                            ai,rg,stale=state_at(spot,ts)
-                            if ai is None: continue
-                            ln=line_state(spot,ts,ty)
-                            dr,wr=ln.get("d"),ln.get("w")
-                            at = 1 if (wr is not None and abs(wr)<=0.25) else 0
-                            r4 = (ai==1) if ty=="C" else (ai==-1)
-                            r5 = r4 and rg!=1
+                            fl,stale=flags(spot,ts,dur,ty)
+                            if fl is None: continue
                             for sym in (r[6] or [])[:1]:          # K=1 is optimal
                                 p=sym.split("-")
                                 rows.append({**{k:"" for k in FIELDS},
                                   "event_id":eid,"decided_at":dt.datetime.now().isoformat(timespec="seconds"),
                                   "entry_iso":r[1],"signal":sig,"spot":spot,"expiry":exp,"duration":dur,
                                   "opt_type":ty,"symbol":sym,"strike":p[2] if len(p)>3 else "",
-                                  "trigger":"", "ai_state":{1:"up",-1:"down",0:"unclear"}[ai],
-                                  "regime":{1:"up",-1:"down",0:"sideways"}.get(rg,"?"),
-                                  "r4":int(r4),"r5":int(r5),
-                                  "d_room":"" if dr is None else round(dr,2),
-                                  "w_room":"" if wr is None else round(wr,2),
-                                  "at_line":at,
-                                  "decision":"TAKE" if r5 else "skip",
-                                  "picture":int(spot in ("BTC","ETH") and ty=="C" and bool(picture_on(spot, ts+dur*60)))})   # tested on BTC/ETH only
+                                  "trigger":"", **fl, "early":0, "persisted":1})
                             have.add(eid)
     if not rows: print("no new signals in the window"); return
     df=pd.concat([read_log(), pd.DataFrame(rows)], ignore_index=True)
@@ -205,11 +249,12 @@ def _resolve_one(row):
     Trigger = MARK high of that candle (stop-entry level). Peaks are taken strictly AFTER
     the trigger candle closes, up to settlement, on both MARK and TRADED prints."""
     dur = int(row["duration"])
-    t0 = int(dt.datetime.strptime(row["entry_iso"][:19], "%Y-%m-%dT%H:%M:%S").timestamp()) - 19800
+    t0 = int(iso_ts(row["entry_iso"]))
     t1 = t0 + dur*60
     settle = int(dt.datetime.strptime(row["expiry"], "%Y-%m-%d").replace(tzinfo=dt.timezone.utc).timestamp()) + 12*3600
     mk = _candles("MARK:" + row["symbol"], t0, settle)
     tr = _candles(row["symbol"], t1, settle)
+    if not mk: raise RuntimeError("no MARK candles returned")       # transient: leave unresolved, retry next pass
     trig = [c for c in mk if t0 <= int(c["time"]) < t1]
     if not trig: return None
     entry = float(trig[-1]["close"]); hi_trig = max(float(c["high"]) for c in trig)
@@ -218,7 +263,13 @@ def _resolve_one(row):
     after_t = [float(c["high"]) for c in tr if int(c["time"]) >= t1 and (c.get("volume") or 0) > 0]
     mp = max(after_m)/entry if after_m else 0.0
     tp = max(after_t)/entry if after_t else 0.0
+    # implementable: buy at the first TRADED 5m close after the trigger candle, peak = later traded highs
+    trd = [c for c in tr if int(c["time"]) >= t1 and (c.get("volume") or 0) > 0 and float(c["close"]) > 0]
+    fe = float(trd[0]["close"]) if trd else None
+    fp = (max(float(c["high"]) for c in trd[1:]) / fe) if fe and len(trd) > 1 else (0.0 if fe else None)
     return {"entry_premium": round(entry, 6), "trigger": round(hi_trig, 6),
+            "fill_entry": "" if fe is None else round(fe, 6), "fill_peak": "" if fp is None else round(fp, 3),
+            "fill_25x": "" if fp is None else int(fp >= 25),
             "mark_peak": round(mp, 3), "traded_peak": round(tp, 3),
             "mark_25x": int(mp >= 25), "traded_25x": int(tp >= 25),
             "filled": int(bool(after_t) and max(after_t) > hi_trig),
@@ -234,14 +285,18 @@ def cmd_resolve(a):
     if a.take_only: todo = todo[todo.decision == "TAKE"]
     if not len(todo): print("nothing to resolve"); return
     print(f"resolving {len(todo)} rows", flush=True)
+    def safe(r):
+        try: return _resolve_one(r)
+        except Exception: return "retry"
     with ThreadPoolExecutor(max_workers=6) as ex:
-        res = list(ex.map(_resolve_one, [r for _, r in todo.iterrows()]))
+        res = list(ex.map(safe, [r for _, r in todo.iterrows()]))
     n = 0
     for i, r in zip(todo.index, res):
+        if r == "retry": continue
         if r is None: d.at[i, "resolved_at"] = "unresolvable"; continue
         for k, v in r.items(): d.at[i, k] = str(v)
         n += 1
-    write_log(d); print(f"resolved {n}, unresolvable {sum(r is None for r in res)}")
+    write_log(d); print(f"resolved {n}, unresolvable {sum(r is None for r in res)}, retry later {sum(r == 'retry' for r in res)}")
 
 def _forward(d, max_lag_h=3):
     """Forward = logged within max_lag_h of the trigger candle's close, so the outcome
@@ -249,7 +304,9 @@ def _forward(d, max_lag_h=3):
     The 2,541 rows written on 2026-09-17 for 08-16 Sep expiries fail this."""
     dec = pd.to_datetime(d.decided_at).dt.tz_localize("Asia/Kolkata")
     close = pd.to_datetime(d.entry_iso.str[:19]).dt.tz_localize("Asia/Kolkata") + pd.to_timedelta(pd.to_numeric(d.duration), unit="m")
-    return (dec - close) <= pd.Timedelta(hours=max_lag_h)
+    # rows logged before their candle closed (the pre-2026-10-15 bug) count only if the signal survived the close
+    ok = (d.get("early", "") != "1") | (d.get("persisted", "") == "1")
+    return ((dec - close) <= pd.Timedelta(hours=max_lag_h)) & ok
 
 def cmd_report(a):
     d=read_log()
@@ -264,7 +321,7 @@ def cmd_report(a):
     if not len(res): print("\nnothing resolved yet — outcomes fill in after expiry"); return
     def targets(x, lab, bt):
         """traded hit rate and EV at 25x / 50x / 100x (resting sell at the target, total loss otherwise)"""
-        pk=pd.to_numeric(x.traded_peak,errors="coerce")
+        pk=pd.to_numeric(x.fill_peak,errors="coerce").fillna(0)       # first traded close after the signal = implementable
         cells=[]
         for T in (25,50,100):
             p=(pk>=T).mean(); cells.append(f"{T}x {100*p:5.2f}% EV {T*p-1-COST:+.2f}")
@@ -279,21 +336,27 @@ def cmd_report(a):
     for fw, grp in [(f, g) for f in (True, False) for g in ("TAKE","skip")]:
         s=res[(res.decision==grp)&(res.forward==fw)]
         if not len(s): continue
-        h=pd.to_numeric(s.traded_25x,errors="coerce").mean(); m=pd.to_numeric(s.mark_25x,errors="coerce").mean()
+        h=pd.to_numeric(s.fill_25x,errors="coerce").fillna(0).mean(); m=pd.to_numeric(s.mark_25x,errors="coerce").mean()
         ev=pd.to_numeric(s.event_id.str.rsplit("|",n=1).str[0],errors="coerce") if False else None
         n_exp=s.expiry.nunique()
         print(f"  {'FORWARD' if fw else 'backfill':<8} {grp:<5} n={len(s):>5} ({n_exp} expiries)  "
-              f"25x traded {100*h:5.2f}%  mark {100*m:5.2f}%  EV(traded) {h*24-(1-h)-COST:+.3f}  "
+              f"25x traded fill {100*h:5.2f}%  mark {100*m:5.2f}%  EV(traded) {h*24-(1-h)-COST:+.3f}  "
               f"(backtest: {100*(EXPECTED if grp=='TAKE' else 0.0351):.2f}%)")
 
 if __name__=="__main__":
     ap=argparse.ArgumentParser()
     ap.add_argument("--run",action="store_true"); ap.add_argument("--resolve",action="store_true")
-    ap.add_argument("--report",action="store_true"); ap.add_argument("--days",type=int,default=7)
+    ap.add_argument("--report",action="store_true"); ap.add_argument("--rescore",action="store_true")
+    ap.add_argument("--reflag",action="store_true",help="recompute R4/R5/line/picture flags only (after a spot repair)"); ap.add_argument("--days",type=int,default=7)
     ap.add_argument("--hours",type=float,default=None,help="--run: only signals whose trigger closed within this many hours (forward logging)")
     ap.add_argument("--take-only",action="store_true",help="--resolve: only TAKE rows")
     a=ap.parse_args()
+    if a.run or a.resolve or a.rescore or a.reflag:      # the dashboard loop and manual runs rewrite the same CSV: one at a time
+        import fcntl
+        _lk = open(LOG + ".lock", "w"); fcntl.flock(_lk, fcntl.LOCK_EX)
     if a.run: cmd_run(a)
     elif a.resolve: cmd_resolve(a)
     elif a.report: cmd_report(a)
+    elif a.rescore: cmd_rescore(a)
+    elif a.reflag: cmd_rescore(a, clear=False)
     else: ap.print_help()

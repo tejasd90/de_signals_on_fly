@@ -17,6 +17,8 @@ Conventions:
 
 ## Setup 1: PICTURE-CALL with R5 (best simple rule): BUY
 
+> **Review 2026-10-15:** in-sample, essentially ONE episode. Three Aug-2026 weeks carry 87% of the 100x hits (100x by year: 2024 1.06%, 2025 0.85%, 2026 11.0%); the thresholds came from that episode's precursors; month-block P(EV<=0) 0.32. Counting each traded fill once: 25x 8.6%, 100x 3.7%. Judge it on the forward log only. Details: REVIEW_2026-10-15.md.
+
 *Verified 2026-10-07 by an independent recomputation from raw inputs. See "Verification" below.*
 
 **Rule** (BTC and ETH only):
@@ -82,11 +84,10 @@ signal bar's high (an unfilled stop costs nothing), so the rows are the 2,790 ac
 - **A split exit** (half at 25x, half at 100x) averages ≈ +2.8/unit with fewer long droughts.
 
 **Forward status** (`python paper_log.py --report`, "forward, traded prices, by target"; the forward log
-fills at the first traded close, like the headline table). **As of 14 Oct 2026:** PICTURE-CALL 270 rows /
-8 expiries, 0 hits at 25x; PICTURE-CALL & not R5 98 rows / 7 expiries, 0 hits. Still only ~3 independent
-episodes. Every forward 25x so far (48 rows) was a PUT in the 7–8 Oct crash (ETH/BTC 7, 8, 9 Oct expiries,
-otm_red_squeeze / red_squeeze / otm_wall / green_stairs), and every one was logged **skip**: forward TAKE
-0/80, skip 4.7% traded 25x. One episode, but it is the same side the channel-line study favours (puts).
+fills at the first traded 5m close after the signal). **Corrected 15 Oct 2026** (the log's timestamps were 5.5h
+early until then and it logged forming candles; REVIEW_2026-10-15.md): 518 genuinely forward rows. PICTURE-CALL 52
+rows / 8 expiries, 0 at 25x. All 14 forward 25x fills are puts from ONE episode (4–8 Oct crash, 6 contracts):
+TAKE 3/34, skip 11/260; calls 0/164.
 **Too early to judge.**
 
 ## Setup 2: A+ (R4 + R5): BUY, the previous standard
@@ -109,6 +110,8 @@ containment rule applies to the squeeze signals.
   because of mark-below-tradeable entries).
 
 ## Setup 3: Quiet-day STRADDLE SELL: SELL
+
+> **Review 2026-10-15 (candidate, forward only):** the quiet filter works on Mon–Thu entries only (1–3d: quiet +0.351% vs rest −0.476%, P=0.000; Fri–Sun quiet −0.054%, P=0.60). Post-hoc split of the same 145 days.
 
 *Verified 2026-10-07 by an independent rebuild of the straddles and of the walk-forward model.*
 

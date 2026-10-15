@@ -190,7 +190,10 @@ def trendlines(a, A, tf, min_touch=MIN_REJ, max_span=500):
                     near=(h[x]>=lv-TOL_ATR*A[x]) if kind=="R" else (l[x]<=lv+TOL_ATR*A[x])
                     if near and (not touches or x-touches[-1]>=CONFIRM): touches.append(int(x))
                 if len(touches)>=min_touch:
-                    ci=touches[min_touch-1]
+                    # a swing low/high is only known k=5 bars after it, so the line cannot be confirmed before
+                    # the second anchor is visible (review A, 2026-10-15: 39-43% of lines were confirmed early)
+                    ci=max(touches[min_touch-1], int(i2)+5)
+                    if brk is not None and brk<=ci: continue
                     out.append(dict(kind=kind,type="trendline",tf=tf,
                         anchor=(int(i1),int(i2)), slope=float(m),
                         price_at_break=float(line(brk)) if brk else float(line(n-1)),

@@ -1,5 +1,7 @@
 # Booking profits at a spike (15 Oct 2026, journal entry 27)
 
+> **Review 2026-10-15:** the "holding ≈ selling" average was carried by ~60 lottery contracts. With MARK peaks capped at 10x/20x/50x, hold minus sell is −1.8/−1.5/−1.0 (all CIs below 0). By time to expiry: <6h −1.03 [−1.71, −0.39], 6–24h −0.48 [−0.85, −0.06], 1–3d ≈0, >3d n.s. **Book at the first 3x within 24h of expiry; further out it is a coin flip.**
+
 His words: level-break moments are the most vulnerable; exiting causes huge FOMO; "the toughest part of my
 entire trading journey has not been strategy, or even SL, but booking profits, and targets."
 

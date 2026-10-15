@@ -60,8 +60,12 @@ def update(asset, res):
     last = latest_day(d)
     if last is None:
         print(f"  {asset}/{res}: empty, skipping (backfill not this script's job)"); return 0
-    # re-fetch the last stored day too: it was probably partial when written
-    start = datetime.strptime(last, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    # Restart a few bars before the newest stored bar: that bar was usually still forming when written.
+    # (Until 2026-10-15 this restarted at 00:00 UTC of the newest IST-day file, so once the IST day rolled
+    # over at 18:30 UTC the 18:30-24:00 UTC bars were never re-fetched and stayed half-built.)
+    try: newest = max(int(r[0]) for r in json.load(open(os.path.join(d, last))))
+    except Exception: newest = int(datetime.strptime(last, "%Y-%m-%d").replace(tzinfo=IST).timestamp())
+    start = datetime.fromtimestamp(newest - 3 * RES_SECS[res], tz=timezone.utc)
     end = datetime.now(timezone.utc)
     if (end - start).total_seconds() < RES_SECS[res]:
         print(f"  {asset}/{res}: current ({last})"); return 0

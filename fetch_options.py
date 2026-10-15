@@ -107,7 +107,10 @@ def refresh_live(horizon_days=10, settled_days=2, resolutions=("15","60","240","
                 except Exception: old = []
             old = [r for r in old if r[0] <= b]          # drop any padding past now
             last = max((r[0] for r in old), default=None)
-            if last is not None and last >= b - int(res)*60: continue   # nothing new can exist yet
+            # Nothing new can exist yet, AND the newest bar was complete when the file was written. Without the
+            # second test a bar caught while forming was never re-fetched: the last bar before settlement froze
+            # (review E, 2026-10-15: 10-04 and 10-14 expiries had wrong final 60/240/1440 closes).
+            if last is not None and last >= b - int(res)*60 and os.path.getmtime(fp) >= last + int(res)*60: continue
             a = last if last is not None else int((settle - dt.timedelta(days=45)).timestamp())
             jobs.append((sym, res, a, b, fp, old))
     # ~0.7s per request round trip, so serial took 9 min for one top-up; threads bring it near 1.
@@ -130,6 +133,36 @@ def refresh_live(horizon_days=10, settled_days=2, resolutions=("15","60","240","
         os.replace(tmp, fp)
         n_upd += 1
     print(f"live refresh: {len(todo)} contracts, {n_upd} files updated", flush=True)
+
+def repair_final(since, assets=ASSETS, resolutions=("60","240","1440")):
+    """Re-fetch as MARK every settled-expiry file (expiry >= since) whose newest bar was still forming when the
+    file was written (mtime < bar open + res), or that holds TRADED rows (numeric volume)."""
+    from concurrent.futures import ThreadPoolExecutor
+    now = int(time.time()); jobs = []
+    for asset in assets:
+        for e in sorted(os.listdir(f"data/candles/{asset}")):
+            if e < since: continue
+            try: settle = int(dt.datetime.combine(dt.date.fromisoformat(e), dt.time(12), dt.timezone.utc).timestamp())
+            except ValueError: continue
+            if settle > now: continue
+            for res in resolutions:
+                for fp in glob.glob(f"data/candles/{asset}/{e}/{res}/*.json"):
+                    try: rows = json.load(open(fp))
+                    except Exception: continue
+                    if not rows: continue
+                    stale = os.path.getmtime(fp) < rows[-1][0] + int(res) * 60
+                    traded = any(r[5] is not None for r in rows)
+                    if stale or traded: jobs.append((fp, os.path.basename(fp)[:-5], res, settle - 45*86400, settle))
+    print(f"repair-final: {len(jobs)} files to re-fetch", flush=True)
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        res = list(ex.map(lambda j: fetch(j[1], j[2], j[3], j[4]), jobs))
+    n = 0
+    for (fp, sym, r_, a, b), rows in zip(jobs, res):
+        out = sorted([[int(c["time"]), float(c["open"]), float(c["high"]), float(c["low"]),
+                       float(c["close"]), c.get("volume")] for c in rows if int(c["time"]) <= b], key=lambda x: x[0])
+        if not out: continue
+        tmp = fp + ".tmp"; json.dump(out, open(tmp, "w")); os.replace(tmp, fp); n += 1
+    print(f"repair-final: rewrote {n}", flush=True)
 
 def remark(assets=ASSETS):
     """One-off repair: files written before the MARK: fix hold TRADED candles (numeric
@@ -203,9 +236,11 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--days", type=int, default=30)
     ap.add_argument("--live", action="store_true", help="incremental top-up of near-dated contracts (for the loop)")
+    ap.add_argument("--repair-final", metavar="SINCE", help="one-off: re-fetch settled files whose last bar froze mid-bar, or that hold TRADED rows")
     ap.add_argument("--remark", action="store_true", help="one-off: rewrite TRADED files (numeric volume) as MARK")
     ap.add_argument("--horizon", type=int, default=10, help="--live: days ahead to cover")
     a = ap.parse_args()
+    if a.repair_final: repair_final(a.repair_final); sys.exit(0)
     if a.remark: remark()
     elif a.live: refresh_live(horizon_days=a.horizon)
     else: main(since_days=a.days)

@@ -24,6 +24,7 @@ STEP 2 (tradeability). Three things the first version assumed away:
            have been able to hold, let alone short, into it.
 """
 import glob, os
+import json
 import numpy as np, pandas as pd
 
 FEE=0.0002*1.18
@@ -56,7 +57,11 @@ def xs(z): return z.sub(z.mean(axis=1),axis=0).div(z.std(axis=1).replace(0,np.na
 def run(P,V,reb=5,dec=0.2,cap=None,hedge=False,fee=FEE,book=1e6):
     R=np.log(P).diff()
     sig=xs(-R.rolling(20).std())
-    dollar=(V*P).rolling(20).mean()          # 20d average dollar volume
+    # perp volume is in CONTRACTS; a contract is contract_value coins (0.001 BTC ... 10,000 for some alts).
+    # Without it dollar volume was off by up to 1e7 between names (review C, 2026-10-15). Names missing
+    # from /v2/products (mostly delisted) get NaN, i.e. zero capacity under a cap.
+    cv=pd.Series(json.load(open("data/perp_contract_value.json"))).reindex(P.columns)
+    dollar=(V*P*cv).rolling(20).mean()       # 20d average dollar volume
     beta=R.rolling(60).cov(R.mean(axis=1)).div(R.mean(axis=1).rolling(60).var(),axis=0)
     days=P.index.to_numpy(); W=pd.DataFrame(0.0,index=P.index,columns=P.columns); hold=None
     for k,d in enumerate(days):
@@ -75,9 +80,14 @@ def run(P,V,reb=5,dec=0.2,cap=None,hedge=False,fee=FEE,book=1e6):
                 # liquidity test was vacuous. The limit has to be expressed as a
                 # weight, which requires knowing the book size:
                 #     max weight = (cap x average daily dollar volume) / book
+                # names without a contract value (18, mostly delisted) get zero capacity. That re-introduces some
+                # survivorship; leaving them uncapped instead let big books pile into them (20% of exposure).
+                # Either way the capacity rows are indicative only.
                 lim=(cap*dollar.loc[d]/book).reindex(h.index).fillna(0.0)
                 h=h.clip(lower=-lim,upper=lim)
-                if h.abs().sum()>0: h=h/h.abs().sum()   # renormalise to 1x gross
+                # NO renormalisation: capital a cap blocks stays idle. Renormalising (1x gross, then per leg)
+                # moved the blocked money into the few liquid names, so returns ROSE with book size: the test
+                # measured concentration, not capacity (review, 2026-10-15).
             if hedge:
                 b=beta.loc[d].reindex(h.index).fillna(0)
                 net_b=(h*b).sum()
@@ -86,9 +96,13 @@ def run(P,V,reb=5,dec=0.2,cap=None,hedge=False,fee=FEE,book=1e6):
             hold=h
         if hold is not None: W.loc[d]=hold
     turn=W.diff().abs().sum(axis=1)
-    gross=(W.shift(1)*R).sum(axis=1)
+    # P&L on SIMPLE returns. Summing weighted LOG returns across names is not a portfolio return: for a short
+    # it overstates profit by ~sigma^2/2 a day, which on 6%-vol names manufactured most of the old +58%/yr
+    # (review C, 2026-10-15). Log returns stay for the signal and the beta.
+    S=P.pct_change(fill_method=None)
+    gross=(W.shift(1)*S).sum(axis=1)
     if hedge:
-        mkt=R.mean(axis=1); b=(W.shift(1)*beta.shift(1)).sum(axis=1)
+        mkt=S.mean(axis=1); b=(W.shift(1)*beta.shift(1)).sum(axis=1)
         gross=gross-b*mkt                       # remove the market component
     return (gross-turn*fee), turn, W
 
@@ -125,7 +139,7 @@ if __name__=="__main__":
         stats(net,f"book ${book:,.0f}",turn)
 
     print("\nSTEP 2c — where does the money come from now?")
-    R=np.log(Pd).diff()
+    R=Pd.pct_change(fill_method=None)          # simple returns (see run)
     net,turn,W=run(Pd,Vd,cap=0.005,hedge=True,book=1e6)
     L=(W.clip(lower=0).shift(1)*R).sum(axis=1).dropna()
     S=(W.clip(upper=0).shift(1)*R).sum(axis=1).dropna()

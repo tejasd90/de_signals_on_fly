@@ -1,5 +1,5 @@
 """Evaluate line_hover.py outputs. Near-duplicate lines produce the same event several times, so episodes and
-breaks are clustered: same spot / side / outcome ending within 24h of each other count once (longest hover kept).
+breaks are clustered: same spot / side / outcome ending within 24h of each other count once (the earliest kept).
 CIs: 90% block bootstrap by calendar week."""
 import numpy as np, pandas as pd
 rng = np.random.default_rng(0)

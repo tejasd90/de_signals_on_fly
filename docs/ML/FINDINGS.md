@@ -1,5 +1,7 @@
 # FINDINGS — 2026-09-10 session
 
+> **ERRATUM 2026-10-15 (see REVIEW_2026-10-15.md).** The cross-sectional book's +58–59%/yr, Sharpe ~2.5 was an aggregation error (weighted LOG returns summed across names inflate the short leg). On simple returns it is +23%/yr, Sharpe 0.96, P=0.07 (hedged), +13%/yr unhedged: not significant. The funding tailwind was counted 8x (+1.5%/yr, not +12.8%) and the capacity test used contracts as coins and renormalised blocked capital. Setup 1's backtest rests on three August-2026 weeks (87% of its 100x hits). Numbers below are kept as written.
+
 Supersedes parts of HANDOFF.md §2. Everything here is out-of-sample under
 purged walk-forward on `disc_final` (942,769 sampled rows / 8.5M effective,
 1,973 episodes, hourly, BTC+ETH+XAUT, 2024-02 .. 2026-09).

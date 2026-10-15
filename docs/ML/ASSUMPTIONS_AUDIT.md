@@ -1,5 +1,7 @@
 # Added-assumptions audit (2026-10-09)
 
+> **Review 2026-10-15: Decision 1 withdrawn.** Many sub-$2 events fill on the same traded candle of the same symbol. Counting each fill once: <$2 25x 6.8%, 100x 3.9% (was 10.3/7.1); $2–20 25x 8.6%, 100x 3.7%. Sub-$2 is not better.
+
 He objected that the premium-base test carried restrictions that were not part of his idea (a minimum
 time to expiry, one timeframe, a cheapness cap copied from his example). This audit lists the same kind
 of analyst-added restriction in every KEPT setup, then removes each one and measures what happens.

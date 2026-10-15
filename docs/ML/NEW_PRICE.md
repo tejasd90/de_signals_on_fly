@@ -1,5 +1,7 @@
 # Reversal at a known line (13 Oct) and a "new price" / stale-range indicator (15 Oct 2026)
 
+> **Review 2026-10-15:** against the opposite-direction move after the same event, a new close adds only 1.5–2.6pp of direction: a volatility flag only. A past-only percentile for "narrow" gives the same result.
+
 ## 13 Oct: his breakdown trade that reversed
 Both lows came in the 05:30 IST hour: BTC 80,993, ETH 2,407.9; by 09:30 BTC 83,420, ETH 2,517.
 - BTC: a 6h rising line (15 Sep → 8 Oct, 3 touches, `levels.trendlines`) was CONFIRMED at 23:30 IST 12 Oct, six
