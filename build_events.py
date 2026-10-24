@@ -90,6 +90,7 @@ def load_spot(spot):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--min-duration", type=int, default=30)
+    ap.add_argument("--max-duration", type=int, default=100000, help="e.g. 20 with --min-duration 5 builds the 5-20m signals on their own")
     ap.add_argument("--horizon-bars", type=int, default=72)
     ap.add_argument("--limit-expiries", type=int, default=0)
     ap.add_argument("--out", default="events.parquet")
@@ -107,7 +108,7 @@ def main():
                            if not d.startswith(".") and not d.startswith("_")):
             base = os.path.join(SIG_DIR, sig, spot)
             durs = sorted(int(x) for x in os.listdir(base)
-                          if x.isdigit() and int(x) >= a.min_duration)
+                          if x.isdigit() and a.min_duration <= int(x) <= a.max_duration)
             for du in durs:
                 ddir = os.path.join(base, str(du))
                 files = sorted(f for f in os.listdir(ddir)
