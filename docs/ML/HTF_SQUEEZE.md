@@ -245,3 +245,11 @@ within 6h, the exit at 25x is a print at that price, and this is a backtest. It 
 - **The store.** `data/signals` merges strikes and keeps the latest trigger, and drops firings on a big opposite
   spot bar, so it lists fewer firings than the candle scan. One gap is unexplained: the BTC 30 Oct daily puts
   that fire on 24 Sep in the code (six strikes, 36 days before expiry) are not in the store.
+- **No confirmed example of the pattern on crypto (checked 11 Nov, after his reply).** The seven crypto
+  contracts he has named as examples (C-BTC-87000-021026, P-BTC-81000/80500-091026, P-ETH-2400-161026,
+  P-BTC-81000-231026, C-BTC-66000-200826, C-BTC-68000-210826) all carry `otm_red_squeeze`, `otm_wall` or
+  `green_stairs` on 5m–4h in `data/signals`. A 6h+ `otm_red_squeeze` that includes the strike exists on only two
+  of the seven (80500 put, 8h, 6 Oct 09:30 IST; 68000 call, 6h, 15 Aug 05:30 IST). So his examples so far are
+  low-timeframe cases, and the 6h+ definition here has never been checked against a moment he would call
+  "this is it". Before more testing: 10–20 cases from him (contract, timeframe, the bar), crypto or NIFTY, and
+  check whether the detector fires there.
