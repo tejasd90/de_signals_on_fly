@@ -101,7 +101,7 @@ function sessionDays(from, to) {
  * @returns null if the contract never traded in a normal session, else
  *          { first, last, n1, c: { '5': [[ts,o,h,l,c,v,oi]...], ..., '1d': [...], '1w': [...] } }
  */
-function groupContract(rows, expiry) {
+function groupContract(rows, expiry, opts = {}) {      // opts.spot: an index (no volume, keep every bar)
     // in-session rows, last write wins on a duplicated minute
     const byTs = new Map();
     for (const r of rows) {
@@ -113,7 +113,7 @@ function groupContract(rows, expiry) {
     }
     let keys = [...byTs.keys()].sort();
     let s = 0;
-    while (s < keys.length && !(byTs.get(keys[s])[5] > 0)) s++;       // drop the untraded lead-in
+    while (!opts.spot && s < keys.length && !(byTs.get(keys[s])[5] > 0)) s++;       // drop the untraded lead-in
     if (s === keys.length) return null;
     keys = s ? keys.slice(s) : keys;
 
@@ -141,7 +141,7 @@ function groupContract(rows, expiry) {
             if (!a) agg.set(slot, [r[1], r[2], r[3], r[4], r[5], r[6]]);
             else { if (r[2] > a[1]) a[1] = r[2]; if (r[3] < a[2]) a[2] = r[3]; a[3] = r[4]; a[4] += r[5]; a[5] = r[6]; }
         }
-        const keep = KEEP_DAYS[dur];
+        const keep = opts.spot ? Infinity : KEEP_DAYS[dur];
         const minDi = keep === Infinity ? 0 : Math.max(0, days.length - keep);
         const bars = [];
         let prev = null;
