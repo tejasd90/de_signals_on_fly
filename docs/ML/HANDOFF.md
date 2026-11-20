@@ -1,5 +1,8 @@
 # HANDOFF — multibagger options ML
 
+> **Update 2026-11-20.** This file is the September handoff; its traps (§3) and method rules (§4) still apply.
+> For the current findings read "State as of 2026-11-20" in `README.md`, then `REVIEW_2026-10-15.md`.
+
 Read this first. It carries the reasoning behind decisions that look arbitrary
 in the code, and the traps that have already cost real time.
 

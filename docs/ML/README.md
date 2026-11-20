@@ -45,6 +45,13 @@ The current playbook: every surviving setup with its exact rule, backtest percen
 | 27 | **PREMIUM_LINES.md** | Falling trendlines on the OPTION chart (26 Oct, his NIFTY 22600/22700 CE): flatter broken line → slightly more 3x (+1.7pp, CI touches 0) and keeps more value to expiry (+0.28x); "flatter than the previous line" does worse; a premium line break is no better than a random bar. |
 | 28 | **PARABOLA_ALGOS.md** | Pseudocode of every parabola algorithm (premium base v1-v4, blind test, signal+hold, premium lines) with results; what none of them encode. Step 1 of the case-by-case review (27 Oct). |
 | 29 | **HTF_SQUEEZE.md** | His 11 Nov hypothesis: the parabolic otm_red_squeeze on 6h–1w predicts 1:100. Squeeze = a matched random bar (3.5% vs ~3% at 25x); parabola, low-timeframe wall/stairs, wait-and-hold and ML (AUC 0.63 vs 0.62 base) all null. His counter-trend point holds and generalises to every bar: with the 20-bar trend 4.3% at 25x and 1.32 kept, against it 1.6% and 0.57; on TRADED prints 5.0% / 1.50 [1.12, 1.93] vs 2.2% / 0.73. Ladder simulated; labeling is 9,008 firings, not millions. |
+| 30 | **NIFTY_SETUP.md** | 20 Nov: SSH access to the Windows VM holding the Indian data, first-session steps, and the 10–20 cases needed from him before the squeeze is tested on NIFTY. |
+| — | **JOURNAL_SCORECARD.md** | His discretionary journal (`market_observatios`), entry by entry, scored once each horizon passes. |
+| — | **CASE_2026-10-02.md** | The 2 Oct 2026 BTC call spike through every lens: signals caught 87000C, R5 vetoed it, it expired worthless. |
+| — | **MONTHLY_EXPIRY.md** | Monthly (38-day) contracts: expiry-week peaks are real, buy-and-hold loses, no fixed exit rule pays. |
+| — | **PREMIUM_SIGNALS.md** | His five signals read on the option's own chart: four die on a direction control; "holding" survives inverted. |
+| — | **LIGHTBOX.md** | His occlusion ("light-box") idea: null in both halves. |
+| — | **AUDIT_2026-09-30.md**, **PASCORE.md** | Two look-ahead leaks found 30 Sep; the price-action score is retracted. |
 | 17 | **ASSUMPTIONS_AUDIT.md** | Analyst-added restrictions in the kept setups, each removed and measured (2026-10-09): Setup 1 premium <2 pays as well on TRADED (100x 7.1%) but is lumpy/ETH-heavy; thresholds are a plateau; Setup 3 works at every 4h entry and threshold; 3–8d candidate. Decisions pending. |
 | 15 | **SETUPS.md** | **The playbook** (start here): Setup 1 PICTURE-CALL + R5 (implementable traded: 25x 10.6%, 100x 5.1% EV +3.99; independently verified), Setup 2 A+ (superseded), Setup 3 quiet-day straddle sell; supporting rules; strict check of 7 Oct. |
 | 14 | **PICTURE_CALLS.md** | **The lead:** quiet-before-the-storm picture × his call signals — 25x 12.1% vs 4.3% on TRADED prices, survives leave-one-episode-out, puts null. Forward-log next. |
@@ -60,7 +67,52 @@ DECISION_DOCUMENT §8.3.
 
 ---
 
-## State as of 2026-10-02
+## State as of 2026-11-20
+
+This section replaces "State as of 2026-10-02" below. Numbers are from the named doc; anything older than
+`REVIEW_2026-10-15.md` must be checked against that review before it is quoted.
+
+**Holds, with its limits**
+
+1. **Buy with the trend, not against it** (HTF_SQUEEZE.md, 11 Nov). On 6h–1w bars, options bought with the 20-bar
+   spot trend reach 25x 4.3% of the time vs 1.6% against it; on traded prints 5.0% vs 2.2%, value kept per ₹1
+   1.50 [1.12, 1.93] vs 0.73, above 1 in 2024, 2025 and 2026. A property of the market, not of any signal.
+   Backtest on prints, not fills; not yet in the forward log.
+2. **When not to trade** (WHEN_NOT_TO_TRADE.md, REVIEW_2026-10-15): the skip rule is mostly weekends. No direction.
+3. **Book at the first 3x within 24h of expiry** (SPIKE_RETENTION.md): significant; further out it is a coin flip.
+4. **13:30–14:30 IST premium cliff** (SMART_MONEY.md): real in traded prices. Buy after 14:30, sell before 13:30.
+5. **Wait-and-hold** (TF_REPEAT_HOLD.md): out of sample the gain survives only for `otm_wall` on 5m–3h. A loss-cutter.
+6. **Option selling, two conditional rules** (OPTION_SELLING.md): both halve out of sample; size by the −20% tail.
+7. **Break geometry on puts** (TOP10 row 6): P=0.011; 0.043 out of sample in 2026. Harmful on calls.
+8. **Contract selection is predictable, timing is not** (FINDINGS): which strike 0.95 AUC, whether today 0.57.
+
+**Forward test** (`paper_log.py --report`, 20 Nov, FORWARD rows only, traded fills): TAKE 3.70% at 25x
+(n 4,184, 41 expiries, EV −0.16) vs skip 2.10% (n 7,236, EV −0.56); backtest said 6.01% vs 3.51%. The rule ranks
+in the right direction and loses money so far. PICTURE-CALL (Setup 1): 0 of 64 over 12 expiries.
+
+**Withdrawn or null since 2 Oct:** cross-sectional perp book (+59%/yr was a log-return bug; real +23%/yr, Sharpe
+0.96, P=0.07), Setup 1 as a general rule (one Aug-2026 episode), the `<$2` decision (duplicate fills), premium-base
+parabola v1–v4, premium trendline breaks, line hover, hug/melt, regime cycles, 1m scalping, weekend-trap reversal,
+sideways approach, max pain / OI walls, the blind chart test (0 of 10 calls), and on 6h–1w: squeeze shape, both-sided
+parabola, low-timeframe wall/stairs confirmation, wait-and-hold, and ML on about 30 pattern features.
+
+**Open**
+
+- The 6h–1w squeeze was never checked against a case he picked (HTF_SQUEEZE.md, Bounds). Needs 10–20 cases from him.
+- NIFTY: data is on his Windows VM; access steps and first session in NIFTY_SETUP.md.
+- Trend colour on alerts in the :8777 dashboard and in the forward log; daily / 12h squeeze alerts; labeling portal.
+- Unexplained store gap: BTC 30 Oct daily puts that fire on 24 Sep in code are absent from `data/signals`.
+- ASSUMPTIONS_AUDIT decisions 2–4; journal scoring from entry 28.
+
+**Data on the Mac (not in git)**
+
+- Kept current by two LaunchAgents: `live_runner.js` (signals) and `dash_server.py` (every 15 min: spot, live option
+  candles, dashboard, forward log; once a day `daily_jobs.py`: settled expiries → `backfill.js` → `build_events.py`).
+- The daily research refresh is skipped below 4 GB free; when that happens `events.parquet` falls behind until it is
+  run by hand (`logs/research_refresh.log` says SKIPPED).
+- Candles are MARK prices with no volume; traded bars come from the Delta API without the `MARK:` prefix.
+
+## State as of 2026-10-02 (superseded)
 
 What currently survives, each with its own source doc:
 

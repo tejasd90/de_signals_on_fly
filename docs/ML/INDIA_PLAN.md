@@ -1,5 +1,9 @@
 # INDIA PLAN — Indian stocks + Indian F&O
 
+> **Update 2026-11-20.** The plan below (Sept) is the stock cross-section / Brooks plan. The work he has asked for
+> first is narrower: the 6h–1w parabolic `otm_red_squeeze` on NIFTY options, using cases he remembers. Access and
+> first steps are in `NIFTY_SETUP.md`. §0's "one repo, not two" and "go to the data" still stand.
+
 **Written 2026-09-16.** Extends DECISION_DOCUMENT.md. The crypto work is
 data-limited, not method-limited: every result is capped by **142 independent
 weeks x N_eff 5.8**, which is why the one surviving hypothesis (futures
