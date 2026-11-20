@@ -21,6 +21,12 @@ and 17 Nov expiries.
 - Daily: the falling line from August broken, then support taken on it ("not very clean, still technically correct").
 - 29 Oct: "the clean bounce after taking support".
 
+**Checked in the index data (`F:\nse\spot`, fetched 20 Nov):**
+- "10 consecutive red candles" is WEEKLY, and it is exact: the ten weeks starting 3 Aug to 5 Oct 2026 each closed below
+  their open (24,571 → 22,520). Then one green, one red (week of 19 Oct, 22,600), then the week of 26 Oct turned.
+- NIFTY all-time high 26,373; BANKNIFTY made a new high in November (64,681) while NIFTY was still about 2% below its own.
+- NIFTY daily closes: 23 Oct 22,600 · 26 Oct 22,753 · 28 Oct 22,699 · 29 Oct 22,937 · 30 Oct 23,053 · 6 Nov 25,030.
+
 **Signals (his):** daily-timeframe signals appeared around the bounce; he recalls 29 or 30 Oct, to be confirmed by him.
 
 **Data (`1d` bars, weekly expiries only; the 23 Nov monthly is not collected yet):**
