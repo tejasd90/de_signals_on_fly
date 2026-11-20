@@ -67,3 +67,27 @@ Raw firings (no strike merging, no opposite-direction filter), entry at the trig
 out-of-the-money call (price ≤ spot/1000, entry ≥ ₹1) reached 100x 23–32% of the time (5 and 9 Nov, 25m–125m), against
 3–12% for the firings; no put reached 25x. That comparison is not matched on strike distance or time and is six expiries.
 The matched test over all 622 expiries comes after the bulk grouping.
+
+### Daily-timeframe firings, 26–29 Oct 2026 (his case 1)
+
+His reading, given 20 Nov with two NIFTY charts (kept locally in `data/shared_charts/2026-11/`, not in git): weekly support on
+the rising line from early 2024; the daily falling line from August broken and retested; 29 Oct the clean bounce off it.
+"With news, price action and signals combined, buying these cheap 1:100 trades was possible on 26–29 Oct"; the daily
+signals are what he missed seeing by hand.
+
+NIFTY implied by the chain, daily close: 23 Oct 22,659 · 26 Oct 22,870 · 27 Oct 22,781 · 28 Oct 22,753 · 29 Oct 23,031 ·
+2 Nov 23,391 · 5 Nov 24,548.
+
+Daily (`1d`) firings in the weekly expiries, one row per contract, entry at that day's close:
+
+| trigger day | expiry | contracts fired | outcome |
+|---|---|---|---|
+| 26 Oct | 9 Nov NIFTY | 5 calls (23900–24500 CE, entry 5–21) | all ≥ 50x; three ≥ 100x (24400 CE 5.8 → 704, 121x) |
+| 26 Oct | 5 Nov SENSEX | 2 calls (77700, 78000 CE, entry 21–29) | 63x and 72x |
+| 26 Oct | 3 Nov NIFTY | 1 call (23600 CE, entry 15.55) | 13.6x |
+| 27 Oct | 3 Nov NIFTY | 2 calls (23950, 24400 CE, entry 1.85–3.35) | expired near zero (0.9x, 1.0x best) |
+| 28–29 Oct | all six | none on `1d` | |
+
+All are `otm_red_squeeze` or its close-to-close variant. The 26 Oct daily firings were on the next-but-one expiries; the
+nearest expiry's firings (3 Nov) paid least. The November monthly (23 Nov) is not collected yet. This is one episode; over
+its whole life the 9 Nov expiry had 218 daily firings, so the 26 Oct ones are picked by his context, not by the signal alone.
