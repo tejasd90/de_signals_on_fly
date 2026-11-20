@@ -62,10 +62,12 @@ function main() {
     const a = process.argv.slice(2);
     const opt = k => { const i = a.indexOf('--' + k); return i >= 0 ? a[i + 1] : undefined; };
     const grouped = opt('grouped'), out = opt('out');
-    if (!grouped || !out || !opt('expiries')) { console.log('usage: node signals_run.js --grouped <dir> --out <dir> --expiries a,b [--names NIFTY,SENSEX]'); process.exit(1); }
+    if (!grouped || !out || !(opt('expiries') || a.includes('--all'))) { console.log('usage: node signals_run.js --grouped <dir> --out <dir> (--expiries a,b | --all) [--names NIFTY,SENSEX] [--force]'); process.exit(1); }
     const names = opt('names') ? opt('names').split(',') : INDEX;
-    for (const e of opt('expiries').split(',')) {
+    const list = a.includes('--all') ? fs.readdirSync(grouped).filter(d => fs.existsSync(path.join(grouped, d, '_report.json'))).sort() : opt('expiries').split(',');
+    for (const e of list) {
         const dir = path.join(grouped, e);
+        if (!a.includes('--force') && a.includes('--all') && fs.existsSync(path.join(out, e, '_done'))) continue;
         for (const name of rd.underlyings(dir).filter(n => names.includes(n))) {
             const t0 = Date.now();
             const fired = runChain(dir, e, name);
@@ -75,6 +77,8 @@ function main() {
             const n = t => traded.filter(f => f.x >= t).length;
             console.log(`${e} ${name}: ${fired.length} firings (${traded.length} on a traded bar) | >=10x ${n(10)} | >=25x ${n(25)} | >=100x ${n(100)} | ${((Date.now() - t0) / 1000).toFixed(1)}s`);
         }
+        fs.mkdirSync(path.join(out, e), { recursive: true });
+        fs.writeFileSync(path.join(out, e, '_done'), '');
     }
 }
 
