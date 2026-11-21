@@ -1,0 +1,146 @@
+<!doctype html><html><head><meta charset="utf-8"><title>NSE signal review</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+ :root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--text:#c9d1d9;--muted:#8b949e;--accent:#d4823f}
+ *{box-sizing:border-box}
+ body{background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;margin:0}
+ header{display:flex;gap:10px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+ header a{color:var(--accent);text-decoration:none}
+ label{color:var(--muted);font-size:12px;display:flex;gap:5px;align-items:center}
+ select,button,input{background:#21262d;color:var(--text);border:1px solid var(--line);border-radius:5px;padding:4px 8px;font-size:13px}
+ input[type=number]{width:64px}
+ #wrap{display:flex;height:calc(100vh - 47px)}
+ #left{width:50%;min-width:420px;overflow:auto;border-right:1px solid var(--line)}
+ #right{flex:1;min-width:0;display:flex;flex-direction:column}
+ #sum{padding:8px 14px;border-bottom:1px solid var(--line);color:var(--muted);position:sticky;top:0;background:var(--bg);z-index:2}
+ #sum b{color:#e6edf3}
+ #title{padding:8px 14px;border-bottom:1px solid var(--line);min-height:36px}
+ #chart{flex:1;min-height:0}
+ table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+ th{text-align:left;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:#6e7681;padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:35px;background:var(--bg)}
+ td{padding:4px 8px;border-bottom:1px solid #1b212c;white-space:nowrap}
+ tr.a{cursor:pointer} tr.a:hover,tr.k:hover{background:#1a202b}
+ tr.k{cursor:pointer;color:#a9b3bd} tr.k td:first-child{padding-left:26px}
+ tr.sel{background:#22304a!important}
+ .C{color:#3fb950;font-weight:700} .P{color:#f85149;font-weight:700}
+ .win{color:#3fb950;font-weight:600} .lose{color:#f85149} .mid{color:#d29922}
+ .muted{color:var(--muted)} .r{text-align:right}
+ .sg{font-size:11px;color:var(--muted);white-space:normal}
+</style></head><body>
+<header>
+ <a href="/">← crypto</a><b>NSE / BSE index options · signal review</b>
+ <label>index <select id="name"></select></label>
+ <label>expiry <select id="expiry"></select></label>
+ <label>timeframe <select id="dur"></select></label>
+ <label>side <select id="side"><option value="">both</option><option value="C">calls</option><option value="P">puts</option></select></label>
+ <label>entry ≥ ₹ <input id="minE" type="number" value="1" step="0.5" min="0"></label>
+ <label>a win is ≥ <select id="win"><option>10</option><option>25</option><option>50</option><option>100</option></select>x</label>
+ <label>show <select id="res"><option value="">all</option><option value="w">wins</option><option value="f">fails</option></select></label>
+ <label><input id="logy" type="checkbox" checked> log price</label>
+</header>
+<div id="wrap">
+ <div id="left"><div id="sum">loading…</div><table><thead><tr>
+  <th>trigger bar (IST)</th><th>tf</th><th>side</th><th class="r">strikes</th><th class="r">index</th><th class="r">entry ₹</th><th class="r">best</th><th class="r">median</th><th class="r">wins</th><th>signals</th>
+ </tr></thead><tbody id="rows"></tbody></table></div>
+ <div id="right"><div id="title" class="muted">Click an alert to open its strikes, then a strike to see the index and the option on that timeframe.</div><div id="chart"></div></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const DURS=['5','10','15','25','60','75','125','1d','1w'], DL={'5':'5m','10':'10m','15':'15m','25':'25m','60':'1h','75':'75m','125':'125m','1d':'1d','1w':'1w'};
+const SHORT={otm_red_squeeze:'squeeze',otm_red_squeeze_c2c:'squeeze c2c',green_stairs:'stairs',otm_wall:'wall'};
+const lab=ts=>ts.slice(2,16).replace('T',' ');
+const fx=x=>x>=100?x.toFixed(0)+'x':x>=10?x.toFixed(1)+'x':x.toFixed(2)+'x';
+const J=async u=>{const r=await fetch(u);const j=await r.json();if(j&&j.error)throw new Error(j.error);return j;};
+let ROWS=[],OPEN=new Set(),SEL=null;
+const cls=x=>{const w=+$('win').value;return x>=w?'win':x>=2?'mid':'lose';};
+
+async function init(){
+  const names=await J('/api/nse/names');
+  $('name').innerHTML=names.map(n=>`<option>${esc(n)}</option>`).join('');
+  $('dur').innerHTML='<option value="">all</option>'+DURS.map(d=>`<option value="${d}"${d==='1d'?' selected':''}>${DL[d]}</option>`).join('');
+  for(const id of['dur','side','minE','win','res'])$(id).onchange=draw;
+  $('logy').onchange=()=>SEL&&show(SEL);
+  $('name').onchange=loadExp; $('expiry').onchange=loadRows;
+  await loadExp();
+  const q=new URLSearchParams(location.search);          // ?expiry=2026-11-09&auto=1 opens the best strike of the first alert (used by the page test)
+  if(q.get('expiry')){$('expiry').value=q.get('expiry');await loadRows();}
+  if(q.get('auto')){const a=alerts()[0];if(a){OPEN.add(a.k);const r=a.ks.reduce((p,c)=>c.x>p.x?c:p);r.id=r.sym+'|'+r.dur+'|'+r.ts;await show(r);draw();}}
+}
+async function loadExp(){
+  const ex=await J('/api/nse/expiries?name='+$('name').value);
+  $('expiry').innerHTML=ex.map(e=>`<option value="${e.expiry}">${e.expiry} · ${e.n} firings · best ${fx(e.best)}</option>`).join('');
+  await loadRows();
+}
+async function loadRows(){
+  $('sum').textContent='loading…'; OPEN=new Set(); SEL=null;
+  ROWS=await J(`/api/nse/firings?name=${$('name').value}&expiry=${$('expiry').value}`);
+  draw();
+}
+function alerts(){
+  const dur=$('dur').value, side=$('side').value, minE=+$('minE').value||0, m=new Map();
+  for(const r of ROWS){
+    if(dur&&r.dur!==dur||side&&r.type!==side||r.entry<minE)continue;
+    const k=r.ts+'|'+r.dur+'|'+r.type; let a=m.get(k); if(!a)m.set(k,a={k,ts:r.ts,dur:r.dur,type:r.type,spot:r.spot,ks:[]}); a.ks.push(r);
+  }
+  const w=+$('win').value, out=[];
+  for(const a of m.values()){
+    a.ks.sort((p,q)=>a.type==='C'?p.strike-q.strike:q.strike-p.strike);
+    const xs=a.ks.map(r=>r.x).sort((p,q)=>p-q);
+    a.best=xs[xs.length-1]; a.med=xs[Math.floor(xs.length/2)]; a.wins=xs.filter(x=>x>=w).length;
+    a.sig=[...new Set(a.ks.flatMap(r=>r.signals.split(',')))].map(s=>SHORT[s]||s).join(', ');
+    const es=a.ks.map(r=>r.entry); a.e0=Math.min(...es); a.e1=Math.max(...es);
+    out.push(a);
+  }
+  const res=$('res').value;
+  return out.filter(a=>res==='w'?a.wins>0:res==='f'?a.wins===0:true).sort((p,q)=>p.ts<q.ts?-1:p.ts>q.ts?1:DURS.indexOf(p.dur)-DURS.indexOf(q.dur));
+}
+function draw(){
+  const al=alerts(), w=+$('win').value, nk=al.reduce((s,a)=>s+a.ks.length,0), wk=al.reduce((s,a)=>s+a.wins,0), wa=al.filter(a=>a.wins>0).length;
+  $('sum').innerHTML=`<b>${al.length}</b> alerts (bar × side), <b>${wa}</b> had a strike reach ${w}x · <b>${nk}</b> strike firings, <b>${wk}</b> reached ${w}x`+
+    ` <span class="muted">· x = highest later high ÷ trigger close · end = last close ÷ trigger close · raw firings, traded bars only</span>`;
+  let h='';
+  for(const a of al){
+    h+=`<tr class="a" data-k="${esc(a.k)}"><td>${OPEN.has(a.k)?'▾':'▸'} ${lab(a.ts)}</td><td>${DL[a.dur]}</td><td class="${a.type}">${a.type==='C'?'CALL':'PUT'}</td><td class="r">${a.ks.length}</td>`+
+      `<td class="r">${a.spot==null?'':Math.round(a.spot)}</td><td class="r">${a.e0===a.e1?a.e0:a.e0+'–'+a.e1}</td><td class="r ${cls(a.best)}">${fx(a.best)}</td><td class="r ${cls(a.med)}">${fx(a.med)}</td>`+
+      `<td class="r">${a.wins}/${a.ks.length}</td><td class="sg">${esc(a.sig)}</td></tr>`;
+    if(OPEN.has(a.k))for(const r of a.ks){
+      const id=r.sym+'|'+r.dur+'|'+r.ts, otm=r.spot?((r.type==='C'?r.strike-r.spot:r.spot-r.strike)/r.spot*100).toFixed(1)+'% out':'';
+      h+=`<tr class="k${SEL&&SEL.id===id?' sel':''}" data-id="${esc(id)}"><td>${r.strike} ${r.type==='C'?'CE':'PE'}</td><td colspan="2" class="muted">${otm}</td><td class="r muted">vol ${r.vol}</td><td></td>`+
+        `<td class="r">${r.entry}</td><td class="r ${cls(r.x)}">${fx(r.x)}</td><td class="r muted">peak ${r.peak}</td><td class="r ${r.xEnd>=1?'win':'lose'}">end ${fx(r.xEnd)}</td><td class="sg">${esc(r.signals.split(',').map(s=>SHORT[s]||s).join(', '))} · peak ${lab(r.peakTs||'')}</td></tr>`;
+    }
+  }
+  $('rows').innerHTML=h||'<tr><td colspan="10" class="muted">Nothing fired with these filters.</td></tr>';
+}
+$('rows').onclick=e=>{
+  const tr=e.target.closest('tr'); if(!tr)return;
+  if(tr.dataset.k){const k=tr.dataset.k;OPEN.has(k)?OPEN.delete(k):OPEN.add(k);draw();}
+  else if(tr.dataset.id){const r=ROWS.find(r=>r.sym+'|'+r.dur+'|'+r.ts===tr.dataset.id);if(r){r.id=tr.dataset.id;show(r);draw();}}
+};
+async function show(r){
+  SEL=r; const name=$('name').value, expiry=$('expiry').value;
+  $('title').innerHTML=`<b>${esc(r.sym)}</b> · ${DL[r.dur]} · trigger ${lab(r.ts)} at ₹${r.entry} → peak ₹${r.peak} (<span class="${cls(r.x)}">${fx(r.x)}</span>) on ${lab(r.peakTs||'')} · end ${fx(r.xEnd)} <span class="muted">· loading…</span>`;
+  let c,sp;
+  try{ c=(await J(`/api/nse/contract?expiry=${expiry}&sym=${r.sym}`)).c[r.dur]||[];
+       sp=c.length?await J(`/api/nse/spot?name=${name}&dur=${r.dur}&t0=${encodeURIComponent(c[0][0])}&t1=${encodeURIComponent(c[c.length-1][0])}`):[]; }
+  catch(err){ $('title').innerHTML+=` <span class="lose">${esc(err.message)}</span>`; return; }
+  if(SEL!==r)return;
+  $('title').innerHTML=$('title').innerHTML.replace(' <span class="muted">· loading…</span>','');
+  const fires=ROWS.filter(q=>q.sym===r.sym&&q.dur===r.dur);
+  const col={increasing:{line:{color:'#3fb950'}},decreasing:{line:{color:'#f85149'}}};
+  const tr=[
+    {type:'candlestick',x:sp.map(b=>lab(b[0])),open:sp.map(b=>b[1]),high:sp.map(b=>b[2]),low:sp.map(b=>b[3]),close:sp.map(b=>b[4]),xaxis:'x',yaxis:'y',name:name,...col},
+    {type:'candlestick',x:c.map(b=>lab(b[0])),open:c.map(b=>b[1]),high:c.map(b=>b[2]),low:c.map(b=>b[3]),close:c.map(b=>b[4]),xaxis:'x',yaxis:'y2',name:r.sym,...col},
+    {type:'bar',x:c.map(b=>lab(b[0])),y:c.map(b=>b[5]),xaxis:'x',yaxis:'y3',name:'volume',marker:{color:'#3b4656'}},
+    {type:'scatter',mode:'markers',x:fires.map(q=>lab(q.ts)),y:fires.map(q=>q.entry),xaxis:'x',yaxis:'y2',name:'firings',
+      text:fires.map(q=>q.signals+' → '+fx(q.x)),hovertemplate:'%{x}<br>₹%{y}<br>%{text}<extra></extra>',
+      marker:{symbol:'triangle-up',size:fires.map(q=>q.ts===r.ts?15:9),color:fires.map(q=>q.ts===r.ts?'#f0e040':'#58a6ff'),line:{color:'#0d1117',width:1}}},
+  ];
+  const ax={gridcolor:'#1f2630',zeroline:false};
+  Plotly.react('chart',tr,{paper_bgcolor:'#0d1117',plot_bgcolor:'#0d1117',font:{color:'#c9d1d9',size:11},margin:{l:56,r:14,t:10,b:60},showlegend:false,
+    xaxis:{type:'category',categoryorder:'category ascending',rangeslider:{visible:false},nticks:10,...ax},
+    yaxis:{domain:[0.62,1],title:name,...ax}, yaxis2:{domain:[0.16,0.58],title:'option ₹',type:$('logy').checked?'log':'linear',...ax}, yaxis3:{domain:[0,0.12],title:'vol',...ax},
+    shapes:[{type:'line',xref:'x',yref:'paper',x0:lab(r.ts),x1:lab(r.ts),y0:0,y1:1,line:{color:'#f0e040',width:1,dash:'dot'}}]},{responsive:true,displaylogo:false});
+}
+init().catch(e=>{$('sum').innerHTML='<span class="lose">'+esc(e.message)+'</span>';});
+</script></body></html>

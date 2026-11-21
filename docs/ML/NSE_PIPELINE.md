@@ -91,3 +91,54 @@ Daily (`1d`) firings in the weekly expiries, one row per contract, entry at that
 All are `otm_red_squeeze` or its close-to-close variant. The 26 Oct daily firings were on the next-but-one expiries; the
 nearest expiry's firings (3 Nov) paid least. The November monthly (23 Nov) is not collected yet. This is one episode; over
 its whole life the 9 Nov expiry had 218 daily firings, so the 26 Oct ones are picked by his context, not by the signal alone.
+
+## All history, signal bars against matched ordinary bars (21 Nov 2026)
+
+Grouping finished: 622 expiries (Aug 2022 – 19 Nov 2026), no unreadable file, none needed cleaning. `signals_run.js --all`
+wrote 2.51 million raw firings on the seven index chains. `nse/baseline.js` then counted every traded bar of the same chains.
+
+**The comparison** (`nse/baseline_report.py`): a signal bar is compared with the traded bars of the SAME expiry, index,
+timeframe and side that sit in the same bucket of days to expiry, distance out of the money and option price, and where that
+signal did not fire. Out-of-the-money bars with close ≥ ₹1 only. Stored view (15:30–15:40 as its own bar). x = highest later
+high ÷ trigger close. Intervals are 90%, bootstrap over expiries.
+
+| signal | firings | reached 10x: signal vs matched bars | reached 25x | reached 100x |
+|---|---|---|---|---|
+| otm_red_squeeze, calls | 122,585 | 3.17% vs 2.88% (diff +0.19 to +0.40) | 1.03% vs 0.95% | 0.16% vs 0.15% |
+| otm_red_squeeze, puts | 139,562 | 3.38% vs 3.17% (+0.13 to +0.28) | 0.98% vs 0.89% | 0.08% vs 0.08% |
+| close-to-close squeeze, calls | 123,957 | 3.15% vs 2.85% (+0.20 to +0.40) | 1.02% vs 0.93% | 0.16% vs 0.15% |
+| close-to-close squeeze, puts | 140,881 | 3.37% vs 3.12% (+0.17 to +0.33) | 0.98% vs 0.86% | 0.07% vs 0.07% |
+| green_stairs, calls | 133,225 | 3.02% vs 4.45% (−1.66 to −1.20) | 1.02% vs 1.41% | 0.12% vs 0.16% |
+| green_stairs, puts | 159,941 | 2.65% vs 3.89% (−1.44 to −1.06) | 0.59% vs 0.90% | 0.04% vs 0.05% |
+| otm_wall, calls | 103,482 | 6.07% vs 9.55% (−4.18 to −2.81) | 1.75% vs 2.78% | 0.19% vs 0.24% |
+| otm_wall, puts | 142,693 | 3.60% vs 7.65% (−4.80 to −3.32) | 0.51% vs 1.46% | 0.01% vs 0.04% |
+
+- **Squeeze:** a small lift that is unlikely to be chance, on 5m to 1h (about 3.4% against 3.0% at 10x). It is gone on 75m and
+  125m and turns negative on 1d (3.14% vs 3.51%; close-to-close 3.12% vs 3.79%) and 1w. No lift at 100x on any timeframe.
+- **Close-to-close variant:** the same as the original everywhere.
+- **Green stairs and wall:** worse than comparable ordinary bars on every timeframe and every index.
+- **NIFTY daily calls** (his case 1 timeframe): squeeze 3.14% vs 4.09% over 209 expiries. The 26 Oct 2026 firings were good
+  because every cheap call of those expiries was good.
+- NIFTY, SENSEX and BANKNIFTY give the same picture. Full table: `data/nse/baseline_report.json` (local).
+
+**Not usable yet: value held to expiry.** The script also sums last close ÷ trigger close. Ordinary near-the-money bars average
+about 2x on that measure, which cannot be right: the grouped series is filled flat from a contract's last trade, so a contract
+that stopped trading keeps a stale price to the end. It must be replaced by the settlement value from the index close before
+any hold-to-expiry or P&L number is quoted. The peak multiples above do not depend on it.
+
+**Also not done:** the merged view of the 15:30–15:40 bar, the processor's strike merging and filters, costs and slippage.
+
+## Review page in the dashboard (21 Nov 2026)
+
+`/nse` on the one dashboard (:8777): `dash_nse.py`, `nse.html`, routes in `dash_server.py`. Pick index, expiry and timeframe;
+each row is one alert (trigger bar × side) with its strikes; a strike opens the index and the option on that timeframe with
+every firing on that contract marked. Filters: side, minimum entry, what counts as a win (10/25/50/100x), wins or fails only.
+Data on the Mac is small: `data/nse/signals.parquet` (46 MB, `nse/signals_to_parquet.py`), `data/nse/spot/` (index history,
+23 MB), and option candles copied one contract at a time from the VM into `data/nse/cache/` when a chart is opened
+(`data/nse/vm.json` holds the address; not in git). `?expiry=2026-11-09&auto=1` opens the first alert, used for the page check.
+
+## New expiries into `combined_js` (21 Nov 2026)
+
+`nse/combine.js` turns the 86 new tars (20 Jan – 19 Nov 2026) into the per-contract files the file server reads. Same format
+as the old combiner, except duplicate minutes are dropped, damaged files are cleaned, and rows run to the real close (15:40
+from 3 Aug 2026; the old one cut at 15:30). Markers in `F:\nse\logs\combined_marks`, log `F:\nse\logs\combine_all.log`.

@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 import numpy as np
 
-import dash_api, dash_setups, re, new_price
+import dash_api, dash_setups, re, new_price, dash_nse
 ASSETS = ("BTC", "ETH")
 RESOLUTIONS = ("15", "60", "240", "1440")
 from optreq import required_moves
@@ -140,6 +140,21 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
     def do_GET(self):
         u = urlparse(self.path); q = parse_qs(u.query)
+        if u.path == "/nse":                  # NSE/BSE index-option signal review (dash_nse.py)
+            return self._send(open(os.path.join(HERE, "nse.html"), "rb").read(), "text/html")
+        if u.path.startswith("/api/nse/"):
+            try:
+                n = q.get("name", ["NIFTY"])[0]
+                if n not in dash_nse.NAMES: return self._bad("unknown index")
+                e = q.get("expiry", [""])[0]
+                if u.path == "/api/nse/names": return self._send(jdump(list(dash_nse.NAMES)))
+                if u.path == "/api/nse/expiries": return self._send(jdump(dash_nse.expiries(n)))
+                if u.path in ("/api/nse/firings", "/api/nse/contract") and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", e): return self._bad("expiry must be YYYY-MM-DD")
+                if u.path == "/api/nse/firings": return self._send(jdump(dash_nse.firings(n, e)))
+                if u.path == "/api/nse/contract": return self._send(jdump(dash_nse.contract(e, q.get("sym", [""])[0])))
+                if u.path == "/api/nse/spot": return self._send(jdump(dash_nse.spot(n, q.get("dur", ["1d"])[0], q.get("t0", [""])[0], q.get("t1", [""])[0])))
+            except Exception as ex: return self._send(jdump({"error": f"{type(ex).__name__}: {ex}"}))
+            self.send_response(404); self.end_headers(); return
         # Every parameter that reaches a file path is whitelisted.
         a = q.get("asset", ["BTC"])[0]
         if a not in ASSETS: return self._bad("asset must be BTC or ETH")

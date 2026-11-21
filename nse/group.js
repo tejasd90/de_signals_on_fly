@@ -276,4 +276,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { readCandleFile, groupContract, processExpiry, KEEP_DAYS, INTRADAY, decode, unwrap, normTs };
+module.exports = { readCandleFile, groupContract, processExpiry, listContracts, KEEP_DAYS, INTRADAY, decode, unwrap, normTs };
