@@ -121,10 +121,13 @@ high ÷ trigger close. Intervals are 90%, bootstrap over expiries.
   because every cheap call of those expiries was good.
 - NIFTY, SENSEX and BANKNIFTY give the same picture. Full table: `data/nse/baseline_report.json` (local).
 
-**Not usable yet: value held to expiry.** The script also sums last close ÷ trigger close. Ordinary near-the-money bars average
-about 2x on that measure, which cannot be right: the grouped series is filled flat from a contract's last trade, so a contract
-that stopped trading keeps a stale price to the end. It must be replaced by the settlement value from the index close before
-any hold-to-expiry or P&L number is quoted. The peak multiples above do not depend on it.
+**Value held to expiry (fixed 22 Nov).** The first version used the last traded close, stale for contracts that stopped
+trading. It now uses settlement: intrinsic value at the index close of expiry day (`baseline.js --spot`, `nse/settle_xend.py` for
+the local firings). The stale value had overstated by about 5%. Mean value at expiry per ₹1 bought at the trigger close, signal
+vs matched bars: squeeze calls 0.40 vs 0.375, puts 0.24 vs 0.22; green stairs calls 0.45 vs 0.64, puts 0.18 vs 0.29; wall calls
+1.43 vs 1.92, puts 0.65 vs 1.08. Squeeze firings are slightly better than matched bars and still lose about 60–75% held blind.
+The wall cells (cheap, near the money, close to expiry) show ordinary bars averaging above 1; that mean rests on a few very
+large payoffs and needs its own check before it is believed.
 
 **Also not done:** the merged view of the 15:30–15:40 bar, the processor's strike merging and filters, costs and slippage.
 

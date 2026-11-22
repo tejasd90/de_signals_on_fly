@@ -5,11 +5,13 @@
 //   timeframe | call/put | days to expiry | distance out of the money | option price
 // and counted, with how many later reached 10x / 25x / 50x / 100x (later max high ÷ this
 // bar's close, same measure as signals_run.js) and the sum of hold-to-expiry value
-// (last close ÷ this close). Bars where a signal fired are counted again per signal.
+// (settlement value ÷ this close; settlement = intrinsic value at the index close of expiry day, from
+// the index history, because a contract that stops trading keeps a stale last price in the filled
+// series). Bars where a signal fired are counted again per signal.
 // 'separate' view only. Output: <out>/<expiry>.json  { NAME: { cell: { a:[...], s:{signal:[...]} } } }
 //   counts array = [n, n10, n25, n50, n100, sumXEnd]
 //
-//   node baseline.js --grouped F:\nse\grouped --signals F:\nse\signals --out F:\nse\baseline [--expiries a,b] [--force]
+//   node baseline.js --grouped F:\nse\grouped --signals F:\nse\signals --spot F:\nse\spot --out F:\nse\baseline [--expiries a,b] [--force]
 // ─────────────────────────────────────────────────────────────────────────────
 'use strict';
 const fs = require('fs');
@@ -30,7 +32,7 @@ function cellOf(dur, type, ts, expiry, strike, spot, entry) {
 }
 function add(arr, x, xEnd) { arr[0]++; if (x >= 10) arr[1]++; if (x >= 25) arr[2]++; if (x >= 50) arr[3]++; if (x >= 100) arr[4]++; arr[5] += xEnd; }
 
-function runChain(expiryDir, expiry, name, sigFile) {
+function runChain(expiryDir, expiry, name, sigFile, settle) {
     const fired = new Map();                     // sym|dur|ts -> Set(signal)
     if (fs.existsSync(sigFile)) for (const f of JSON.parse(fs.readFileSync(sigFile, 'utf8'))) {
         if (f.view !== 'separate') continue;
@@ -43,7 +45,7 @@ function runChain(expiryDir, expiry, name, sigFile) {
         if (!ks.length) continue;
         const spotByTs = rd.syntheticSpot(ks);
         for (const k of ks) {
-            const c = k.candles, n = c.length, last = c[n - 1].close;
+            const c = k.candles, n = c.length, last = Math.max(0, k.type === 'C' ? settle - k.strike : k.strike - settle);
             let peak = 0;
             for (let i = n - 2; i >= 0; i--) {
                 if (c[i + 1].high > peak) peak = c[i + 1].high;
@@ -67,8 +69,13 @@ function runChain(expiryDir, expiry, name, sigFile) {
 function main() {
     const a = process.argv.slice(2);
     const opt = k => { const i = a.indexOf('--' + k); return i >= 0 ? a[i + 1] : undefined; };
-    const grouped = opt('grouped'), signals = opt('signals'), out = opt('out');
-    if (!grouped || !signals || !out) { console.log('usage: node baseline.js --grouped <dir> --signals <dir> --out <dir> [--expiries a,b] [--force]'); process.exit(1); }
+    const grouped = opt('grouped'), signals = opt('signals'), out = opt('out'), spotDir = opt('spot');
+    if (!grouped || !signals || !out || !spotDir) { console.log('usage: node baseline.js --grouped <dir> --signals <dir> --spot <dir> --out <dir> [--expiries a,b] [--force]'); process.exit(1); }
+    const daily = {};                            // name -> Map(day -> index close)
+    const settleOf = (name, e) => {
+        if (!daily[name]) { daily[name] = new Map(); const f = path.join(spotDir, name + '.json.gz'); if (fs.existsSync(f)) for (const r of rd.loadContract(f).c['1d']) daily[name].set(r[0].slice(0, 10), r[4]); }
+        return daily[name].get(e);
+    };
     fs.mkdirSync(out, { recursive: true });
     const list = opt('expiries') ? opt('expiries').split(',') : fs.readdirSync(grouped).filter(d => fs.existsSync(path.join(grouped, d, '_report.json'))).sort();
     for (const e of list) {
@@ -76,7 +83,11 @@ function main() {
         if (!a.includes('--force') && fs.existsSync(of)) continue;
         const t0 = Date.now(), res = {};
         const dir = path.join(grouped, e);
-        for (const name of rd.underlyings(dir).filter(n => INDEX.includes(n))) res[name] = runChain(dir, e, name, path.join(signals, e, name + '.json'));
+        for (const name of rd.underlyings(dir).filter(n => INDEX.includes(n))) {
+            const st = settleOf(name, e);
+            if (st === undefined) { console.log(`${e} ${name}: no index close for the expiry day, skipped`); continue; }
+            res[name] = runChain(dir, e, name, path.join(signals, e, name + '.json'), st);
+        }
         fs.writeFileSync(of, JSON.stringify(res));
         console.log(`${e}: ${Object.keys(res).join(',')} ${((Date.now() - t0) / 1000).toFixed(1)}s`);
     }
