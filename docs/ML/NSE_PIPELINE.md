@@ -145,3 +145,24 @@ Data on the Mac is small: `data/nse/signals.parquet` (46 MB, `nse/signals_to_par
 `nse/combine.js` turns the 86 new tars (20 Jan – 19 Nov 2026) into the per-contract files the file server reads. Same format
 as the old combiner, except duplicate minutes are dropped, damaged files are cleaned, and rows run to the real close (15:40
 from 3 Aug 2026; the old one cut at 15:30). Markers in `F:\nse\logs\combined_marks`, log `F:\nse\logs\combine_all.log`.
+
+## Why the percentages are low: what the index had to do (23 Nov 2026)
+
+`nse/why_fail.py`, squeeze firings (either variant) on NIFTY, SENSEX and BANKNIFTY, out of the money, entry ≥ ₹1: 262,422
+firings in 445 expiries; 2.98% reached 10x, 0.93% 25x, 0.12% 100x. Descriptive, no control group.
+
+| what the index did between the firing and expiry | share of firings | reached 10x |
+|---|---|---|
+| never got halfway to the strike | 82.8% | 0.19% |
+| got halfway or more, never touched the strike | 13.3% | 6.6% |
+| touched the strike | 3.9% | 49.8% |
+
+Distance to the strike in "normal moves" (distance ÷ (20-session daily volatility × √sessions left)): the median firing is 2.6
+normal moves away (BANKNIFTY 3.0). Reached 10x by distance: 0.5–1 → 5.3%, 1–1.5 → 5.0%, 1.5–2 → 4.5%, 2–3 → 3.4%, 3–5 → 1.8%,
+5+ → 0.95%. By entry price: ₹1–2 → 0.8%, ₹2–5 → 1.7%, ₹5–10 → 2.9%, ₹10–20 → 4.0%, ₹20–50 → 5.2%.
+
+- The crypto threshold (index ÷ option price ≥ 1000) was set on BTC and ETH, which move three to four times as much as
+  NIFTY. On an index it selects strikes that need a 2.5–3 normal-move run; the index touches such a strike 4% of the time.
+- Previous five sessions of the index: best when flat (3.5%), worst after a strong move either way (against > 3%: 1.7%;
+  with > 3%: 2.5%). Time of day and weekday make little difference (first 45 minutes 2.3%, Tuesday 2.4%, others about 3%).
+- Sessions left: expiry day 2.2%, rising to 3.6–3.7% with 5 or more sessions left.
