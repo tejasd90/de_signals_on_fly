@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 import numpy as np
 
-import dash_api, dash_setups, re, new_price, dash_nse
+import dash_api, dash_setups, re, new_price, dash_nse, dash_pages
 ASSETS = ("BTC", "ETH")
 RESOLUTIONS = ("15", "60", "240", "1440")
 from optreq import required_moves
@@ -128,20 +128,48 @@ class H(BaseHTTPRequestHandler):
     def do_POST(self):
         # /api/selftest: dashboard_selftest.js reports its PASS/FAIL lines here (only used
         # by the headless browser test); written to logs/selftest.txt
-        if urlparse(self.path).path != "/api/selftest": self.send_response(404); self.end_headers(); return
+        pp = urlparse(self.path).path
+        if pp.startswith("/old/"): return self._old(pp, urlparse(self.path).query, "POST")
+        if pp != "/api/selftest": self.send_response(404); self.end_headers(); return
         n = min(int(self.headers.get("Content-Length", 0)), 200_000)
         body = self.rfile.read(n).decode("utf-8", "replace")
         with open(os.path.join(HERE, "logs", "selftest.txt"), "w") as f:
             f.write(time.strftime("%Y-%m-%d %H:%M:%S") + "\n" + body)
         self._send(jdump({"ok": True}))
+    def _old(self, path, query, method):
+        # /old/<name>/<rest>: an older viewer, started on demand and passed through (dash_pages.py)
+        parts = path.split("/", 3); name = parts[2] if len(parts) > 2 else ""
+        if name not in dash_pages.OLD: self.send_response(404); self.end_headers(); return
+        if len(parts) < 4:                                  # /old/name -> /old/name/ so relative links resolve
+            self.send_response(302); self.send_header("Location", f"/old/{name}/"); self.end_headers(); return
+        body = self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 2_000_000)) if method == "POST" else None
+        try: status, ct, data = dash_pages.proxy(name, "/" + parts[3] + ("?" + query if query else ""), method, body, self.headers.get("Content-Type"))
+        except Exception as ex: status, ct, data = 502, "text/plain", f"{type(ex).__name__}: {ex}".encode()
+        self.send_response(status); self.send_header("Content-Type", ct); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
     def _bad(self, msg):
         b = json.dumps({"error": msg}).encode()
         self.send_response(400); self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
     def do_GET(self):
         u = urlparse(self.path); q = parse_qs(u.query)
-        if u.path == "/nse":                  # NSE/BSE index-option signal review (dash_nse.py)
+        # One server for everything. / lists every page (dash_pages.PAGES); /crypto is the crypto dashboard; /nse... is the
+        # Indian market (dash_nse.py); /old/<name>/ are the older viewers. New views are pages here, not new servers.
+        if u.path in ("/", "/index.html"): return self._send(dash_pages.home(), "text/html")
+        if u.path.startswith("/old/"): return self._old(u.path, u.query, "GET")
+        if u.path == "/nse":                  # NSE/BSE index-option signal review
             return self._send(open(os.path.join(HERE, "nse.html"), "rb").read(), "text/html")
+        if u.path == "/nse/stocks":           # per-stock option runs by monthly expiry
+            return self._send(open(os.path.join(HERE, "nse_stocks.html"), "rb").read(), "text/html")
+        if u.path == "/nse/contracts":        # symbol + instrument token finder for the chart app
+            return self._send(open(os.path.join(HERE, "nse_contracts.html"), "rb").read(), "text/html")
+        if u.path in ("/api/nse/contract_expiries", "/api/nse/contracts"):
+            try:
+                if u.path.endswith("expiries"): return self._send(jdump(dash_nse.contract_expiries(q.get("refresh", [""])[0] == "1")))
+                return self._send(jdump(dash_nse.contract_names(q.get("expiry", [""])[0])))
+            except Exception as ex: return self._send(jdump({"error": f"{type(ex).__name__}: {ex}"}))
+        if u.path == "/api/nse/stockmoves":
+            try: return self._send(jdump(dash_nse.stock_moves()))
+            except Exception as ex: return self._send(jdump({"error": f"{type(ex).__name__}: {ex}"}))
         if u.path.startswith("/api/nse/"):
             try:
                 n = q.get("name", ["NIFTY"])[0]
@@ -158,7 +186,7 @@ class H(BaseHTTPRequestHandler):
         # Every parameter that reaches a file path is whitelisted.
         a = q.get("asset", ["BTC"])[0]
         if a not in ASSETS: return self._bad("asset must be BTC or ETH")
-        if u.path in ("/", "/index.html"):
+        if u.path == "/crypto":
             return self._send(open(os.path.join(HERE, "dashboard.html"), "rb").read(), "text/html")
         if u.path == "/selftest.js":          # only requested when the page is opened with ?selftest
             return self._send(open(os.path.join(HERE, "dashboard_selftest.js"), "rb").read(), "application/javascript")
@@ -199,6 +227,7 @@ if __name__ == "__main__":
     ap.add_argument("--interval", type=int, default=15, help="refresh minutes (15 and upwards)")
     ap.add_argument("--no-loop", action="store_true")
     a = ap.parse_args()
+    threading.Thread(target=dash_pages.reaper, daemon=True).start()
     if not a.no_loop:
         threading.Thread(target=refresh, args=(max(a.interval, 15),), daemon=True).start()
     print(f"dashboard: http://127.0.0.1:{a.port}   refresh every {a.interval}m", flush=True)

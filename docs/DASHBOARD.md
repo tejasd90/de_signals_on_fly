@@ -44,7 +44,7 @@ price-action-points requests, and the :4000 setup review:
 ## Testing
 
 - **API / data:** `venv/bin/python test_dashboard.py` with the server up. It checks all 8 asset × resolution views and recomputes independently rather than re-reading the API: the slot rule, the 1:100 numbers from raw option candles, grid alignment, events, setups and chart links. Responses are parsed strictly, like a browser (NaN is rejected). Bad inputs must return 400.
-- **Browser:** open `/?selftest&asset=..&res=..`. The page drives itself (pan, zoom, refresh, latest, drawer, filters, row click) and posts PASS/FAIL to `logs/selftest.txt`. It was run headless in Chrome on all 8 views and at 900, 1280, 1600 and 1920 px: 27/27 checks pass on each.
+- **Browser:** open `/crypto?selftest&asset=..&res=..`. The page drives itself (pan, zoom, refresh, latest, drawer, filters, row click) and posts PASS/FAIL to `logs/selftest.txt`. It was run headless in Chrome on all 8 views and at 900, 1280, 1600 and 1920 px: 27/27 checks pass on each.
 
 ## Bugs found and fixed while merging (2026-10-04)
 
@@ -73,3 +73,21 @@ price-action-points requests, and the :4000 setup review:
 - **MARK prices** throughout (`de-signals-mark-price-blocker`).
 - **Plotly from cdn.plot.ly**, so the first load needs internet.
 - **Disk:** the loop stops topping up live option candles below 1 GB free. The daily research refresh needs 4 GB.
+
+## One server, every page (23 Nov 2026)
+
+Everything is served by `dash_server.py` on :8777. `/` lists every page with its URL and purpose (rendered from
+`dash_pages.PAGES`, so a page that is not listed there does not exist).
+
+| URL | page |
+|---|---|
+| `/` | list of all pages |
+| `/crypto` | the crypto dashboard described above (was `/`) |
+| `/nse` | index-option signal review (`nse.html`, `dash_nse.py`) |
+| `/nse/stocks` | F&O stocks ranked by how far their options ran, per monthly expiry (`nse_stocks.html`, data from `nse/stock_option_moves.js`) |
+| `/nse/contracts` | SYMBOL_token finder per expiry with links into the chart app (`nse_contracts.html`; names from `data/nse/contracts`, refreshed from the VM on request) |
+| `/old/<name>/` | the older viewers (`serve_signals`, `serve_live`, `serve_multibaggers`, `serve_trades`, `serve_signals_cal`, `serve_calibrate`, `serve_query`, `serve_grids`, `serve_grids_past`, `blindtest`) |
+
+The older viewers used to be separate servers on ports 3100–3900 and 8790. `dash_pages.py` starts one in the background the
+first time its page is opened, passes requests through under `/old/<name>/`, and stops it after 20 idle minutes. Their code is
+unchanged. `serve_setups.js` (4000) was already merged into the crypto dashboard. Rule: a new view is a page here, never a new server.

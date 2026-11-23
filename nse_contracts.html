@@ -1,0 +1,110 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Contract finder</title>
+<style>
+ :root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--text:#c9d1d9;--muted:#8b949e;--accent:#d4823f}
+ *{box-sizing:border-box}
+ body{background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;margin:0}
+ header{display:flex;gap:12px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap;position:sticky;top:0;z-index:3}
+ nav a{color:var(--muted);text-decoration:none;margin-right:12px} nav a.on{color:var(--accent);font-weight:700}
+ label{color:var(--muted);font-size:12px;display:flex;gap:5px;align-items:center}
+ select,input,button{background:#21262d;color:var(--text);border:1px solid var(--line);border-radius:5px;padding:4px 8px;font-size:13px}
+ button{cursor:pointer}
+ .seg{display:flex;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+ .seg label{padding:4px 10px;cursor:pointer;color:var(--text)} .seg input{display:none}
+ .seg label:has(input:checked){background:var(--accent);color:#0d1117;font-weight:700}
+ #bar2{display:flex;gap:12px;align-items:center;padding:7px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap;color:var(--muted)}
+ #bar2 b{color:#e6edf3}
+ table{border-collapse:collapse;margin:0 auto;font-variant-numeric:tabular-nums}
+ th{position:sticky;top:45px;background:var(--bg);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#6e7681;padding:6px 10px;border-bottom:1px solid var(--line)}
+ td{padding:3px 10px;border-bottom:1px solid #1b212c;white-space:nowrap}
+ td.k{text-align:center;font-weight:700;color:#e6edf3;background:#131922;min-width:90px}
+ td.c{text-align:right} td.p{text-align:left}
+ tr.atm td{background:#22304a} tr.atm td.k{color:var(--accent)}
+ tr:hover td{background:#1a202b}
+ .id{font-family:ui-monospace,Menlo,monospace;cursor:pointer;padding:2px 6px;border-radius:4px}
+ .id:hover{background:#2b3442} .id.ok{background:#1f6f3a;color:#fff}
+ a.ch{color:var(--accent);text-decoration:none;margin:0 6px} a.ch:hover{text-decoration:underline}
+ .CE{color:#3fb950} .PE{color:#f85149} .muted{color:var(--muted)}
+ #fut{padding:8px 14px;border-bottom:1px solid var(--line)}
+</style></head><body>
+<header>
+ <nav><a href="/">⌂ All pages</a><a href="/crypto">Crypto</a><a href="/nse">Index signals</a><a href="/nse/stocks">Stock option moves</a><a class="on" href="/nse/contracts">Contract finder</a></nav>
+ <label>year <select id="year"></select></label>
+ <label>month <select id="month"></select></label>
+ <label>expiry <select id="date"></select></label>
+ <label>underlying <select id="und"></select></label>
+ <div class="seg"><label><input type="radio" name="side" value="" checked>Both</label><label><input type="radio" name="side" value="CE">Calls</label><label><input type="radio" name="side" value="PE">Puts</label></div>
+ <label>strike <input id="q" type="text" placeholder="e.g. 221 or 22100" size="12"></label>
+</header>
+<div id="bar2">
+ <span id="info"></span>
+ <span style="margin-left:auto;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+  <label>chart from <input id="back" type="number" value="21" min="0" max="400" style="width:60px"> days before expiry</label>
+  <label>timeframe <select id="tf"><option>1</option><option>3</option><option>5</option><option>10</option><option selected>15</option><option>25</option><option>30</option><option>60</option><option>75</option><option>125</option></select></label>
+  <label>chart app <input id="base" type="text" value="http://localhost:3000" size="22"></label>
+  <button id="refresh" title="Ask the VM for expiries added since the list was built">refresh from VM</button>
+ </span>
+</div>
+<div id="fut"></div>
+<table><thead><tr><th style="text-align:right">Call · click the name to copy</th><th>Strike</th><th style="text-align:left">Put · click the name to copy</th></tr></thead><tbody id="body"></tbody></table>
+<script>
+const $=id=>document.getElementById(id), MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const INDEX=['NIFTY','BANKNIFTY','SENSEX','FINNIFTY','MIDCPNIFTY','BANKEX','NIFTYNXT50'];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const J=async u=>{const r=await fetch(u);const j=await r.json();if(j&&j.error)throw new Error(j.error);return j;};
+const NOSCROLL=new URLSearchParams(location.search).has('noscroll');
+let EXP=[], CUR={names:[],settle:{}}, PARSED=[];
+const save=()=>{try{localStorage.setItem('nseContracts',JSON.stringify({back:$('back').value,tf:$('tf').value,base:$('base').value,und:$('und').value}));}catch(e){}};
+function parse(n){
+  let m=/^([A-Z0-9&-]+?)(\d{2})([A-Z]{3}|[1-9OND]\d{2})(\d+(?:\.\d+)?)(CE|PE)_(\d+)$/.exec(n);
+  if(m)return {id:n,und:m[1],strike:+m[4],type:m[5]};
+  m=/^([A-Z0-9&-]+?)(\d{2})([A-Z]{3})FUT_(\d+)$/.exec(n);
+  return m?{id:n,und:m[1],strike:0,type:'FUT'}:{id:n,und:'(other)',strike:0,type:'?'};
+}
+function url(id){
+  const e=$('date').value, d=new Date(e+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()-(+$('back').value||0));
+  return `${$('base').value.replace(/\/+$/,'')}/${e}/${id}.json/${d.toISOString().slice(0,10)}T09:15:00+0530/${e}T18:00:00+0530/${$('tf').value}`;
+}
+const cell=x=>x?`<span class="id" data-id="${esc(x.id)}" title="click to copy">${esc(x.id)}</span><a class="ch" href="${esc(url(x.id))}" target="_blank" rel="noopener">chart ↗</a>`:'';
+function draw(){
+  const u=$('und').value, side=document.querySelector('input[name=side]:checked').value, q=$('q').value.trim();
+  const rows=PARSED.filter(p=>p.und===u), fut=rows.filter(p=>p.type==='FUT'||p.type==='?'), m=new Map();
+  for(const p of rows){ if(p.type!=='CE'&&p.type!=='PE')continue; let r=m.get(p.strike); if(!r)m.set(p.strike,r={k:p.strike}); r[p.type]=p; }
+  let ks=[...m.values()].sort((a,b)=>a.k-b.k); const all=ks.length;
+  if(q)ks=ks.filter(r=>String(r.k).startsWith(q)||String(r.k).includes(q));
+  const st=CUR.settle[u]; let atm=null; if(st!=null&&ks.length)atm=ks.reduce((p,c)=>Math.abs(c.k-st)<Math.abs(p.k-st)?c:p).k;
+  $('fut').innerHTML=fut.length?'<span class="muted">Futures / other: </span>'+fut.map(cell).join(' &nbsp; '):'';
+  $('fut').style.display=fut.length?'':'none';
+  $('body').innerHTML=ks.map(r=>`<tr class="${r.k===atm?'atm':''}"><td class="c">${side==='PE'?'':cell(r.CE)}</td><td class="k">${r.k}</td><td class="p">${side==='CE'?'':cell(r.PE)}</td></tr>`).join('')||'<tr><td colspan="3" class="muted" style="padding:14px">No strikes match.</td></tr>';
+  $('info').innerHTML=`<b>${esc(u)}</b> · expiry <b>${$('date').value}</b> · ${q?ks.length+' of '+all:all} strikes`+(st!=null?` · index closed at <b>${st}</b> on expiry day (nearest strike highlighted)`:'')+` · ${CUR.names.length} files in this expiry`;
+  if(atm!=null&&!q&&!NOSCROLL){const tr=document.querySelector('tr.atm'); if(tr)tr.scrollIntoView({block:'center'});}
+  save();
+}
+async function loadExpiry(){
+  $('info').textContent='loading…';
+  CUR=await J('/api/nse/contracts?expiry='+$('date').value); PARSED=CUR.names.map(parse);
+  const cnt={}; for(const p of PARSED)cnt[p.und]=(cnt[p.und]||0)+1;
+  const us=Object.keys(cnt).sort((a,b)=>{const i=INDEX.indexOf(a),j=INDEX.indexOf(b);return (i<0?99:i)-(j<0?99:j)||a.localeCompare(b);});
+  const keep=$('und').value||WANT;
+  $('und').innerHTML=us.map(x=>`<option value="${esc(x)}">${esc(x)} (${cnt[x]})</option>`).join('');
+  $('und').value=us.includes(keep)?keep:us[0]; draw();
+}
+function fillMonths(){const y=$('year').value,ms=[...new Set(EXP.filter(e=>e.slice(0,4)===y).map(e=>e.slice(5,7)))];const k=$('month').value;$('month').innerHTML=ms.map(m=>`<option value="${m}">${MON[+m-1]}</option>`).join('');if(ms.includes(k))$('month').value=k;}
+function fillDates(){const p=$('year').value+'-'+$('month').value,ds=EXP.filter(e=>e.startsWith(p));$('date').innerHTML=ds.map(e=>`<option value="${e}">${e.slice(8)} ${DOW[new Date(e+'T00:00:00Z').getUTCDay()]}</option>`).join('');}
+let WANT='NIFTY';
+async function init(refresh){
+  EXP=await J('/api/nse/contract_expiries'+(refresh?'?refresh=1':''));
+  const ys=[...new Set(EXP.map(e=>e.slice(0,4)))]; $('year').innerHTML=ys.map(y=>`<option>${y}</option>`).join('');
+  const q=new URLSearchParams(location.search), want=q.get('expiry')&&EXP.includes(q.get('expiry'))?q.get('expiry'):EXP[EXP.length-1];
+  $('year').value=want.slice(0,4); fillMonths(); $('month').value=want.slice(5,7); fillDates(); $('date').value=want;
+  await loadExpiry();
+}
+try{const s=JSON.parse(localStorage.getItem('nseContracts')||'{}'); if(s.back)$('back').value=s.back; if(s.tf)$('tf').value=s.tf; if(s.base)$('base').value=s.base; if(s.und)WANT=s.und;}catch(e){}
+$('year').onchange=()=>{fillMonths();fillDates();loadExpiry();}; $('month').onchange=()=>{fillDates();loadExpiry();}; $('date').onchange=loadExpiry;
+$('und').onchange=draw; $('q').oninput=draw; for(const id of['back','tf','base'])$(id).onchange=draw;
+document.querySelectorAll('input[name=side]').forEach(r=>r.onchange=draw);
+$('refresh').onclick=async()=>{$('refresh').textContent='asking the VM…';try{await init(true);$('refresh').textContent='refresh from VM';}catch(e){$('refresh').textContent='VM not reachable';}};
+document.body.addEventListener('click',e=>{const s=e.target.closest('.id');if(!s)return;const t=s.dataset.id;
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).catch(()=>{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();})
+  .finally(()=>{s.classList.add('ok');const o=s.textContent;s.textContent='copied';setTimeout(()=>{s.classList.remove('ok');s.textContent=o;},700);});});
+init(false).catch(e=>{$('info').innerHTML='<span class="PE">'+esc(e.message)+'</span>';});
+</script></body></html>

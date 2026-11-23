@@ -1,0 +1,103 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Stock option moves</title>
+<style>
+ :root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--text:#c9d1d9;--muted:#8b949e;--accent:#d4823f}
+ *{box-sizing:border-box}
+ body{background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;margin:0}
+ header{display:flex;gap:14px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap;position:sticky;top:0;z-index:3}
+ nav a{color:var(--muted);text-decoration:none;margin-right:12px} nav a.on{color:var(--accent);font-weight:700}
+ label{color:var(--muted);font-size:12px;display:flex;gap:5px;align-items:center}
+ select,input[type=text]{background:#21262d;color:var(--text);border:1px solid var(--line);border-radius:5px;padding:4px 8px;font-size:13px}
+ .seg{display:flex;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+ .seg label{padding:4px 10px;cursor:pointer;color:var(--text)} .seg input{display:none}
+ .seg label:has(input:checked){background:var(--accent);color:#0d1117;font-weight:700}
+ #note{padding:7px 14px;color:var(--muted);border-bottom:1px solid var(--line)} #note b{color:#e6edf3}
+ table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+ th{position:sticky;top:45px;background:var(--bg);text-align:right;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#6e7681;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+ th:hover{color:var(--text)} th.s{color:var(--accent)} th.l,td.l{text-align:left}
+ td{padding:4px 8px;border-bottom:1px solid #1b212c;white-space:nowrap;text-align:right}
+ tr:hover td{background:#1a202b}
+ .C{color:#3fb950} .P{color:#f85149} .muted{color:var(--muted)}
+ .x1{color:var(--muted)} .x2{color:#c9d1d9} .x3{color:#d29922;font-weight:600} .x4{color:#3fb950;font-weight:700} .x5{color:#58d6ff;font-weight:700}
+ .up{color:#3fb950} .dn{color:#f85149}
+</style></head><body>
+<header>
+ <nav><a href="/">⌂ All pages</a><a href="/crypto">Crypto</a><a href="/nse">Index signals</a><a class="on" href="/nse/stocks">Stock option moves</a><a href="/nse/contracts">Contract finder</a></nav>
+ <label>year <select id="year"></select></label>
+ <label>month <select id="month"></select></label>
+ <div class="seg"><label><input type="radio" name="side" value="C" checked>Calls</label><label><input type="radio" name="side" value="P">Puts</label><label><input type="radio" name="side" value="E">Either</label></div>
+ <label>stock <input id="q" type="text" placeholder="filter, e.g. ADANI" size="16"></label>
+ <span id="count" class="muted"></span>
+</header>
+<div id="note">loading…</div>
+<table><thead id="head"></thead><tbody id="body"></tbody></table>
+<script>
+const $=id=>document.getElementById(id), MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let DATA={}, EXP=[], sortKey='best', sortDir=-1, lastMode='';
+const xc=x=>x>=100?'x5':x>=25?'x4':x>=10?'x3':x>=5?'x2':'x1';
+const fx=x=>x?(x>=100?x.toFixed(0):x.toFixed(1))+'x':'–';
+const tm=t=>t?t.slice(5,10)+' '+t.slice(11,16):'';
+const pct=v=>v==null?'':`<span class="${v>=0?'up':'dn'}">${v>0?'+':''}${v.toFixed(1)}%</span>`;
+const side=()=>document.querySelector('input[name=side]:checked').value;
+const pick=(r,s)=>s==='E'?(r.C.best>=r.P.best?{...r.C,sd:'C'}:{...r.P,sd:'P'}):{...r[s],sd:s};
+const med=a=>{if(!a.length)return 0;a=[...a].sort((p,q)=>p-q);const m=a.length>>1;return a.length%2?a[m]:(a[m-1]+a[m])/2;};
+
+const COLS_E=[['#','rank',0],['Stock','name',1],['Side','sd',1],['Best run','best',0],['Contract','strike',0],['Entry ₹','entry',0],['Entry bar','from',0],['Peak ₹','peak',0],['Peak bar','to',0],
+  ['≥5x','n5',0],['≥10x','n10',0],['≥25x','n25',0],['≥100x','n100',0],['Contracts','n',0],['Stock move','chg',0],['Stock range','range',0]];
+const COLS_S=[['#','rank',0],['Stock','name',1],['Months','months',0],['Median best','medBest',0],['Highest','maxBest',0],['in','maxExp',0],['Months ≥10x','p10',0],['≥25x','p25',0],['≥50x','p50',0],['≥100x','p100',0],
+  ['Top-10 finishes','top10',0],['Median rank','medRank',0],['Median stock range','medRange',0]];
+
+function rowsExpiry(e){
+  const s=side(), out=DATA[e].map(r=>({name:r.name,chg:r.chg,range:r.range,...pick(r,s)}));
+  out.sort((a,b)=>b.best-a.best).forEach((r,i)=>r.rank=i+1); return out;
+}
+function rowsSummary(list){
+  const s=side(), m=new Map();
+  for(const e of list){ const rs=rowsExpiry(e); for(const r of rs){ let a=m.get(r.name); if(!a)m.set(r.name,a={name:r.name,b:[],rk:[],rg:[],maxBest:0,maxExp:'',top10:0}); a.b.push(r.best); a.rk.push(r.rank); if(r.range!=null)a.rg.push(r.range); if(r.rank<=10)a.top10++; if(r.best>a.maxBest){a.maxBest=r.best;a.maxExp=e;} } }
+  const out=[...m.values()].map(a=>{const n=a.b.length,sh=t=>a.b.filter(x=>x>=t).length/n*100;return {name:a.name,months:n,medBest:med(a.b),maxBest:a.maxBest,maxExp:a.maxExp,p10:sh(10),p25:sh(25),p50:sh(50),p100:sh(100),top10:a.top10,medRank:med(a.rk),medRange:med(a.rg)};});
+  out.sort((a,b)=>b.medBest-a.medBest).forEach((r,i)=>r.rank=i+1); return out;
+}
+function draw(){
+  const y=$('year').value, mo=$('month').value, q=$('q').value.trim().toUpperCase();
+  const list=EXP.filter(e=>(y==='all'||e.slice(0,4)===y)&&(mo==='all'||e.slice(5,7)===mo));
+  const single=list.length===1&&mo!=='all', mode=single?'E':'S';
+  if(mode!==lastMode){sortKey=single?'best':'medBest';sortDir=-1;lastMode=mode;}
+  const cols=single?COLS_E:COLS_S; let rows=single?rowsExpiry(list[0]):rowsSummary(list);
+  const total=rows.length; if(q)rows=rows.filter(r=>r.name.includes(q));
+  rows.sort((a,b)=>{const p=a[sortKey],r=b[sortKey];return (typeof p==='string'||typeof r==='string'?String(p??'').localeCompare(String(r??'')):((p??-1e18)-(r??-1e18)))*sortDir;});
+  $('head').innerHTML='<tr>'+cols.map(c=>`<th data-k="${c[1]}" class="${c[2]?'l':''}${c[1]===sortKey?' s':''}">${c[0]}${c[1]===sortKey?(sortDir<0?' ▼':' ▲'):''}</th>`).join('')+'</tr>';
+  const sn={C:'calls',P:'puts',E:'calls or puts, whichever ran further'}[side()];
+  if(single){
+    const e=list[0];
+    $('note').innerHTML=`<b>${e}</b> monthly expiry · ${sn} · best run = highest later high ÷ an earlier traded close of ₹1 or more, over the contract's life (a hindsight figure) · counts are contracts of that side reaching the multiple · stock move and range are the future's, inside this series`;
+    $('body').innerHTML=rows.map(r=>`<tr><td class="muted">${r.rank}</td><td class="l"><b>${esc(r.name)}</b></td><td class="l ${r.sd}">${r.sd==='C'?'CE':'PE'}</td><td class="${xc(r.best)}">${fx(r.best)}</td><td>${r.strike??''}</td><td>${r.entry??''}</td><td class="muted">${tm(r.from)}</td><td>${r.peak??''}</td><td class="muted">${tm(r.to)}</td>`+
+      `<td>${r.n5}</td><td>${r.n10}</td><td>${r.n25||''}</td><td>${r.n100||''}</td><td class="muted">${r.n}</td><td>${pct(r.chg)}</td><td>${r.range==null?'':r.range.toFixed(0)+'%'}</td></tr>`).join('');
+  }else{
+    $('note').innerHTML=`<b>${list.length} monthly expiries</b>${y==='all'?'':' in '+y}${mo==='all'?'':' ('+MON[+mo-1]+')'} · ${sn} · one figure per stock per month: its best contract's run · pick a month to see the contracts`;
+    $('body').innerHTML=rows.map(r=>`<tr><td class="muted">${r.rank}</td><td class="l"><b>${esc(r.name)}</b></td><td>${r.months}</td><td class="${xc(r.medBest)}">${fx(r.medBest)}</td><td class="${xc(r.maxBest)}">${fx(r.maxBest)}</td><td class="muted">${r.maxExp.slice(0,7)}</td>`+
+      `<td>${r.p10.toFixed(0)}%</td><td>${r.p25.toFixed(0)}%</td><td>${r.p50.toFixed(0)}%</td><td>${r.p100?r.p100.toFixed(0)+'%':''}</td><td>${r.top10||''}</td><td>${r.medRank.toFixed(0)}</td><td>${r.medRange?r.medRange.toFixed(0)+'%':''}</td></tr>`).join('');
+  }
+  $('count').textContent=q?`${rows.length} of ${total} stocks`:`${total} stocks`;
+  try{localStorage.setItem('nseStocks',JSON.stringify({y,mo,s:side()}));}catch(e){}
+}
+function months(){
+  const y=$('year').value, keep=$('month').value, ms=[...new Set(EXP.filter(e=>y==='all'||e.slice(0,4)===y).map(e=>e.slice(5,7)))].sort();
+  $('month').innerHTML='<option value="all">all (summary)</option>'+ms.map(m=>`<option value="${m}">${MON[+m-1]}</option>`).join('');
+  if(ms.includes(keep))$('month').value=keep;
+}
+$('head').onclick=e=>{const th=e.target.closest('th');if(!th)return;const k=th.dataset.k;if(k===sortKey)sortDir=-sortDir;else{sortKey=k;sortDir=(k==='name'||k==='rank'||k==='medRank'||k==='sd')?1:-1;}draw();};
+$('year').onchange=()=>{months();draw();}; $('month').onchange=draw; $('q').oninput=draw;
+document.querySelectorAll('input[name=side]').forEach(r=>r.onchange=draw);
+fetch('/api/nse/stockmoves').then(r=>r.json()).then(j=>{
+  if(j.error)throw new Error(j.error);
+  DATA=j; EXP=Object.keys(j).sort();
+  const ys=[...new Set(EXP.map(e=>e.slice(0,4)))];
+  $('year').innerHTML='<option value="all">all</option>'+ys.map(y=>`<option>${y}</option>`).join('');
+  let st={}; try{st=JSON.parse(localStorage.getItem('nseStocks')||'{}');}catch(e){}
+  const last=EXP[EXP.length-1]; $('year').value=ys.includes(st.y)||st.y==='all'?st.y:last.slice(0,4); months();
+  $('month').value=st.mo&&[...$('month').options].some(o=>o.value===st.mo)?st.mo:last.slice(5,7);
+  if(st.s){const r=document.querySelector(`input[name=side][value=${st.s}]`);if(r)r.checked=true;}
+  const q=new URLSearchParams(location.search); if(q.get('y')){$('year').value=q.get('y');months();} if(q.get('m'))$('month').value=q.get('m');
+  draw();
+}).catch(e=>{$('note').innerHTML='<span class="dn">'+esc(e.message)+'</span>';});
+</script></body></html>

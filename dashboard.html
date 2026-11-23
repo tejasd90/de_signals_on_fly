@@ -42,8 +42,11 @@
  @media(max-width:900px){#wrap{flex-direction:column;height:auto}#main{height:auto}#side{width:auto;border-left:0}#chart{height:70vh;flex:none}}
 </style></head><body>
 <header>
+  <a href="/" style="color:var(--accent);text-decoration:none">⌂ All pages</a>
   <b>Price action → 1:100</b>
-  <a href="/nse" style="color:var(--accent);text-decoration:none">NSE signals →</a>
+  <a href="/nse" style="color:var(--accent);text-decoration:none">Index signals</a>
+  <a href="/nse/stocks" style="color:var(--accent);text-decoration:none">Stock option moves</a>
+  <a href="/nse/contracts" style="color:var(--accent);text-decoration:none">Contract finder</a>
   <select id="asset" aria-label="asset"><option>BTC</option><option>ETH</option></select>
   <select id="res" aria-label="resolution"><option value="15">15m</option><option value="60" selected>1h</option>
     <option value="240">4h</option><option value="1440">1d</option></select>
