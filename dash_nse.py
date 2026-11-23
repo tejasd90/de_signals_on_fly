@@ -122,4 +122,6 @@ def contract_names(expiry, force=False):
             for r in _mem[("spot", n)]["1d"]:
                 if r[0][:10] == expiry: settle[n] = r[4]
         except Exception: pass
-    return {"expiry": expiry, "names": names, "settle": settle}
+    sn = os.path.join(ROOT, "spot_names.json")       # the `name` column of his Kite instruments files (NFO/BFO), where known
+    spot_names = json.load(open(sn)) if os.path.exists(sn) else []
+    return {"expiry": expiry, "names": names, "settle": settle, "spot_names": spot_names}

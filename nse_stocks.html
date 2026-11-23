@@ -25,7 +25,8 @@
  <label>year <select id="year"></select></label>
  <label>month <select id="month"></select></label>
  <div class="seg"><label><input type="radio" name="side" value="C" checked>Calls</label><label><input type="radio" name="side" value="P">Puts</label><label><input type="radio" name="side" value="E">Either</label></div>
- <label>stock <input id="q" type="text" placeholder="filter, e.g. ADANI" size="16"></label>
+ <label>spot name <select id="stock"><option value="">all stocks</option></select></label>
+ <label>filter <input id="q" type="text" placeholder="e.g. ADANI" size="12"></label>
  <span id="count" class="muted"></span>
 </header>
 <div id="note">loading…</div>
@@ -44,6 +45,8 @@ const med=a=>{if(!a.length)return 0;a=[...a].sort((p,q)=>p-q);const m=a.length>>
 
 const COLS_E=[['#','rank',0],['Stock','name',1],['Side','sd',1],['Best run','best',0],['Contract','strike',0],['Entry ₹','entry',0],['Entry bar','from',0],['Peak ₹','peak',0],['Peak bar','to',0],
   ['≥5x','n5',0],['≥10x','n10',0],['≥25x','n25',0],['≥100x','n100',0],['Contracts','n',0],['Stock move','chg',0],['Stock range','range',0]];
+const COLS_H=[['Expiry','expiry',1],['Rank that month','rank',0],['Side','sd',1],['Best run','best',0],['Contract','strike',0],['Entry ₹','entry',0],['Entry bar','from',0],['Peak ₹','peak',0],['Peak bar','to',0],
+  ['≥5x','n5',0],['≥10x','n10',0],['≥25x','n25',0],['≥100x','n100',0],['Contracts','n',0],['Stock move','chg',0],['Stock range','range',0]];
 const COLS_S=[['#','rank',0],['Stock','name',1],['Months','months',0],['Median best','medBest',0],['Highest','maxBest',0],['in','maxExp',0],['Months ≥10x','p10',0],['≥25x','p25',0],['≥50x','p50',0],['≥100x','p100',0],
   ['Top-10 finishes','top10',0],['Median rank','medRank',0],['Median stock range','medRange',0]];
 
@@ -60,6 +63,18 @@ function rowsSummary(list){
 function draw(){
   const y=$('year').value, mo=$('month').value, q=$('q').value.trim().toUpperCase();
   const list=EXP.filter(e=>(y==='all'||e.slice(0,4)===y)&&(mo==='all'||e.slice(5,7)===mo));
+  const stk=$('stock').value;
+  if(stk){                                             // one stock: a row per expiry
+    if(lastMode!=='H'){sortKey='expiry';sortDir=-1;lastMode='H';}
+    let rows=[]; for(const e of list){const r=rowsExpiry(e).find(r=>r.name===stk); if(r)rows.push({...r,expiry:e});}
+    rows.sort((a,b)=>{const p=a[sortKey],r=b[sortKey];return (typeof p==='string'||typeof r==='string'?String(p??'').localeCompare(String(r??'')):((p??-1e18)-(r??-1e18)))*sortDir;});
+    $('head').innerHTML='<tr>'+COLS_H.map(c=>`<th data-k="${c[1]}" class="${c[2]?'l':''}${c[1]===sortKey?' s':''}">${c[0]}${c[1]===sortKey?(sortDir<0?' ▼':' ▲'):''}</th>`).join('')+'</tr>';
+    const sn={C:'calls',P:'puts',E:'calls or puts, whichever ran further'}[side()], b=rows.map(r=>r.best);
+    $('note').innerHTML=`<b>${esc(stk)}</b> · ${rows.length} monthly expiries · ${sn} · median best run <b>${fx(med(b))}</b> · reached 10x in ${b.filter(x=>x>=10).length}, 25x in ${b.filter(x=>x>=25).length}, 100x in ${b.filter(x=>x>=100).length} months · best run = highest later high ÷ an earlier traded close of ₹1 or more (hindsight)`;
+    $('body').innerHTML=rows.map(r=>`<tr><td class="l"><b>${r.expiry}</b></td><td class="muted">${r.rank}</td><td class="l ${r.sd}">${r.sd==='C'?'CE':'PE'}</td><td class="${xc(r.best)}">${fx(r.best)}</td><td>${r.strike??''}</td><td>${r.entry??''}</td><td class="muted">${tm(r.from)}</td><td>${r.peak??''}</td><td class="muted">${tm(r.to)}</td>`+
+      `<td>${r.n5}</td><td>${r.n10}</td><td>${r.n25||''}</td><td>${r.n100||''}</td><td class="muted">${r.n}</td><td>${pct(r.chg)}</td><td>${r.range==null?'':r.range.toFixed(0)+'%'}</td></tr>`).join('');
+    $('count').textContent=''; return;
+  }
   const single=list.length===1&&mo!=='all', mode=single?'E':'S';
   if(mode!==lastMode){sortKey=single?'best':'medBest';sortDir=-1;lastMode=mode;}
   const cols=single?COLS_E:COLS_S; let rows=single?rowsExpiry(list[0]):rowsSummary(list);
@@ -86,12 +101,16 @@ function months(){
   if(ms.includes(keep))$('month').value=keep;
 }
 $('head').onclick=e=>{const th=e.target.closest('th');if(!th)return;const k=th.dataset.k;if(k===sortKey)sortDir=-sortDir;else{sortKey=k;sortDir=(k==='name'||k==='rank'||k==='medRank'||k==='sd')?1:-1;}draw();};
+$('stock').onchange=draw;
 $('year').onchange=()=>{months();draw();}; $('month').onchange=draw; $('q').oninput=draw;
 document.querySelectorAll('input[name=side]').forEach(r=>r.onchange=draw);
 fetch('/api/nse/stockmoves').then(r=>r.json()).then(j=>{
   if(j.error)throw new Error(j.error);
   DATA=j; EXP=Object.keys(j).sort();
   const ys=[...new Set(EXP.map(e=>e.slice(0,4)))];
+  const all=[...new Set(EXP.flatMap(e=>DATA[e].map(r=>r.name)))].sort();
+  $('stock').innerHTML='<option value="">all stocks</option>'+all.map(n=>`<option>${esc(n)}</option>`).join('');
+  const qs0=new URLSearchParams(location.search); if(qs0.get('stock')&&all.includes(qs0.get('stock')))$('stock').value=qs0.get('stock');
   $('year').innerHTML='<option value="all">all</option>'+ys.map(y=>`<option>${y}</option>`).join('');
   let st={}; try{st=JSON.parse(localStorage.getItem('nseStocks')||'{}');}catch(e){}
   const last=EXP[EXP.length-1]; $('year').value=ys.includes(st.y)||st.y==='all'?st.y:last.slice(0,4); months();

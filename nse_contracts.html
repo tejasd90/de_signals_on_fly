@@ -31,7 +31,7 @@
  <label>year <select id="year"></select></label>
  <label>month <select id="month"></select></label>
  <label>expiry <select id="date"></select></label>
- <label>underlying <select id="und"></select></label>
+ <label>spot name <select id="und"></select></label>
  <div class="seg"><label><input type="radio" name="side" value="" checked>Both</label><label><input type="radio" name="side" value="CE">Calls</label><label><input type="radio" name="side" value="PE">Puts</label></div>
  <label>strike <input id="q" type="text" placeholder="e.g. 221 or 22100" size="12"></label>
 </header>
@@ -54,7 +54,10 @@ const J=async u=>{const r=await fetch(u);const j=await r.json();if(j&&j.error)th
 const NOSCROLL=new URLSearchParams(location.search).has('noscroll');
 let EXP=[], CUR={names:[],settle:{}}, PARSED=[];
 const save=()=>{try{localStorage.setItem('nseContracts',JSON.stringify({back:$('back').value,tf:$('tf').value,base:$('base').value,und:$('und').value}));}catch(e){}};
-function parse(n){
+let SPOT=[];                                   // spot names from the instruments files, longest first
+function spotName(sym,fallback){ for(const s of SPOT) if(sym.startsWith(s)&&/^\d{2}/.test(sym.slice(s.length))) return s; return fallback; }
+function parse(n){ const p=parse0(n); if(p.und!=='(other)') p.und=spotName(n,p.und); return p; }
+function parse0(n){
   let m=/^([A-Z0-9&-]+?)(\d{2})([A-Z]{3}|[1-9OND]\d{2})(\d+(?:\.\d+)?)(CE|PE)_(\d+)$/.exec(n);
   if(m)return {id:n,und:m[1],strike:+m[4],type:m[5]};
   m=/^([A-Z0-9&-]+?)(\d{2})([A-Z]{3})FUT_(\d+)$/.exec(n);
@@ -81,7 +84,7 @@ function draw(){
 }
 async function loadExpiry(){
   $('info').textContent='loading…';
-  CUR=await J('/api/nse/contracts?expiry='+$('date').value); PARSED=CUR.names.map(parse);
+  CUR=await J('/api/nse/contracts?expiry='+$('date').value); SPOT=(CUR.spot_names||[]).slice().sort((a,b)=>b.length-a.length); PARSED=CUR.names.map(parse);
   const cnt={}; for(const p of PARSED)cnt[p.und]=(cnt[p.und]||0)+1;
   const us=Object.keys(cnt).sort((a,b)=>{const i=INDEX.indexOf(a),j=INDEX.indexOf(b);return (i<0?99:i)-(j<0?99:j)||a.localeCompare(b);});
   const keep=$('und').value||WANT;
