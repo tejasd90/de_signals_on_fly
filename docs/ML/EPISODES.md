@@ -43,6 +43,41 @@ and 17 Nov expiries.
 **What he says the lesson is:** he missed the whole context, not one signal. "Market does not repeat things. Think of
 these episodes as labelling and think in ML terms."
 
+## E2. NIFTY, 20 Jan 2020 (before the Covid fall): given 23 Nov 2026
+
+His words: "I was not trading during Covid time, but retrospectively, Nifty was making higher high swings, so was in an uptrend.
+In late December 2019 – January 2020, news of SARS-like virus and its global pandemic threat began flashing. NIFTY made one
+Open=High (that Open was the ATH till then) on 20th Jan and from there, the rest is History."
+Reading: uptrend + a new, growing external threat in the news + an open = high day at the all-time high. Direction: down (puts).
+Data: before the option data (starts with the 25 Aug 2022 expiry); index daily history would have to be fetched to check the candle.
+
+## E3. NIFTY, 16 Jun 2022 (expiry day): given 23 Nov 2026
+
+His words: "the first time I saw a nearly 1:100 trade ... It was being said as a cup+handle pattern on daily/weekly timeframe.
+The resistance-turned-support of ~15700 was broken on that day. It started with gap-up (a common trap on expiry day is to open
+on the other side) and then only red candles on 30min timeframe."
+Reading: widely watched support (15,700) + expiry day + gap-up open against the eventual move + one-way 30-minute candles. Puts.
+Data: before the option data on the VM; the index 1-minute history starts June 2022 and may cover the day.
+
+## E4. NIFTY, end of June 2023 (all-time-high breakout): given 23 Nov 2026
+
+His words: "the first streak I captured. It was by sheer luck. Bearish trendline was broken around April, and slow and steady
+inching towards ATH. But only after ATH breakout towards end-June that momentum was caught."
+Reading: bear line broken months earlier, slow grind, then the all-time-high breakout releases momentum. Calls.
+Data: covered (expiries 22 Jun, 28/29 Jun, 6 Jul 2023). His own trades of that week are in his tradebook (kept private).
+
+## Guidelines he has stated (23 Nov 2026), to apply to new cases before looking at the outcome
+
+- Only trendline breaks give continuation that option buying can capture. Previous swing points and round numbers on the way
+  are strong reversal points, "so strong as to take multibagger options to 0": book there, at least partly.
+- More spot patterns: inside-candle breakout / breakdown (the innermost candle's break gives the direction), receding green
+  stairs (bearish), receding red stairs (bullish), small steady stairs, continuation breakout.
+- Other markets move Indian indices: crude, gold, USDINR, the dollar index; the 1 PM Europe open matters intraday. Example:
+  USDINR futures made 3–4 near-inside daily candles in the week of 26–30 Oct 2026 (the E1 week). Same inside-candle break on
+  ETH, 6h, 3–5 Nov 2026 from 2450.
+- Expiry-day trap: the open is often on the side opposite to the day's move.
+- In Indian markets 1:100 is rare; 1:5 to 1:10 is the realistic target.
+
 ## What a context model needs (plan, not built)
 
 - **Price-action features, computed causally:** distance to a long rising support line, falling-line break and retest, run of
